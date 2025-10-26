@@ -53,7 +53,6 @@ impl View {
             600_f64,
             libadwaita::LengthUnit::Sp,
         );
-        
 
         Breakpoint::new(breakpoint_condition)
     }

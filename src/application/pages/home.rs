@@ -7,12 +7,12 @@ use libadwaita::{
     },
 };
 
-pub struct MainPage {
+pub struct HomePage {
     pub nav_page: NavigationPage,
     title: String,
     icon: String,
 }
-impl NavPage for MainPage {
+impl NavPage for HomePage {
     fn get_title(&self) -> &str {
         &self.title
     }
@@ -25,14 +25,14 @@ impl NavPage for MainPage {
         &self.nav_page
     }
 }
-impl MainPage {
+impl HomePage {
     pub fn new() -> Self {
-        let title = String::from("Main page");
+        let title = String::from("Home page");
         let icon = "go-home-symbolic".to_string();
 
         let top_label = Label::builder()
             .label(concat!(
-                "<b>Placeholder main page</b>\n",
+                "<b>Placeholder home page</b>\n",
                 "<span>With some standard widgets</span>\n",
             ))
             .wrap(true)

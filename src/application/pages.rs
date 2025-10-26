@@ -1,32 +1,32 @@
-mod main_page;
-mod web_apps_page;
+mod home;
+mod web_apps;
 
+use home::HomePage;
 use libadwaita::{
     HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
     gtk::{self, Orientation, prelude::WidgetExt},
 };
-use main_page::MainPage;
 use std::rc::Rc;
-use web_apps_page::WebAppsPage;
+use web_apps::WebAppsPage;
 
 use crate::application::App;
 
 #[derive(Clone)]
 #[repr(i32)]
 pub enum Page {
-    Main,
+    Home,
     WebApps,
 }
 
 pub struct Pages {
-    main: Rc<MainPage>,
+    home: Rc<HomePage>,
     web_apps: Rc<WebAppsPage>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
     pub fn new() -> Self {
         Self {
-            main: Rc::new(MainPage::new()),
+            home: Rc::new(HomePage::new()),
             web_apps: Rc::new(WebAppsPage::new()),
         }
     }
@@ -34,13 +34,13 @@ impl Pages {
     pub fn init(&self, app: &Rc<App>) {
         let sidebar = &app.window.view.sidebar;
 
-        sidebar.add_nav_row(app.clone(), Page::Main);
+        sidebar.add_nav_row(app.clone(), Page::Home);
         sidebar.add_nav_row(app.clone(), Page::WebApps);
     }
 
     pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
         match page {
-            Page::Main => self.main.clone(),
+            Page::Home => self.home.clone(),
             Page::WebApps => self.web_apps.clone(),
         }
     }

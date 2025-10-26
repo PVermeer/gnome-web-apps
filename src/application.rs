@@ -29,7 +29,7 @@ impl App {
         app.window.init(app);
         app.pages.init(app);
 
-        self.navigate(&Page::Main);
+        self.navigate(&Page::Home);
     }
 
     pub fn get_app(&self) -> Rc<App> {

@@ -29,7 +29,10 @@ impl AppWindow {
             .content(&view.nav_split)
             .build();
 
-        Self { adw_window: window, view }
+        Self {
+            adw_window: window,
+            view,
+        }
     }
 
     pub fn init(&self, app: &Rc<App>) {
