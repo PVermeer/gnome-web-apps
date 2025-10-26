@@ -10,10 +10,15 @@ use libadwaita::{
 pub struct MainPage {
     pub nav_page: NavigationPage,
     title: String,
+    icon: String,
 }
 impl NavPage for MainPage {
     fn get_title(&self) -> &str {
         &self.title
+    }
+
+    fn get_icon(&self) -> &str {
+        &self.icon
     }
 
     fn get_navpage(&self) -> &NavigationPage {
@@ -23,6 +28,7 @@ impl NavPage for MainPage {
 impl MainPage {
     pub fn new() -> Self {
         let title = String::from("Main page");
+        let icon = "go-home-symbolic".to_string();
 
         let top_label = Label::builder()
             .label(concat!(
@@ -49,6 +55,10 @@ impl MainPage {
         content_box.append(&top_label);
         content_box.append(&button);
 
-        Self { nav_page, title }
+        Self {
+            nav_page,
+            title,
+            icon,
+        }
     }
 }

@@ -51,6 +51,11 @@ pub trait NavPage {
 
     fn get_title(&self) -> &str;
 
+    /**
+    Icon name from Adwaita icon list.
+    */
+    fn get_icon(&self) -> &str;
+
     fn load_page(&self, view: &NavigationSplitView) {
         let nav_page = self.get_navpage();
         if nav_page.parent().is_some() {
