@@ -52,14 +52,14 @@ impl SidebarPage {
         };
     }
 
-    pub fn add_nav_row(&self, application: Rc<App>, page: Page) -> ActionRow {
-        let nav_page = application.pages.get(page.clone());
+    pub fn add_nav_row(&self, app: Rc<App>, page: Page) -> ActionRow {
+        let nav_page = app.pages.get(page.clone());
         let row = ActionRow::builder()
             .activatable(true)
             .title(nav_page.get_title())
             .build();
 
-        row.connect_activated(move |_| application.navigate(page.clone()));
+        row.connect_activated(move |_| app.navigate(page.clone()));
 
         self.list.append(&row);
         row

@@ -4,4 +4,3 @@ pub const APP_NAME: &str = "Gnome Web Apps";
 pub const DEVELOPER: &str = "PVermeer";
 pub const CREDITS: &[&str] = &["Some credits"];
 pub const ACKNOWLEDGEMENT: &[&str] = &["Some acknowledgement"];
-

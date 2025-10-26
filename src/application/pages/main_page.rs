@@ -1,6 +1,10 @@
 use super::NavPage;
 use libadwaita::{
-    gtk::{self, prelude::{BoxExt, ButtonExt}, Button, Label}, NavigationPage
+    NavigationPage,
+    gtk::{
+        self, Button, Label,
+        prelude::{BoxExt, ButtonExt},
+    },
 };
 
 pub struct MainPage {
@@ -38,18 +42,13 @@ impl MainPage {
             .label("Open file")
             .build();
 
-        button.connect_clicked(|_| {
-            println!("TODO")
-        });
+        button.connect_clicked(|_| println!("TODO"));
 
         let (nav_page, _header, content_box) = Self::build_nav_page(&title);
 
         content_box.append(&top_label);
         content_box.append(&button);
 
-        return Self {
-            nav_page,
-            title,
-        };
+        return Self { nav_page, title };
     }
 }
