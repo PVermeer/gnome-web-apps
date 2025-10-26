@@ -23,6 +23,7 @@ impl View {
         let split_view = NavigationSplitView::builder()
             .sidebar(&sidebar.nav_page)
             .show_content(true)
+            .min_sidebar_width(250.0)
             .build();
         let breakpoint = Self::build_breakpoint();
 
@@ -41,8 +42,9 @@ impl View {
             .add_setter(&self.split_view, "collapsed", Some(&Value::from(true)));
     }
 
-    pub fn navigate(&self, application: Rc<App>, page: Page) {
-        application.pages.get(page).load_page(&self.split_view);
+    pub fn navigate(&self, app: Rc<App>, page: Page) {
+        app.pages.get(page).load_page(&self.split_view);
+        app.app_window.view.split_view.set_show_content(true);
     }
 
     fn build_breakpoint() -> Breakpoint {
