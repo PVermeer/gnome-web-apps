@@ -19,6 +19,6 @@ impl WebAppsPage {
         let title = String::from("Web Apps");
         let (nav_page, _header, _content_box) = Self::build_nav_page(&title);
 
-        return Self { nav_page, title };
+        Self { nav_page, title }
     }
 }

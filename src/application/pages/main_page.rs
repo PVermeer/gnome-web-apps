@@ -49,6 +49,6 @@ impl MainPage {
         content_box.append(&top_label);
         content_box.append(&button);
 
-        return Self { nav_page, title };
+        Self { nav_page, title }
     }
 }

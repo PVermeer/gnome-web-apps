@@ -13,7 +13,7 @@ use std::rc::Rc;
 pub struct View {
     pub app_menu: AppMenu,
     pub sidebar: SidebarPage,
-    pub split_view: NavigationSplitView,
+    pub nav_split: NavigationSplitView,
     pub breakpoint: Breakpoint,
 }
 impl View {
@@ -30,21 +30,21 @@ impl View {
         Self {
             app_menu,
             sidebar,
-            split_view,
+            nav_split: split_view,
             breakpoint,
         }
     }
 
-    pub fn init(&self, app: Rc<App>) {
+    pub fn init(&self, app: &Rc<App>) {
         self.app_menu.init(app);
         self.sidebar.header.pack_end(&self.app_menu.button);
         self.breakpoint
-            .add_setter(&self.split_view, "collapsed", Some(&Value::from(true)));
+            .add_setter(&self.nav_split, "collapsed", Some(&Value::from(true)));
     }
 
-    pub fn navigate(&self, app: Rc<App>, page: Page) {
-        app.pages.get(page).load_page(&self.split_view);
-        app.app_window.view.split_view.set_show_content(true);
+    pub fn navigate(&self, app: &Rc<App>, page: &Page) {
+        app.pages.get(page).load_page(&self.nav_split);
+        app.window.view.nav_split.set_show_content(true);
     }
 
     fn build_breakpoint() -> Breakpoint {
@@ -53,8 +53,8 @@ impl View {
             600_f64,
             libadwaita::LengthUnit::Sp,
         );
-        let breakpoint = Breakpoint::new(breakpoint_condition);
+        
 
-        breakpoint
+        Breakpoint::new(breakpoint_condition)
     }
 }

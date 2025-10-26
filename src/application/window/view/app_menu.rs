@@ -28,12 +28,12 @@ impl AppMenu {
         let actions = SimpleActionGroup::new();
         Self::add_about(&menu, &actions);
 
-        return Self { button, actions };
+        Self { button, actions }
     }
 
-    pub fn init(&self, app: Rc<App>) {
-        app.app_window
-            .window
+    pub fn init(&self, app: &Rc<App>) {
+        app.window
+            .adw_window
             .insert_action_group(Self::ACTION_LABEL, Some(&self.actions));
     }
 

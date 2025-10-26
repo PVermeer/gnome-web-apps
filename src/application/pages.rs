@@ -22,6 +22,7 @@ pub struct Pages {
     main: Rc<MainPage>,
     web_apps: Rc<WebAppsPage>,
 }
+#[allow(clippy::unused_self)]
 impl Pages {
     pub fn new() -> Self {
         Self {
@@ -30,14 +31,14 @@ impl Pages {
         }
     }
 
-    pub fn init(&self, app: Rc<App>) {
-        let sidebar = &app.app_window.view.sidebar;
+    pub fn init(&self, app: &Rc<App>) {
+        let sidebar = &app.window.view.sidebar;
 
         sidebar.add_nav_row(app.clone(), Page::Main);
         sidebar.add_nav_row(app.clone(), Page::WebApps);
     }
 
-    pub fn get(&self, page: Page) -> Rc<dyn NavPage> {
+    pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
         match page {
             Page::Main => self.main.clone(),
             Page::WebApps => self.web_apps.clone(),
@@ -54,7 +55,7 @@ pub trait NavPage {
         let nav_page = self.get_navpage();
         if nav_page.parent().is_some() {
             return;
-        };
+        }
         view.set_content(Some(nav_page));
     }
 
@@ -83,6 +84,6 @@ pub trait NavPage {
             .child(&toolbar)
             .build();
 
-        return (nav_page, header, content_box);
+        (nav_page, header, content_box)
     }
 }

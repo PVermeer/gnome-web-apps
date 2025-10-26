@@ -14,7 +14,7 @@ use libadwaita::{
 use view::View;
 
 pub struct AppWindow {
-    pub window: ApplicationWindow,
+    pub adw_window: ApplicationWindow,
     pub view: View,
 }
 impl AppWindow {
@@ -26,17 +26,17 @@ impl AppWindow {
             .title(&title)
             .default_height(600)
             .default_width(800)
-            .content(&view.split_view)
+            .content(&view.nav_split)
             .build();
 
-        Self { window, view }
+        Self { adw_window: window, view }
     }
 
-    pub fn init(&self, app: Rc<App>) {
-        self.view.init(app.clone());
+    pub fn init(&self, app: &Rc<App>) {
+        self.view.init(app);
 
-        self.window.add_breakpoint(self.view.breakpoint.clone());
-        self.window.present();
+        self.adw_window.add_breakpoint(self.view.breakpoint.clone());
+        self.adw_window.present();
     }
 
     pub fn show_about() {

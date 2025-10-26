@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
         .build();
 
     adw_application.connect_activate(|adw_application| {
-        App::new(adw_application.to_owned()).init();
+        App::new(adw_application).init();
     });
 
     adw_application.run();
