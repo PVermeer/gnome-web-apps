@@ -1,7 +1,10 @@
 use std::rc::Rc;
 
 use super::NavPage;
-use crate::application::{App, pages::Page};
+use crate::{
+    application::{App, pages::Page},
+    config,
+};
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, ToolbarView,
     gtk::{ListBox, SelectionMode},
@@ -25,7 +28,7 @@ impl NavPage for SidebarPage {
 }
 impl SidebarPage {
     pub fn new() -> Self {
-        let title = String::from("List");
+        let title = config::APP_NAME.to_string();
         let list = ListBox::builder()
             .selection_mode(SelectionMode::Single)
             .css_classes(["navigation-sidebar"])
