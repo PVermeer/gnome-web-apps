@@ -10,7 +10,7 @@ use libadwaita::{
 use log::debug;
 
 pub struct WebAppsPage {
-    pub nav_page: NavigationPage,
+    nav_page: NavigationPage,
     title: String,
     icon: String,
 }

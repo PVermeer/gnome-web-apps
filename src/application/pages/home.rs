@@ -8,7 +8,7 @@ use libadwaita::{
 };
 
 pub struct HomePage {
-    pub nav_page: NavigationPage,
+    nav_page: NavigationPage,
     title: String,
     icon: String,
 }

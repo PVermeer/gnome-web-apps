@@ -1,4 +1,4 @@
-pub mod app_menu;
+mod app_menu;
 mod sidebar_page;
 
 use crate::application::{

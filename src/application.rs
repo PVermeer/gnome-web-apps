@@ -36,7 +36,7 @@ impl App {
         self.self_weak.upgrade().unwrap()
     }
 
-    fn navigate(&self, page: &Page) {
+    pub fn navigate(&self, page: &Page) {
         let app = &self.get_app();
         self.window.view.navigate(app, page);
     }
