@@ -7,34 +7,28 @@ use crate::{
 };
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, ToolbarView,
-    gtk::{Image, ListBox, SelectionMode},
+    gtk::{ListBox, SelectionMode},
     prelude::ActionRowExt,
 };
 
 pub struct SidebarPage {
     pub nav_page: NavigationPage,
     pub header: HeaderBar,
-    title: String,
-    icon: String,
+    nav_row: ActionRow,
     list: ListBox,
 }
 impl NavPage for SidebarPage {
-    fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    fn get_icon(&self) -> &str {
-        &self.icon
-    }
-
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_nav_row(&self) -> &ActionRow {
+        &self.nav_row
     }
 }
 impl SidebarPage {
     pub fn new() -> Self {
         let title = config::APP_NAME.to_string();
-        let icon = String::new();
         let list = ListBox::builder()
             .selection_mode(SelectionMode::Single)
             .css_classes(["navigation-sidebar"])
@@ -49,28 +43,28 @@ impl SidebarPage {
             .tag("sidebar")
             .child(&toolbar)
             .build();
+        let nav_row = ActionRow::new();
 
         Self {
             nav_page,
             header,
-            title,
-            icon,
+            nav_row,
             list,
         }
     }
 
-    pub fn add_nav_row(&self, app: Rc<App>, page: Page) -> ActionRow {
+    pub fn add_nav_row(&self, app: Rc<App>, page: Page) {
         let nav_page = app.pages.get(&page);
-        let row = ActionRow::builder()
-            .activatable(true)
-            .title(nav_page.get_title())
-            .build();
-        let icon = Image::from_icon_name(nav_page.get_icon());
-        row.add_prefix(&icon);
-
+        let row = nav_page.get_nav_row();
         row.connect_activated(move |_| app.navigate(&page.clone()));
+        self.list.append(row);
+    }
 
-        self.list.append(&row);
-        row
+    pub fn select_nav_row(&self, app: &Rc<App>, page: &Page) {
+        let nav_page = app.pages.get(page);
+        let nav_row = nav_page.get_nav_row();
+        if self.list.selected_row().is_none() {
+            self.list.select_row(Some(nav_row));
+        }
     }
 }

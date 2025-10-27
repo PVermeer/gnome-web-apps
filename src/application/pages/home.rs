@@ -1,6 +1,6 @@
 use super::NavPage;
 use libadwaita::{
-    NavigationPage,
+    ActionRow, NavigationPage,
     gtk::{
         self, Button, Label,
         prelude::{BoxExt, ButtonExt},
@@ -9,26 +9,21 @@ use libadwaita::{
 
 pub struct HomePage {
     nav_page: NavigationPage,
-    title: String,
-    icon: String,
+    nav_row: ActionRow,
 }
 impl NavPage for HomePage {
-    fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    fn get_icon(&self) -> &str {
-        &self.icon
-    }
-
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_nav_row(&self) -> &ActionRow {
+        &self.nav_row
     }
 }
 impl HomePage {
     pub fn new() -> Self {
-        let title = String::from("Home page");
-        let icon = "go-home-symbolic".to_string();
+        let title = "Home page";
+        let icon = "go-home-symbolic";
 
         let top_label = Label::builder()
             .label(concat!(
@@ -50,15 +45,11 @@ impl HomePage {
 
         button.connect_clicked(|_| println!("TODO"));
 
-        let (nav_page, _header, content_box) = Self::build_nav_page(&title);
+        let (nav_page, nav_row, _header, content_box) = Self::build_nav_page(title, icon);
 
         content_box.append(&top_label);
         content_box.append(&button);
 
-        Self {
-            nav_page,
-            title,
-            icon,
-        }
+        Self { nav_page, nav_row }
     }
 }

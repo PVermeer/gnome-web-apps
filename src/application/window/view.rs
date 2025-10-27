@@ -43,8 +43,10 @@ impl View {
     }
 
     pub fn navigate(&self, app: &Rc<App>, page: &Page) {
-        app.pages.get(page).load_page(&self.nav_split);
+        let nav_page = app.pages.get(page);
+        nav_page.load_page(&self.nav_split);
         app.window.view.nav_split.set_show_content(true);
+        app.window.view.sidebar.select_nav_row(app, page);
     }
 
     fn build_breakpoint() -> Breakpoint {

@@ -3,8 +3,9 @@ mod web_apps;
 
 use home::HomePage;
 use libadwaita::{
-    HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
-    gtk::{self, Orientation, prelude::WidgetExt},
+    ActionRow, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
+    gtk::{self, Image, Orientation, prelude::WidgetExt},
+    prelude::ActionRowExt,
 };
 use std::rc::Rc;
 use web_apps::WebAppsPage;
@@ -49,12 +50,7 @@ impl Pages {
 pub trait NavPage {
     fn get_navpage(&self) -> &NavigationPage;
 
-    fn get_title(&self) -> &str;
-
-    /**
-    Icon name from Adwaita icon list.
-    */
-    fn get_icon(&self) -> &str;
+    fn get_nav_row(&self) -> &ActionRow;
 
     fn load_page(&self, view: &NavigationSplitView) {
         let nav_page = self.get_navpage();
@@ -64,7 +60,7 @@ pub trait NavPage {
         view.set_content(Some(nav_page));
     }
 
-    fn build_nav_page(title: &str) -> (NavigationPage, HeaderBar, gtk::Box)
+    fn build_nav_page(title: &str, icon: &str) -> (NavigationPage, ActionRow, HeaderBar, gtk::Box)
     where
         Self: Sized,
     {
@@ -89,6 +85,10 @@ pub trait NavPage {
             .child(&toolbar)
             .build();
 
-        (nav_page, header, content_box)
+        let nav_row = ActionRow::builder().activatable(true).title(title).build();
+        let icon_prefix = Image::from_icon_name(icon);
+        nav_row.add_prefix(&icon_prefix);
+
+        (nav_page, nav_row, header, content_box)
     }
 }

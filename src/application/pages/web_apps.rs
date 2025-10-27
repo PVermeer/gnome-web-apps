@@ -11,36 +11,28 @@ use log::debug;
 
 pub struct WebAppsPage {
     nav_page: NavigationPage,
-    title: String,
-    icon: String,
+    nav_row: ActionRow,
 }
 impl NavPage for WebAppsPage {
-    fn get_title(&self) -> &str {
-        &self.title
-    }
-
-    fn get_icon(&self) -> &str {
-        &self.icon
-    }
-
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_nav_row(&self) -> &ActionRow {
+        &self.nav_row
     }
 }
 impl WebAppsPage {
     pub fn new() -> Self {
-        let title = String::from("Web Apps");
-        let icon = "preferences-desktop-apps-symbolic".to_string();
-        let (nav_page, _header, content_box) = Self::build_nav_page(&title);
+        let title = "Web Apps";
+        let icon = "preferences-desktop-apps-symbolic";
+
+        let (nav_page, nav_row, _header, content_box) = Self::build_nav_page(title, icon);
         let app_section = Self::build_apps_section();
 
         content_box.append(&app_section);
 
-        Self {
-            nav_page,
-            title,
-            icon,
-        }
+        Self { nav_page, nav_row }
     }
 
     fn build_apps_section() -> PreferencesGroup {
