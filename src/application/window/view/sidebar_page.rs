@@ -22,8 +22,8 @@ impl NavPage for SidebarPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_nav_row(&self) -> Option<&ActionRow> {
+        Some(&self.nav_row)
     }
 }
 impl SidebarPage {
@@ -55,16 +55,18 @@ impl SidebarPage {
 
     pub fn add_nav_row(&self, app: Rc<App>, page: Page) {
         let nav_page = app.pages.get(&page);
-        let row = nav_page.get_nav_row();
-        row.connect_activated(move |_| app.navigate(&page.clone()));
-        self.list.append(row);
+        let nav_row = nav_page.get_nav_row();
+        if let Some(row) = nav_row {
+            row.connect_activated(move |_| app.navigate(&page.clone()));
+            self.list.append(row);
+        }
     }
 
     pub fn select_nav_row(&self, app: &Rc<App>, page: &Page) {
         let nav_page = app.pages.get(page);
         let nav_row = nav_page.get_nav_row();
-        if self.list.selected_row().is_none() {
-            self.list.select_row(Some(nav_row));
+        if let Some(row) = nav_row {
+            self.list.select_row(Some(row));
         }
     }
 }

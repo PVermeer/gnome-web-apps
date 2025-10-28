@@ -1,6 +1,4 @@
-pub mod view;
-
-use std::rc::Rc;
+mod view;
 
 use crate::{application::App, config};
 use libadwaita::{
@@ -11,6 +9,7 @@ use libadwaita::{
     },
     prelude::AdwApplicationWindowExt,
 };
+use std::rc::Rc;
 use view::View;
 
 pub struct AppWindow {

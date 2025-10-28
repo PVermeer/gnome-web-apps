@@ -50,7 +50,7 @@ impl Pages {
 pub trait NavPage {
     fn get_navpage(&self) -> &NavigationPage;
 
-    fn get_nav_row(&self) -> &ActionRow;
+    fn get_nav_row(&self) -> Option<&ActionRow>;
 
     fn load_page(&self, view: &NavigationSplitView) {
         let nav_page = self.get_navpage();

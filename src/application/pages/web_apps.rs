@@ -1,3 +1,5 @@
+mod app_view;
+
 use super::NavPage;
 use libadwaita::{
     ActionRow, ButtonContent, NavigationPage, PreferencesGroup,
@@ -18,8 +20,8 @@ impl NavPage for WebAppsPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_nav_row(&self) -> Option<&ActionRow> {
+        Some(&self.nav_row)
     }
 }
 impl WebAppsPage {

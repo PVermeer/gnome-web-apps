@@ -16,8 +16,8 @@ impl NavPage for HomePage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_nav_row(&self) -> Option<&ActionRow> {
+        Some(&self.nav_row)
     }
 }
 impl HomePage {
