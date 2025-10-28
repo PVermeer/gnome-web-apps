@@ -20,7 +20,7 @@ impl View {
     pub fn new() -> Self {
         let sidebar = SidebarPage::new();
         let app_menu = AppMenu::new();
-        let split_view = NavigationSplitView::builder()
+        let nav_split = NavigationSplitView::builder()
             .sidebar(&sidebar.nav_page)
             .show_content(true)
             .min_sidebar_width(250.0)
@@ -30,7 +30,7 @@ impl View {
         Self {
             app_menu,
             sidebar,
-            nav_split: split_view,
+            nav_split,
             breakpoint,
         }
     }

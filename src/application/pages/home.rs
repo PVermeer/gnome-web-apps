@@ -1,4 +1,5 @@
 use super::NavPage;
+use crate::application::pages::ContentPage;
 use libadwaita::{
     ActionRow, NavigationPage,
     gtk::{
@@ -6,6 +7,7 @@ use libadwaita::{
         prelude::{BoxExt, ButtonExt},
     },
 };
+use std::rc::Rc;
 
 pub struct HomePage {
     nav_page: NavigationPage,
@@ -21,9 +23,16 @@ impl NavPage for HomePage {
     }
 }
 impl HomePage {
-    pub fn new() -> Self {
+    pub fn new() -> Rc<Self> {
         let title = "Home page";
         let icon = "go-home-symbolic";
+
+        let ContentPage {
+            nav_page,
+            nav_row,
+            content_box,
+            ..
+        } = Self::build_nav_page(title, icon).with_content_box();
 
         let top_label = Label::builder()
             .label(concat!(
@@ -45,11 +54,9 @@ impl HomePage {
 
         button.connect_clicked(|_| println!("TODO"));
 
-        let (nav_page, nav_row, _header, content_box) = Self::build_nav_page(title, icon);
-
         content_box.append(&top_label);
         content_box.append(&button);
 
-        Self { nav_page, nav_row }
+        Rc::new(Self { nav_page, nav_row })
     }
 }
