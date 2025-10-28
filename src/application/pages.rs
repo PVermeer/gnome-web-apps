@@ -3,8 +3,8 @@ mod web_apps;
 
 use home::HomePage;
 use libadwaita::{
-    ActionRow, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
-    gtk::{self, Image, Orientation, prelude::WidgetExt},
+    ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
+    gtk::{self, Image, Orientation, ScrolledWindow, prelude::WidgetExt},
     prelude::ActionRowExt,
 };
 use std::rc::Rc;
@@ -65,6 +65,7 @@ pub trait NavPage {
         Self: Sized,
     {
         const MARGIN: i32 = 20;
+        const MAX_WIDTH: i32 = 600;
 
         let content_box = gtk::Box::builder()
             .orientation(Orientation::Vertical)
@@ -73,11 +74,16 @@ pub trait NavPage {
             .margin_start(MARGIN)
             .margin_end(MARGIN)
             .build();
+        let clamp = Clamp::builder()
+            .maximum_size(MAX_WIDTH)
+            .child(&content_box)
+            .build();
+        let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
 
         let header = HeaderBar::new();
         let toolbar = ToolbarView::new();
         toolbar.add_top_bar(&header);
-        toolbar.set_content(Some(&content_box));
+        toolbar.set_content(Some(&scrolled_window));
 
         let nav_page = NavigationPage::builder()
             .title(title)
