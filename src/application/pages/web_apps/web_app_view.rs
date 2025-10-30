@@ -1,10 +1,16 @@
+use super::WebAppsPage;
 use crate::application::pages::{NavPage, PrefPage};
+use freedesktop_desktop_entry::DesktopEntry;
 use libadwaita::{
-    ActionRow, NavigationPage, PreferencesGroup,
-    gtk::Image,
+    ActionRow, NavigationPage, PreferencesGroup, WrapBox,
+    gtk::{
+        self, Button, Image, Label, Orientation,
+        prelude::{BoxExt, ButtonExt, WidgetExt},
+    },
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::debug;
+use std::{borrow::Cow, rc::Rc};
 
 pub struct WebAppView {
     nav_page: NavigationPage,
@@ -19,8 +25,10 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    pub fn new(name: &str) -> Self {
-        let title = name;
+    pub fn new(desktop_file: &Rc<DesktopEntry>, locales: &[String]) -> Self {
+        let title = &desktop_file
+            .name(locales)
+            .unwrap_or(Cow::Borrowed("No name"));
         let icon = "preferences-desktop-apps-symbolic";
 
         let PrefPage {
@@ -29,10 +37,48 @@ impl WebAppView {
             ..
         } = Self::build_nav_page(title, icon).with_preference_page();
 
+        let header = Self::build_app_header(desktop_file, locales);
+
         let web_app_pref_group = Self::build_app_pref_group();
+        prefs_page.add(&header);
         prefs_page.add(&web_app_pref_group);
 
         Self { nav_page }
+    }
+
+    fn build_app_header(desktop_file: &Rc<DesktopEntry>, locales: &[String]) -> PreferencesGroup {
+        let pref_group = PreferencesGroup::builder().build();
+        let content_box = gtk::Box::new(Orientation::Vertical, 6);
+        let app_name = desktop_file
+            .name(locales)
+            .unwrap_or(Cow::Borrowed("No name..."));
+        let app_label = Label::builder()
+            .label(app_name)
+            .css_classes(["title-1"])
+            .build();
+
+        let run_button = Button::builder()
+            .label("Open")
+            .css_classes(["suggested-action", "pill"])
+            .build();
+        run_button.connect_clicked(|_| {
+            debug!("TODO");
+        });
+
+        let button_wrap_box = WrapBox::builder().align(0.5).build();
+        button_wrap_box.append(&run_button);
+
+        let app_image = WebAppsPage::get_image_icon(desktop_file);
+        app_image.set_css_classes(&["icon-dropshadow"]);
+        app_image.set_pixel_size(96);
+
+        content_box.append(&app_image);
+        content_box.append(&app_label);
+        content_box.append(&button_wrap_box);
+
+        pref_group.add(&content_box);
+
+        pref_group
     }
 
     fn build_app_pref_group() -> PreferencesGroup {

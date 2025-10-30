@@ -33,7 +33,7 @@ impl Pages {
     }
 
     pub fn init(&self, app: &Rc<App>) {
-        self.web_apps.init();
+        self.web_apps.init(app);
 
         let sidebar = &app.window.view.sidebar;
         sidebar.add_nav_row(app.clone(), Page::Home);
