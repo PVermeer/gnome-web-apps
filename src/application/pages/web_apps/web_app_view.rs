@@ -85,7 +85,11 @@ impl WebAppView {
             });
         }
 
-        let button_wrap_box = WrapBox::builder().align(0.5).build();
+        let button_wrap_box = WrapBox::builder()
+            .align(0.5)
+            .margin_top(12)
+            .margin_bottom(12)
+            .build();
         button_wrap_box.append(&run_button);
 
         let app_image = WebAppsPage::get_image_icon(desktop_file);
