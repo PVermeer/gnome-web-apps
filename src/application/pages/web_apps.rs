@@ -5,16 +5,16 @@ use super::PrefNavPage;
 use crate::application::App;
 use crate::application::pages::web_apps::web_app_view::WebAppView;
 use crate::config;
-use anyhow::Context;
-use anyhow::Result;
 use freedesktop_desktop_entry::DesktopEntry;
 use freedesktop_desktop_entry::get_languages_from_env;
+use libadwaita::StatusPage;
 use libadwaita::{
     ActionRow, ButtonContent, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
     gtk::{Button, Image, prelude::ButtonExt},
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::debug;
+use log::error;
 use std::borrow::Cow;
 use std::path::Path;
 use std::rc::Rc;
@@ -79,14 +79,23 @@ impl WebAppsPage {
         new_app_button.connect_clicked(|_| debug!("TODO"));
 
         let pref_group = PreferencesGroup::builder()
-            .title("Apps")
             .header_suffix(&new_app_button)
             .build();
 
-        // TODO remove unwraps
-        for desktop_file in self.get_owned_desktop_files(app).unwrap() {
-            let web_app_row = self.clone().build_app_row(desktop_file);
-            pref_group.add(&web_app_row);
+        let web_app_desktop_files = self.get_owned_desktop_files(app);
+        if web_app_desktop_files.is_empty() {
+            let status_page = StatusPage::builder()
+                .title("No Web Apps found")
+                .description("Try adding one!")
+                .icon_name("system-search-symbolic")
+                .build();
+
+            pref_group.add(&status_page);
+        } else {
+            for desktop_file in web_app_desktop_files {
+                let web_app_row = self.clone().build_app_row(desktop_file);
+                pref_group.add(&web_app_row);
+            }
         }
 
         pref_group
@@ -115,24 +124,24 @@ impl WebAppsPage {
         app_row
     }
 
-    fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Result<Vec<Rc<DesktopEntry>>> {
+    fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Vec<Rc<DesktopEntry>> {
         debug!(target: Self::LOG_TARGET, "Reading user desktop files");
-
-        let applications_path = app
-            .dirs
-            .data_home
-            .as_ref()
-            .context("There should be a user data dir!")?
-            .join("applications");
-
-        debug!(target: Self::LOG_TARGET, "Using path: {}", applications_path.display());
-        applications_path
-            .is_dir()
-            .then_some(())
-            .context("Path is not a directory!")?;
 
         let owned_web_app_key = "X-".to_string() + config::APP_NAME_PATH;
         let mut owned_desktop_files = Vec::new();
+
+        let Some(data_home_path) = app.dirs.data_home.as_ref() else {
+            error!(target: Self::LOG_TARGET, "Could not get data home path");
+            return owned_desktop_files;
+        };
+
+        let applications_path = data_home_path.join("applications");
+        debug!(target: Self::LOG_TARGET, "Using path: {}", applications_path.display());
+
+        if !applications_path.is_dir() {
+            error!(target: Self::LOG_TARGET, "Could not get applications path");
+            return owned_desktop_files;
+        }
 
         for file in applications_path.read_dir().unwrap().flatten() {
             let Ok(desktop_file) = DesktopEntry::from_path(file.path(), Some(&self.locales)) else {
@@ -151,7 +160,7 @@ impl WebAppsPage {
             owned_desktop_files.push(Rc::new(desktop_file));
         }
 
-        Ok(owned_desktop_files)
+        owned_desktop_files
     }
 
     fn get_image_icon(desktop_file: &DesktopEntry) -> Image {
