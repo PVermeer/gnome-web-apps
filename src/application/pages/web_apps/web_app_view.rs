@@ -9,8 +9,8 @@ use libadwaita::{
     },
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use log::debug;
-use std::{borrow::Cow, rc::Rc};
+use log::{debug, error};
+use std::{borrow::Cow, process::Command, rc::Rc};
 
 pub struct WebAppView {
     nav_page: NavigationPage,
@@ -25,6 +25,9 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
+    const LABEL: &str = "web-app-page";
+    const LOG_TARGET: &str = Self::LABEL;
+
     pub fn new(desktop_file: &Rc<DesktopEntry>, locales: &[String]) -> Self {
         let title = &desktop_file
             .name(locales)
@@ -61,9 +64,26 @@ impl WebAppView {
             .label("Open")
             .css_classes(["suggested-action", "pill"])
             .build();
-        run_button.connect_clicked(|_| {
-            debug!("TODO");
-        });
+        let mut exec_args = desktop_file.parse_exec().unwrap_or_default();
+        let command = if exec_args.is_empty() {
+            run_button.set_sensitive(false);
+            None
+        } else {
+            Some(exec_args.remove(0))
+        };
+        let args = exec_args;
+        if let Some(cmd) = command {
+            run_button.connect_clicked(move |_| {
+                debug!(target: Self::LOG_TARGET, "Running app: '{} {}'", cmd, args.join(" "));
+
+                #[allow(clippy::zombie_processes)]
+                let result = Command::new(cmd.clone()).args(&args).spawn();
+
+                if let Err(error) = result {
+                    error!(target: Self::LOG_TARGET, "Failed to run app '{} {}': {error}", cmd, args.join(" "));
+                }
+            });
+        }
 
         let button_wrap_box = WrapBox::builder().align(0.5).build();
         button_wrap_box.append(&run_button);
