@@ -2,12 +2,9 @@ mod view;
 
 use crate::{application::App, config};
 use libadwaita::{
-    AboutWindow, ApplicationWindow,
-    gtk::{
-        self,
-        prelude::{GtkWindowExt, WidgetExt},
-    },
-    prelude::AdwApplicationWindowExt,
+    AboutDialog, ApplicationWindow,
+    gtk::prelude::GtkWindowExt,
+    prelude::{AdwApplicationWindowExt, AdwDialogExt},
 };
 use std::rc::Rc;
 use view::View;
@@ -41,14 +38,16 @@ impl AppWindow {
         self.adw_window.present();
     }
 
-    pub fn show_about() {
-        let about = AboutWindow::new();
-        about.set_application_name(config::APP_NAME);
-        about.set_version(config::VERSION);
-        about.set_developer_name(config::DEVELOPER);
+    pub fn show_about(&self) {
+        let about = AboutDialog::builder()
+            .name(config::APP_NAME)
+            .version(config::VERSION)
+            .developer_name(config::DEVELOPER)
+            .license_type(config::LICENSE)
+            .build();
         about.add_credit_section(Some("Code by"), config::CREDITS);
         about.add_acknowledgement_section(None, config::ACKNOWLEDGEMENT);
-        about.add_legal_section("Legal", None, gtk::License::Gpl30, None);
-        about.show();
+
+        about.present(Some(&self.adw_window));
     }
 }

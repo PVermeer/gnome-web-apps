@@ -1,13 +1,13 @@
-use std::rc::Rc;
-
-use crate::application::{App, window::AppWindow};
+use crate::application::App;
 use libadwaita::{
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
     gtk::{MenuButton, prelude::WidgetExt},
 };
+use std::rc::Rc;
 
 pub struct AppMenu {
     pub button: MenuButton,
+    menu: Menu,
     actions: SimpleActionGroup,
 }
 impl AppMenu {
@@ -26,26 +26,36 @@ impl AppMenu {
 
         // Must use actions, there is currently no way to register a fn on click or something
         let actions = SimpleActionGroup::new();
-        Self::add_about(&menu, &actions);
 
-        Self { button, actions }
+        Self {
+            button,
+            menu,
+            actions,
+        }
     }
 
     pub fn init(&self, app: &Rc<App>) {
         app.window
             .adw_window
             .insert_action_group(Self::ACTION_LABEL, Some(&self.actions));
+
+        self.add_about(app.clone());
     }
 
-    fn add_about(menu: &Menu, actions: &SimpleActionGroup) {
-        let item = Self::build_menu_item("About", ("about", AppWindow::show_about), actions);
-        menu.prepend_item(&item);
+    fn add_about(&self, app: Rc<App>) {
+        let item = self.build_menu_item(
+            "About",
+            ("about", move || {
+                app.window.show_about();
+            }),
+        );
+        self.menu.prepend_item(&item);
     }
 
     fn build_menu_item(
+        &self,
         label: &str,
         (action_name, action): (&str, impl Fn() + 'static),
-        actions: &SimpleActionGroup,
     ) -> MenuItem {
         let item = MenuItem::new(
             Some(label),
@@ -56,7 +66,7 @@ impl AppMenu {
                 action();
             })
             .build();
-        actions.add_action_entries([action]);
+        self.actions.add_action_entries([action]);
 
         item
     }
