@@ -8,7 +8,10 @@ RUN sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
 RUN sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
 RUN sudo dnf install -y rpmfusion-free-release-tainted
 RUN sudo dnf install -y libdvdcss
-RUN sudo dnf install -y @gnome-desktop rustup libadwaita-devel pipewire-utils
+RUN sudo dnf install -y @gnome-desktop
+RUN sudo dnf install -y flatpak-builder && flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+RUN sudo dnf install -y rustup make git clang python3-pip gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel cmake gcc gcc-c++ intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils doxygen libadwaita-devel
 
 # Create the user
 ARG USERNAME=vscode
@@ -20,5 +23,9 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 USER $USERNAME
 
+ENV APPIMAGE_EXTRACT_AND_RUN="1"
+
 RUN rustup-init -y
 RUN mkdir -p /tmp/user/1000/gvfsd
+RUN sudo mkdir -p /run/dbus
+RUN flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo

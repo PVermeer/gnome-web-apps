@@ -1,5 +1,4 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
+// For format details, see https://aka.ms/devcontainer.json.
 {
 	"name": "Fedora",
 	"build": {
@@ -16,15 +15,18 @@
 	},
 	"runArgs": [
 		"--device",
-		"/dev/dri"
+		"/dev/dri",
+		"--device",
+		"/dev/fuse",
+		"--privileged"
 	],
-	"containerEnv": {
-		"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
-	},
-	"mounts": [
-		"type=bind,source=/run/user/1000,target=/run/user/1000"
-	],
-	"postStartCommand": "sudo dnf update -y && rustup update",
+	// "containerEnv": {
+	// 	"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
+	// },
+	// "mounts": [
+	// 	"type=bind,source=/run/user/1000,target=/run/user/1000"
+	// ],
+	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && sudo dbus-daemon --system",
 	"remoteUser": "vscode",
 	"customizations": {
 		"vscode": {
