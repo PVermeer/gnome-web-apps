@@ -127,7 +127,7 @@ impl WebAppsPage {
     fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Vec<Rc<DesktopEntry>> {
         debug!(target: Self::LOG_TARGET, "Reading user desktop files");
 
-        let owned_web_app_key = "X-".to_string() + config::APP_NAME_PATH;
+        let owned_web_app_key = "X-".to_string() + config::APP_NAME_SHORT;
         let mut owned_desktop_files = Vec::new();
 
         let Some(data_home_path) = app.dirs.data_home.as_ref() else {
