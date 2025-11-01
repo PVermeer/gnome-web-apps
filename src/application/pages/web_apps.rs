@@ -16,6 +16,7 @@ use libadwaita::{
 use log::debug;
 use log::error;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -101,8 +102,10 @@ impl WebAppsPage {
         pref_group
     }
 
-    fn build_app_row(self: Rc<Self>, desktop_file: Rc<DesktopEntry>) -> ActionRow {
-        let app_name = desktop_file
+    fn build_app_row(self: Rc<Self>, desktop_file: Rc<RefCell<DesktopEntry>>) -> ActionRow {
+        let desktop_file_borrow = desktop_file.borrow();
+
+        let app_name = desktop_file_borrow
             .name(&self.locales)
             .unwrap_or(Cow::Borrowed("No name"));
         let app_row = ActionRow::builder()
@@ -110,11 +113,13 @@ impl WebAppsPage {
             .activatable(true)
             .build();
 
-        let app_icon = Self::get_image_icon(&desktop_file);
+        let app_icon = Self::get_image_icon(&desktop_file_borrow);
         let suffix = Image::from_icon_name("go-next-symbolic");
 
         app_row.add_prefix(&app_icon);
         app_row.add_suffix(&suffix);
+
+        drop(desktop_file_borrow);
 
         app_row.connect_activated(move |_| {
             let app_page = WebAppView::new(&desktop_file.clone(), &self.locales);
@@ -124,11 +129,22 @@ impl WebAppsPage {
         app_row
     }
 
-    fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Vec<Rc<DesktopEntry>> {
+    fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Vec<Rc<RefCell<DesktopEntry>>> {
         debug!(target: Self::LOG_TARGET, "Reading user desktop files");
 
-        let owned_web_app_key = "X-".to_string() + config::APP_NAME_SHORT;
+        let owned_web_app_key = config::DesktopFile::GWA_KEY;
         let mut owned_desktop_files = Vec::new();
+
+        if cfg!(debug_assertions) {
+            debug!(target: Self::LOG_TARGET, "Adding debug desktop files");
+
+            let test_desktop_file = DesktopEntry::from_path(
+                Path::new("./assets/WebApp-test.desktop"),
+                Some(&self.locales),
+            )
+            .unwrap();
+            owned_desktop_files.push(Rc::new(RefCell::new(test_desktop_file)));
+        }
 
         let Some(data_home_path) = app.dirs.data_home.as_ref() else {
             error!(target: Self::LOG_TARGET, "Could not get data home path");
@@ -149,7 +165,7 @@ impl WebAppsPage {
             };
 
             if desktop_file
-                .desktop_entry(&owned_web_app_key)
+                .desktop_entry(owned_web_app_key)
                 .is_none_or(|value| value != "true")
             {
                 continue;
@@ -157,7 +173,7 @@ impl WebAppsPage {
 
             debug!(target: Self::LOG_TARGET, "Found desktop file: {}", desktop_file.path.display());
 
-            owned_desktop_files.push(Rc::new(desktop_file));
+            owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }
 
         owned_desktop_files

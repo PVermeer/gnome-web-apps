@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.0
+Name=YouTube
+Comment=Web App
+Exec=flatpak run --command=brave com.brave.Browser --app="https://www.youtube.com" '--class=WebApp-YouTube7707' '--name=WebApp-YouTube7707'
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=./assets/WebApp-test.png
+Categories=GTK;WebApps;
+MimeType=text/html;text/xml;application/xhtml_xml;
+StartupWMClass=WebApp-YouTube7707
+StartupNotify=true
+X-GWA=true
+X-GWA-URL=https://www.youtube.com
