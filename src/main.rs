@@ -1,13 +1,11 @@
 mod application;
 mod config;
 
-use anyhow::Result;
 use application::App;
 use env_logger::Env;
 use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let adw_application = libadwaita::Application::builder()
@@ -19,6 +17,4 @@ async fn main() -> Result<()> {
     });
 
     adw_application.run();
-
-    Ok(())
 }
