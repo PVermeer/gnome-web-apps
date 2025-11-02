@@ -9,4 +9,5 @@ env_logger = "0"
 freedesktop-desktop-entry = "0"
 libadwaita = { version = "0", features = ["v1_7"] }
 log = "0"
+validator = "0"
 xdg = "3"

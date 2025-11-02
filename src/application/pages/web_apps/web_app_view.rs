@@ -5,15 +5,17 @@ use crate::{
 };
 use freedesktop_desktop_entry::DesktopEntry;
 use libadwaita::{
-    ActionRow, ButtonContent, EntryRow, NavigationPage, PreferencesGroup, WrapBox,
+    ActionRow, ButtonContent, EntryRow, NavigationPage, PreferencesGroup, Toast, ToastOverlay,
+    WrapBox,
     gtk::{
-        self, Button, InputPurpose, Label, Orientation,
+        self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
     },
-    prelude::{EntryRowExt, PreferencesGroupExt, PreferencesPageExt},
+    prelude::{EntryRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt},
 };
 use log::{debug, error};
 use std::{borrow::Cow, cell::RefCell, process::Command, rc::Rc};
+use validator::ValidateUrl;
 
 pub struct WebAppView {
     nav_page: NavigationPage,
@@ -42,13 +44,14 @@ impl WebAppView {
         let PrefPage {
             nav_page,
             prefs_page,
+            toast_overlay,
             ..
         } = Self::build_nav_page(&title, icon).with_preference_page();
 
         drop(desktop_file_borrow);
 
         let header = Self::build_app_header(desktop_file, locales);
-        let general_pref_group = Self::build_general_pref_group(desktop_file);
+        let general_pref_group = Self::build_general_pref_group(desktop_file, &toast_overlay);
 
         prefs_page.add(&header);
         prefs_page.add(&general_pref_group);
@@ -118,7 +121,10 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_general_pref_group(desktop_file: &Rc<RefCell<DesktopEntry>>) -> PreferencesGroup {
+    fn build_general_pref_group(
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        toast_overlay: &ToastOverlay,
+    ) -> PreferencesGroup {
         let button_content = ButtonContent::builder()
             .label("Update icon")
             .icon_name("software-update-available-symbolic")
@@ -130,36 +136,72 @@ impl WebAppView {
             .header_suffix(&edit_icon_button)
             .build();
 
-        let url_row = Self::build_url_row(desktop_file);
+        let url_row = Self::build_url_row(desktop_file, toast_overlay);
         pref_group.add(&url_row);
 
         pref_group
     }
 
-    fn build_url_row(desktop_file: &Rc<RefCell<DesktopEntry>>) -> EntryRow {
+    fn build_url_row(
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        toast_overlay: &ToastOverlay,
+    ) -> EntryRow {
         let desktop_file_borrow = desktop_file.borrow();
 
         let url = desktop_file_borrow
             .desktop_entry(config::DesktopFile::URL_KEY)
             .unwrap_or_default();
 
-        let row = EntryRow::builder()
-            .title("URL")
+        let entry_row = EntryRow::builder()
+            .title("Website URL")
             .text(url)
-            .input_purpose(InputPurpose::Url)
             .show_apply_button(true)
+            .input_purpose(InputPurpose::Url)
             .build();
+        let validate_icon = Image::from_icon_name("dialog-warning-symbolic");
+        validate_icon.set_visible(false);
+        validate_icon.set_css_classes(&["error"]);
+        entry_row.add_suffix(&validate_icon);
 
         drop(desktop_file_borrow);
-        let desktop_file_cloned = desktop_file.clone();
+        let desktop_file_clone = desktop_file.clone();
+        let toast_overlay_clone = toast_overlay.clone();
 
-        row.connect_apply(move |entry_row| {
-            let mut desktop_file_borrow = desktop_file_cloned.borrow_mut();
+        entry_row.connect_changed(move |entry_row| {
+            let is_valid = entry_row.text().validate_url();
+
+            debug!(target: Self::LOG_TARGET, "{} is valid: {is_valid}", entry_row.title());
+
+            validate_icon.set_visible(!entry_row.text().is_empty() && !is_valid);
+            if is_valid {
+                entry_row.set_show_apply_button(true);
+                entry_row.set_tooltip_text(None);
+            } else {
+                entry_row.set_show_apply_button(false);
+                entry_row
+                    .set_tooltip_text(Some("Please enter a valid URL (e.g., https://example.com)"));
+            }
+        });
+
+        entry_row.connect_apply(move |entry_row| {
+            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+            let undo_text = desktop_file_borrow
+                .desktop_entry(config::DesktopFile::URL_KEY)
+                .unwrap_or_default()
+                .to_string();
 
             desktop_file_borrow.add_desktop_entry(
                 config::DesktopFile::URL_KEY.to_string(),
                 entry_row.text().to_string(),
             );
+
+            let entry_row_clone = entry_row.clone();
+            let saved_toast = Toast::builder().title("Saved").build();
+            saved_toast.set_button_label(Some("Undo"));
+            saved_toast.connect_button_clicked(move |_| {
+                entry_row_clone.set_text(&undo_text);
+            });
+            toast_overlay_clone.add_toast(saved_toast);
 
             debug!(
                 target: Self::LOG_TARGET,
@@ -168,6 +210,6 @@ impl WebAppView {
             );
         });
 
-        row
+        entry_row
     }
 }

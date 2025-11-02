@@ -5,7 +5,7 @@ use crate::application::App;
 use home::HomePage;
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView,
-    PreferencesPage, ToolbarView,
+    PreferencesPage, ToastOverlay, ToolbarView,
     gtk::{self, Image, Orientation, ScrolledWindow, prelude::WidgetExt},
     prelude::ActionRowExt,
 };
@@ -56,6 +56,7 @@ struct ContentPage {
 struct PrefPage {
     nav_page: NavigationPage,
     prefs_page: PreferencesPage,
+    toast_overlay: ToastOverlay,
 }
 struct PrefNavPage {
     nav_page: NavigationPage,
@@ -96,11 +97,14 @@ impl PageBuilder {
 
     fn with_preference_page(self) -> PrefPage {
         let prefs_page = PreferencesPage::new();
-        self.toolbar.set_content(Some(&prefs_page));
+        let toast_overlay = ToastOverlay::new();
+        toast_overlay.set_child(Some(&prefs_page));
+        self.toolbar.set_content(Some(&toast_overlay));
 
         PrefPage {
             nav_page: self.nav_page,
             prefs_page,
+            toast_overlay,
         }
     }
 
