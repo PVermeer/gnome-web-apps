@@ -15,18 +15,21 @@
 	},
 	"runArgs": [
 		"--device",
-		"/dev/dri",
-		"--device",
-		"/dev/fuse",
-		"--privileged"
+		"/dev/dri"
+		// "--device",
+		// "/dev/fuse"
+		// "--privileged"
 	],
-	// "containerEnv": {
-	// 	"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
-	// },
-	// "mounts": [
-	// 	"type=bind,source=/run/user/1000,target=/run/user/1000"
-	// ],
-	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && sudo dbus-daemon --system",
+	"containerEnv": {
+		"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
+	},
+	"mounts": [
+		"type=bind,source=/run/user/1000,target=/run/user/1000"
+	],
+	"postStartCommand": {
+		"update": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable))"
+		// "dbus": "sudo dbus-daemon --system"
+	},
 	"remoteUser": "vscode",
 	"customizations": {
 		"vscode": {
