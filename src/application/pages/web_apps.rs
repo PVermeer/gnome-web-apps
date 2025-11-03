@@ -94,7 +94,7 @@ impl WebAppsPage {
             pref_group.add(&status_page);
         } else {
             for desktop_file in web_app_desktop_files {
-                let web_app_row = self.clone().build_app_row(desktop_file);
+                let web_app_row = self.clone().build_app_row(app, desktop_file);
                 pref_group.add(&web_app_row);
             }
         }
@@ -102,7 +102,11 @@ impl WebAppsPage {
         pref_group
     }
 
-    fn build_app_row(self: Rc<Self>, desktop_file: Rc<RefCell<DesktopEntry>>) -> ActionRow {
+    fn build_app_row(
+        self: Rc<Self>,
+        app: &Rc<App>,
+        desktop_file: Rc<RefCell<DesktopEntry>>,
+    ) -> ActionRow {
         let desktop_file_borrow = desktop_file.borrow();
 
         let app_name = desktop_file_borrow
@@ -120,9 +124,11 @@ impl WebAppsPage {
         app_row.add_suffix(&suffix);
 
         drop(desktop_file_borrow);
+        let app_clone = app.clone();
 
         app_row.connect_activated(move |_| {
             let app_page = WebAppView::new(&desktop_file.clone(), &self.locales);
+            app_page.init(&app_clone);
             self.nav_view.push(app_page.get_navpage());
         });
 

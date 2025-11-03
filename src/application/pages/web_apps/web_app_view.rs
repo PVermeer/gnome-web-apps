@@ -1,12 +1,17 @@
+mod icon_picker;
+
 use super::WebAppsPage;
 use crate::{
-    application::pages::{NavPage, PrefPage},
+    application::{
+        App,
+        pages::{NavPage, PrefPage, web_apps::web_app_view::icon_picker::IconPicker},
+    },
     config,
 };
 use freedesktop_desktop_entry::DesktopEntry;
 use libadwaita::{
-    ActionRow, ButtonContent, EntryRow, NavigationPage, PreferencesGroup, Toast, ToastOverlay,
-    WrapBox,
+    ActionRow, ButtonContent, EntryRow, NavigationPage, PreferencesGroup, PreferencesPage, Toast,
+    ToastOverlay, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -19,6 +24,10 @@ use validator::ValidateUrl;
 
 pub struct WebAppView {
     nav_page: NavigationPage,
+    desktop_file: Rc<RefCell<DesktopEntry>>,
+    locales: Vec<String>,
+    prefs_page: PreferencesPage,
+    toast_overlay: ToastOverlay,
 }
 impl NavPage for WebAppView {
     fn get_navpage(&self) -> &NavigationPage {
@@ -50,25 +59,30 @@ impl WebAppView {
 
         drop(desktop_file_borrow);
 
-        let header = Self::build_app_header(desktop_file, locales);
-        let general_pref_group = Self::build_general_pref_group(desktop_file, &toast_overlay);
-
-        prefs_page.add(&header);
-        prefs_page.add(&general_pref_group);
-
-        Self { nav_page }
+        Self {
+            nav_page,
+            desktop_file: desktop_file.clone(),
+            locales: locales.to_owned(),
+            prefs_page,
+            toast_overlay,
+        }
     }
 
-    fn build_app_header(
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        locales: &[String],
-    ) -> PreferencesGroup {
-        let desktop_file_borrow = desktop_file.borrow_mut();
+    pub fn init(&self, app: &Rc<App>) {
+        let header = self.build_app_header();
+        let general_pref_group = self.build_general_pref_group(app);
+
+        self.prefs_page.add(&header);
+        self.prefs_page.add(&general_pref_group);
+    }
+
+    fn build_app_header(&self) -> PreferencesGroup {
+        let desktop_file_borrow = self.desktop_file.borrow_mut();
 
         let pref_group = PreferencesGroup::builder().build();
         let content_box = gtk::Box::new(Orientation::Vertical, 6);
         let app_name = desktop_file_borrow
-            .name(locales)
+            .name(&self.locales)
             .unwrap_or(Cow::Borrowed("No name..."));
         let app_label = Label::builder()
             .label(app_name)
@@ -121,32 +135,33 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_general_pref_group(
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        toast_overlay: &ToastOverlay,
-    ) -> PreferencesGroup {
+    fn build_general_pref_group(&self, app: &Rc<App>) -> PreferencesGroup {
         let button_content = ButtonContent::builder()
             .label("Update icon")
             .icon_name("software-update-available-symbolic")
             .build();
         let edit_icon_button = Button::builder().child(&button_content).build();
-        edit_icon_button.connect_clicked(|_| debug!("TODO"));
+
+        let app_clone = app.clone();
+        let desktop_file_clone = self.desktop_file.clone();
+        edit_icon_button.connect_clicked(move |_| {
+            let icon_picker = IconPicker::new(&desktop_file_clone);
+            icon_picker.init();
+            icon_picker.show_dialog(&app_clone);
+        });
 
         let pref_group = PreferencesGroup::builder()
             .header_suffix(&edit_icon_button)
             .build();
 
-        let url_row = Self::build_url_row(desktop_file, toast_overlay);
+        let url_row = self.build_url_row();
         pref_group.add(&url_row);
 
         pref_group
     }
 
-    fn build_url_row(
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        toast_overlay: &ToastOverlay,
-    ) -> EntryRow {
-        let desktop_file_borrow = desktop_file.borrow();
+    fn build_url_row(&self) -> EntryRow {
+        let desktop_file_borrow = self.desktop_file.borrow();
 
         let url = desktop_file_borrow
             .desktop_entry(config::DesktopFile::URL_KEY)
@@ -164,8 +179,8 @@ impl WebAppView {
         entry_row.add_suffix(&validate_icon);
 
         drop(desktop_file_borrow);
-        let desktop_file_clone = desktop_file.clone();
-        let toast_overlay_clone = toast_overlay.clone();
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
 
         entry_row.connect_changed(move |entry_row| {
             let is_valid = entry_row.text().validate_url();
