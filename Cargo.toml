@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1"
 env_logger = "0"
 freedesktop-desktop-entry = "0"
+gtk = { version = "*", features = ["v4_8"], package = "gtk4" }
 libadwaita = { version = "0", features = ["v1_7"] }
 log = "0"
 reqwest = "0"

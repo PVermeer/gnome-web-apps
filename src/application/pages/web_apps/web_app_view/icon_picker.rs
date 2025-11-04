@@ -1,93 +1,79 @@
 use crate::{application::App, config};
 use anyhow::Result;
 use freedesktop_desktop_entry::DesktopEntry;
+use gtk::{
+    self, Align, Button, ContentFit, FlowBox, Label, Orientation, Picture, SelectionMode,
+    gdk_pixbuf::Pixbuf,
+    prelude::{BoxExt, ButtonExt, ListBoxRowExt, WidgetExt},
+};
 use libadwaita::{
-    AlertDialog, PreferencesGroup, PreferencesPage, PreferencesRow, ResponseAppearance, Spinner,
+    AlertDialog, ButtonContent, ButtonRow, PreferencesGroup, PreferencesPage, PreferencesRow,
+    ResponseAppearance, Spinner, StatusPage,
     gio::{Cancellable, MemoryInputStream},
     glib,
-    gtk::{
-        self, Align, FlowBox, Label, Orientation, Picture, SelectionMode,
-        gdk_pixbuf::Pixbuf,
-        prelude::{BoxExt, WidgetExt},
-    },
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::{debug, error, info};
 use scraper::{Html, Selector};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc, time::Duration};
 
 pub struct IconPicker {
     prefs_page: PreferencesPage,
     desktop_file: Rc<RefCell<DesktopEntry>>,
+    icons: Rc<RefCell<HashMap<String, Pixbuf>>>,
+    pref_row_icons: PreferencesRow,
+    pref_row_icons_fail: PreferencesRow,
+    pref_group_icons_reset_button: Button,
+    pref_group_icons_add_button_row: ButtonRow,
     content_box: gtk::Box,
-    flowbox: FlowBox,
     spinner: Spinner,
 }
 impl IconPicker {
-    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
-        let content_box = gtk::Box::new(Orientation::Horizontal, 0);
-        let spinner = Spinner::builder()
-            .height_request(48)
-            .width_request(48)
-            .halign(Align::Center)
-            .valign(Align::Center)
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        let flowbox = FlowBox::builder()
-            .column_spacing(10)
-            .row_spacing(10)
-            .homogeneous(true)
-            .max_children_per_line(5)
-            .selection_mode(SelectionMode::Single)
-            .build();
-        content_box.append(&spinner);
+    const FETCH_TIMEOUT: u64 = 5; // Seconds
 
+    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
+        let icons = Rc::new(RefCell::new(HashMap::new()));
+        let content_box = gtk::Box::new(Orientation::Horizontal, 0);
+        let spinner = Self::build_spinner();
         let prefs_page = PreferencesPage::new();
-        let pref_group = PreferencesGroup::builder().title("Online icons").build();
-        let pref_row = PreferencesRow::builder().child(&flowbox).build();
-        pref_group.add(&pref_row);
-        prefs_page.add(&pref_group);
+        let pref_row_icons = Self::build_pref_row_icons();
+        let pref_row_icons_fail = Self::build_pref_row_icons_fail();
+        let (pref_group_icons, pref_group_icons_reset_button) = Self::build_pref_group_icons();
+        let pref_group_icons_add_button_row = Self::build_pref_row_add_icon();
+
+        prefs_page.add(&pref_group_icons);
+        pref_group_icons.add(&pref_row_icons);
+        pref_group_icons.add(&pref_row_icons_fail);
+        pref_group_icons.add(&pref_group_icons_add_button_row);
+
+        content_box.append(&spinner);
+        content_box.append(&prefs_page);
 
         Rc::new(Self {
             prefs_page,
             desktop_file: desktop_file.clone(),
+            icons,
+            pref_row_icons,
+            pref_row_icons_fail,
+            pref_group_icons_reset_button,
+            pref_group_icons_add_button_row,
             content_box,
-            flowbox,
             spinner,
         })
     }
 
     pub fn init(self: &Rc<Self>) {
-        let url: String;
-        {
-            let desktop_file_borrow = self.desktop_file.borrow();
-            url = desktop_file_borrow
-                .desktop_entry(config::DesktopFile::URL_KEY)
-                .unwrap_or_default()
-                .to_string();
-        }
+        self.reset();
 
         let self_clone = self.clone();
-        glib::spawn_future_local(async move {
-            let online_icons = self_clone.get_online_icons(&url).await.unwrap();
 
-            for icon in online_icons {
-                let frame = gtk::Box::new(Orientation::Vertical, 0);
-                frame.set_size_request(96, 96);
-                let picture = Picture::new();
-                picture.set_pixbuf(Some(&icon));
-                frame.append(&picture);
+        self.pref_group_icons_reset_button
+            .connect_clicked(move |_| {
+                self_clone.reset();
+            });
 
-                let label = Label::builder()
-                    .label(format!("{} x {}", icon.width(), icon.height()))
-                    .build();
-                frame.append(&label);
-
-                self_clone.flowbox.insert(&frame, -1);
-            }
-            self_clone.content_box.remove(&self_clone.spinner);
-            self_clone.content_box.append(&self_clone.prefs_page);
+        self.pref_group_icons_add_button_row.connect_activated(|_| {
+            debug!("TODO");
         });
     }
 
@@ -110,12 +96,69 @@ impl IconPicker {
         dialog.present(Some(&app.window.adw_window));
     }
 
-    async fn get_online_icons(self: &Rc<Self>, url: &str) -> Result<Vec<Pixbuf>> {
-        let url = url.to_string();
-        let mut icons = Vec::new();
-        let client = reqwest::Client::new();
+    fn reset(self: &Rc<Self>) {
+        let self_clone = self.clone();
+        let url: String;
+        {
+            let desktop_file_borrow = self_clone.desktop_file.borrow();
+            url = desktop_file_borrow
+                .desktop_entry(config::DesktopFile::URL_KEY)
+                .unwrap_or_default()
+                .to_string();
+        }
 
-        let html_text = reqwest::get(url).await.unwrap().text().await.unwrap();
+        glib::spawn_future_local(async move {
+            self_clone.prefs_page.set_visible(false);
+            self_clone.spinner.set_visible(true);
+            self_clone.pref_row_icons.set_visible(false);
+            self_clone.pref_row_icons_fail.set_visible(true);
+
+            if let Err(error) = self_clone.set_online_icons(&url).await {
+                error!("{error}");
+                self_clone.pref_row_icons.set_visible(false);
+                self_clone.pref_row_icons_fail.set_visible(true);
+            } else {
+                let flow_box = Self::build_pref_row_icons_flow_box();
+                let pref_row_icons = &self_clone.pref_row_icons;
+                pref_row_icons.set_child(Some(&flow_box));
+
+                let icons = self_clone.icons.borrow();
+                let mut icons: Vec<(&String, &Pixbuf)> = icons.iter().collect();
+
+                icons.sort_by_key(|(_, a)| Reverse(a.byte_length()));
+
+                for (_, icon) in icons {
+                    let frame = gtk::Box::new(Orientation::Vertical, 0);
+                    let picture = Picture::new();
+                    picture.set_pixbuf(Some(icon));
+                    picture.set_content_fit(ContentFit::ScaleDown);
+                    frame.append(&picture);
+
+                    let size_text = format!("{} x {}", icon.width(), icon.height());
+                    let label = Label::builder().label(&size_text).build();
+                    frame.append(&label);
+
+                    flow_box.insert(&frame, -1);
+                }
+
+                self_clone.pref_row_icons.set_visible(true);
+                self_clone.pref_row_icons_fail.set_visible(false);
+            }
+
+            self_clone.spinner.set_visible(false);
+            self_clone.prefs_page.set_visible(true);
+        });
+    }
+
+    async fn set_online_icons(self: &Rc<Self>, url: &str) -> Result<()> {
+        debug!("Fetching online icons");
+        let url = url.to_string();
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(Self::FETCH_TIMEOUT))
+            .connect_timeout(Duration::from_secs(Self::FETCH_TIMEOUT))
+            .build()?;
+
+        let html_text = tokio::spawn(client.get(url).send()).await??.text().await?;
         let fragment = Html::parse_document(&html_text);
         let selector =
             Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
@@ -132,6 +175,7 @@ impl IconPicker {
         for url in urls {
             let client = client.clone();
             let handle = tokio::spawn(async move {
+                debug!("Fetching icon: {url}");
                 let response = client.get(&url).send().await?;
                 let bytes = response.bytes().await?;
                 Ok::<_, reqwest::Error>((bytes, url))
@@ -139,8 +183,15 @@ impl IconPicker {
             handles.push(handle);
         }
 
+        let mut results = Vec::new();
         for handle in handles {
-            let (image_bytes, url) = handle.await.unwrap().unwrap();
+            let result = handle.await??;
+            results.push(result);
+        }
+
+        let mut icons = self.icons.borrow_mut();
+        for (image_bytes, url) in results {
+            debug!("Converting image data to Pixbuf: {url}");
             let g_bytes = glib::Bytes::from(&image_bytes);
             let stream = MemoryInputStream::from_bytes(&g_bytes);
             let Ok(pixbuf) = Pixbuf::from_stream(&stream, Cancellable::NONE) else {
@@ -148,9 +199,70 @@ impl IconPicker {
                 continue;
             };
 
-            icons.push(pixbuf);
+            icons.insert(url, pixbuf);
         }
 
-        Ok(icons)
+        Ok(())
+    }
+
+    fn build_spinner() -> Spinner {
+        Spinner::builder()
+            .height_request(48)
+            .width_request(96)
+            .halign(Align::Center)
+            .valign(Align::Center)
+            .hexpand(true)
+            .vexpand(true)
+            .build()
+    }
+
+    fn build_pref_group_icons() -> (PreferencesGroup, Button) {
+        let content = ButtonContent::builder()
+            .label("Reset")
+            .icon_name("folder-download-symbolic")
+            .build();
+        let button = Button::builder()
+            .css_classes(["flat"])
+            .child(&content)
+            .build();
+
+        let pref_group = PreferencesGroup::builder()
+            .title("Icons")
+            .header_suffix(&button)
+            .build();
+
+        (pref_group, button)
+    }
+
+    fn build_pref_row_add_icon() -> ButtonRow {
+        ButtonRow::builder()
+            .title("Add icon")
+            .start_icon_name("list-add-symbolic")
+            .build()
+    }
+
+    fn build_pref_row_icons_flow_box() -> FlowBox {
+        FlowBox::builder()
+            .height_request(96)
+            .column_spacing(10)
+            .row_spacing(10)
+            .homogeneous(false)
+            .max_children_per_line(5)
+            .selection_mode(SelectionMode::Single)
+            .build()
+    }
+
+    fn build_pref_row_icons() -> PreferencesRow {
+        PreferencesRow::builder().build()
+    }
+
+    fn build_pref_row_icons_fail() -> PreferencesRow {
+        let status_page = StatusPage::builder()
+            .title("No icons found")
+            .description("Try adding one")
+            .css_classes(["compact"])
+            .build();
+
+        PreferencesRow::builder().child(&status_page).build()
     }
 }

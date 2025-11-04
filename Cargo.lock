@@ -665,6 +665,7 @@ dependencies = [
  "anyhow",
  "env_logger",
  "freedesktop-desktop-entry",
+ "gtk4",
  "libadwaita",
  "log",
  "reqwest",
