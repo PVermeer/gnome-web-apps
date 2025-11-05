@@ -61,14 +61,14 @@ impl IconPicker {
     }
 
     pub fn init(self: &Rc<Self>, app: &Rc<App>) {
-        self.reset(app);
+        self.load_icons(app);
 
         let self_clone = self.clone();
         let app_clone = app.clone();
 
         self.pref_group_icons_reset_button
             .connect_clicked(move |_| {
-                self_clone.reset(&app_clone);
+                self_clone.load_icons(&app_clone);
             });
 
         self.pref_group_icons_add_button_row.connect_activated(|_| {
@@ -95,7 +95,7 @@ impl IconPicker {
         dialog.present(Some(&app.window.adw_window));
     }
 
-    fn reset(self: &Rc<Self>, app: &Rc<App>) {
+    fn load_icons(self: &Rc<Self>, app: &Rc<App>) {
         let self_clone = self.clone();
         let app_clone = app.clone();
         let url: String;
