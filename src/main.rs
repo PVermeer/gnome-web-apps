@@ -6,8 +6,7 @@ use env_logger::Env;
 use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
 use log::LevelFilter;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let mut logger = env_logger::Builder::from_env(Env::default().default_filter_or("info"));
     if cfg!(debug_assertions) {
         // Only enable debug logging for this app

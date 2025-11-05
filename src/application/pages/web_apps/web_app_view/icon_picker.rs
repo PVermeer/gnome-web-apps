@@ -1,5 +1,5 @@
 use crate::{application::App, config};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
     self, Align, Button, ContentFit, FlowBox, Label, Orientation, Picture, SelectionMode,
@@ -15,7 +15,7 @@ use libadwaita::{
 };
 use log::{debug, error, info};
 use scraper::{Html, Selector};
-use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc, time::Duration};
+use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc};
 
 pub struct IconPicker {
     prefs_page: PreferencesPage,
@@ -29,8 +29,6 @@ pub struct IconPicker {
     spinner: Spinner,
 }
 impl IconPicker {
-    const FETCH_TIMEOUT: u64 = 5; // Seconds
-
     pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
@@ -62,14 +60,15 @@ impl IconPicker {
         })
     }
 
-    pub fn init(self: &Rc<Self>) {
-        self.reset();
+    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
+        self.reset(app);
 
         let self_clone = self.clone();
+        let app_clone = app.clone();
 
         self.pref_group_icons_reset_button
             .connect_clicked(move |_| {
-                self_clone.reset();
+                self_clone.reset(&app_clone);
             });
 
         self.pref_group_icons_add_button_row.connect_activated(|_| {
@@ -96,8 +95,9 @@ impl IconPicker {
         dialog.present(Some(&app.window.adw_window));
     }
 
-    fn reset(self: &Rc<Self>) {
+    fn reset(self: &Rc<Self>, app: &Rc<App>) {
         let self_clone = self.clone();
+        let app_clone = app.clone();
         let url: String;
         {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
@@ -113,7 +113,7 @@ impl IconPicker {
             self_clone.pref_row_icons.set_visible(false);
             self_clone.pref_row_icons_fail.set_visible(true);
 
-            if let Err(error) = self_clone.set_online_icons(&url).await {
+            if let Err(error) = self_clone.set_online_icons(&url, &app_clone).await {
                 error!("{error}");
                 self_clone.pref_row_icons.set_visible(false);
                 self_clone.pref_row_icons_fail.set_visible(true);
@@ -150,15 +150,11 @@ impl IconPicker {
         });
     }
 
-    async fn set_online_icons(self: &Rc<Self>, url: &str) -> Result<()> {
+    async fn set_online_icons(self: &Rc<Self>, url: &str, app: &Rc<App>) -> Result<()> {
         debug!("Fetching online icons");
         let url = url.to_string();
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(Self::FETCH_TIMEOUT))
-            .connect_timeout(Duration::from_secs(Self::FETCH_TIMEOUT))
-            .build()?;
 
-        let html_text = tokio::spawn(client.get(url).send()).await??.text().await?;
+        let html_text = app.fetch.get_as_string(url).await?;
         let fragment = Html::parse_document(&html_text);
         let selector =
             Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
@@ -173,25 +169,26 @@ impl IconPicker {
 
         let mut handles = Vec::new();
         for url in urls {
-            let client = client.clone();
-            let handle = tokio::spawn(async move {
-                debug!("Fetching icon: {url}");
-                let response = client.get(&url).send().await?;
-                let bytes = response.bytes().await?;
-                Ok::<_, reqwest::Error>((bytes, url))
+            let app_clone = app.clone();
+            let url_clone = url.clone();
+            // Spawn in parallel on main thread
+            let handle = glib::spawn_future_local(async move {
+                app_clone.fetch.get_as_bytes(url_clone.clone()).await
             });
-            handles.push(handle);
+            handles.push((handle, url));
         }
 
-        let mut results = Vec::new();
         for handle in handles {
-            let result = handle.await??;
-            results.push(result);
-        }
-
-        let mut icons = self.icons.borrow_mut();
-        for (image_bytes, url) in results {
-            debug!("Converting image data to Pixbuf: {url}");
+            let (handle, url) = handle;
+            let image_bytes = match handle.await {
+                Ok(Ok(text)) => Ok(text),
+                Ok(Err(error)) => Err(error),
+                Err(_) => bail!("Fetching url failed: {url}"),
+            };
+            let Ok(image_bytes) = image_bytes else {
+                error!("Failed to fetch bytes: {url}");
+                continue;
+            };
             let g_bytes = glib::Bytes::from(&image_bytes);
             let stream = MemoryInputStream::from_bytes(&g_bytes);
             let Ok(pixbuf) = Pixbuf::from_stream(&stream, Cancellable::NONE) else {
@@ -199,6 +196,7 @@ impl IconPicker {
                 continue;
             };
 
+            let mut icons = self.icons.borrow_mut();
             icons.insert(url, pixbuf);
         }
 

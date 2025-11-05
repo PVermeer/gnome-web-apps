@@ -146,7 +146,7 @@ impl WebAppView {
         let desktop_file_clone = self.desktop_file.clone();
         edit_icon_button.connect_clicked(move |_| {
             let icon_picker = IconPicker::new(&desktop_file_clone);
-            icon_picker.init();
+            icon_picker.init(&app_clone);
             icon_picker.show_dialog(&app_clone);
         });
 

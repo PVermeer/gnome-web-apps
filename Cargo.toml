@@ -10,8 +10,7 @@ freedesktop-desktop-entry = "0"
 gtk = { version = "*", features = ["v4_8"], package = "gtk4" }
 libadwaita = { version = "0", features = ["v1_7"] }
 log = "0"
-reqwest = "0"
 scraper = { version = "0", features = ["atomic"] }
-tokio = { version = "1", features = ["full"] }
+ureq = { version = "3.1", features = ["gzip"] }
 validator = "0"
 xdg = "3"
