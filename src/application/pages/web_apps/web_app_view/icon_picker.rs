@@ -152,9 +152,9 @@ impl IconPicker {
 
     async fn set_online_icons(self: &Rc<Self>, url: &str, app: &Rc<App>) -> Result<()> {
         debug!("Fetching online icons");
-        let url = url.to_string();
+        let url_clone = url.to_string();
 
-        let html_text = app.fetch.get_as_string(url).await?;
+        let html_text = app.fetch.get_as_string(url_clone).await?;
         let fragment = Html::parse_document(&html_text);
         let selector =
             Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
@@ -172,32 +172,31 @@ impl IconPicker {
             let app_clone = app.clone();
             let url_clone = url.clone();
             // Spawn in parallel on main thread
-            let handle = glib::spawn_future_local(async move {
-                app_clone.fetch.get_as_bytes(url_clone.clone()).await
-            });
+            let handle =
+                glib::spawn_future_local(
+                    async move { app_clone.fetch.get_as_bytes(url_clone).await },
+                );
             handles.push((handle, url));
         }
 
         for handle in handles {
             let (handle, url) = handle;
-            let image_bytes = match handle.await {
-                Ok(Ok(text)) => Ok(text),
-                Ok(Err(error)) => Err(error),
-                Err(_) => bail!("Fetching url failed: {url}"),
-            };
-            let Ok(image_bytes) = image_bytes else {
-                error!("Failed to fetch bytes: {url}");
+            let Ok(Ok(image_bytes)) = handle.await else {
+                error!("Failed to fetch image: '{url}'");
                 continue;
             };
             let g_bytes = glib::Bytes::from(&image_bytes);
             let stream = MemoryInputStream::from_bytes(&g_bytes);
             let Ok(pixbuf) = Pixbuf::from_stream(&stream, Cancellable::NONE) else {
-                error!("Failed to convert image: {url}");
+                error!("Failed to convert image: '{url}'");
                 continue;
             };
 
-            let mut icons = self.icons.borrow_mut();
-            icons.insert(url, pixbuf);
+            self.icons.borrow_mut().insert(url, pixbuf);
+        }
+
+        if self.icons.borrow().is_empty() {
+            bail!("No icons found for: {url}")
         }
 
         Ok(())
