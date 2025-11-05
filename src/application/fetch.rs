@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use gtk::gio::{self};
 use log::debug;
+use log::error;
 use std::time::Duration;
 use ureq::Agent;
 
@@ -36,8 +37,8 @@ impl Fetch {
         .await
         {
             Ok(Ok(text)) => Ok(text),
-            Ok(Err(error)) => Err(error),
-            Err(_) => bail!("Fetching url failed: {url}"),
+            Ok(Err(error)) => Self::error_handler(&url, &error),
+            Err(error) => Self::error_handler(&url, &error),
         }
     }
 
@@ -58,8 +59,15 @@ impl Fetch {
         .await
         {
             Ok(Ok(bytes)) => Ok(bytes),
-            Ok(Err(error)) => Err(error),
-            Err(_) => bail!("Fetching url failed: {url}"),
+            Ok(Err(error)) => Self::error_handler(&url, &error),
+            Err(error) => Self::error_handler(&url, &error),
         }
+    }
+
+    // Any error logged and a anyhow::Error
+    fn error_handler<R>(url: &str, error: impl std::fmt::Debug) -> Result<R> {
+        let message = format!("Fetching '{url}' failed: '{error:?}'");
+        error!("{message}");
+        bail!(message)
     }
 }
