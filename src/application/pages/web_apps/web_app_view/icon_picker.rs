@@ -114,8 +114,8 @@ impl IconPicker {
                 }
             };
 
-            if let Err(err) = self_clone.save_icon(&app_clone, &icon) {
-                error!("{err:?}");
+            if let Err(error) = self_clone.save_icon(&app_clone, &icon) {
+                error!("{error:?}");
             }
         });
 
@@ -220,7 +220,7 @@ impl IconPicker {
             self_clone.pref_row_icons_fail.set_visible(true);
 
             if let Err(error) = self_clone.set_online_icons(&url, &app_clone).await {
-                error!("{error}");
+                error!("{error:?}");
                 self_clone.pref_row_icons.set_visible(false);
                 self_clone.pref_row_icons_fail.set_visible(true);
             } else {

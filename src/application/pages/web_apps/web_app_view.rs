@@ -39,9 +39,6 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    const LABEL: &str = "web-app-view";
-    const LOG_TARGET: &str = Self::LABEL;
-
     pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>, locales: &[String]) -> Self {
         let desktop_file_borrow = desktop_file.borrow_mut();
 
@@ -103,13 +100,13 @@ impl WebAppView {
         let args = exec_args;
         if let Some(cmd) = command {
             run_button.connect_clicked(move |_| {
-                debug!(target: Self::LOG_TARGET, "Running app: '{} {}'", cmd, args.join(" "));
+                debug!("Running app: '{} {}'", cmd, args.join(" "));
 
                 #[allow(clippy::zombie_processes)]
                 let result = Command::new(cmd.clone()).args(&args).spawn();
 
                 if let Err(error) = result {
-                    error!(target: Self::LOG_TARGET, "Failed to run app '{} {}': {error}", cmd, args.join(" "));
+                    error!("Failed to run app '{} {}': {error:?}", cmd, args.join(" "));
                 }
             });
         }
@@ -186,7 +183,7 @@ impl WebAppView {
         entry_row.connect_changed(move |entry_row| {
             let is_valid = entry_row.text().validate_url();
 
-            debug!(target: Self::LOG_TARGET, "{} is valid: {is_valid}", entry_row.title());
+            debug!("{} is valid: {is_valid}", entry_row.title());
 
             validate_icon.set_visible(!entry_row.text().is_empty() && !is_valid);
             if is_valid {
@@ -220,9 +217,10 @@ impl WebAppView {
             toast_overlay_clone.add_toast(saved_toast);
 
             debug!(
-                target: Self::LOG_TARGET,
                 "Set new URL on `desktop file`: {}",
-                desktop_file_borrow.desktop_entry(config::DesktopFile::URL_KEY).unwrap_or_default()
+                desktop_file_borrow
+                    .desktop_entry(config::DesktopFile::URL_KEY)
+                    .unwrap_or_default()
             );
         });
 

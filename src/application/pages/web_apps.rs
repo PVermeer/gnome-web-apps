@@ -37,9 +37,6 @@ impl NavPage for WebAppsPage {
     }
 }
 impl WebAppsPage {
-    const LABEL: &str = "web-apps-page";
-    const LOG_TARGET: &str = Self::LABEL;
-
     pub fn new() -> Rc<Self> {
         let title = "Web Apps";
         let icon = "preferences-desktop-apps-symbolic";
@@ -136,13 +133,13 @@ impl WebAppsPage {
     }
 
     fn get_owned_desktop_files(self: &Rc<Self>, app: &Rc<App>) -> Vec<Rc<RefCell<DesktopEntry>>> {
-        debug!(target: Self::LOG_TARGET, "Reading user desktop files");
+        debug!("Reading user desktop files");
 
         let owned_web_app_key = config::DesktopFile::GWA_KEY;
         let mut owned_desktop_files = Vec::new();
 
         if cfg!(debug_assertions) {
-            debug!(target: Self::LOG_TARGET, "Adding debug desktop files");
+            debug!("Adding debug desktop files");
 
             let test_desktop_file = DesktopEntry::from_path(
                 Path::new("./assets/WebApp-test.desktop"),
@@ -153,15 +150,15 @@ impl WebAppsPage {
         }
 
         let Some(data_home_path) = app.dirs.data_home.as_ref() else {
-            error!(target: Self::LOG_TARGET, "Could not get data home path");
+            error!("Could not get data home path");
             return owned_desktop_files;
         };
 
         let applications_path = data_home_path.join("applications");
-        debug!(target: Self::LOG_TARGET, "Using path: {}", applications_path.display());
+        debug!("Using path: {}", applications_path.display());
 
         if !applications_path.is_dir() {
-            error!(target: Self::LOG_TARGET, "Could not get applications path");
+            error!("Could not get applications path");
             return owned_desktop_files;
         }
 
@@ -177,7 +174,7 @@ impl WebAppsPage {
                 continue;
             }
 
-            debug!(target: Self::LOG_TARGET, "Found desktop file: {}", desktop_file.path.display());
+            debug!("Found desktop file: {}", desktop_file.path.display());
 
             owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }
