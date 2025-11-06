@@ -144,9 +144,10 @@ impl WebAppView {
 
         let app_clone = app.clone();
         let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
         edit_icon_button.connect_clicked(move |_| {
             let icon_picker = IconPicker::new(&desktop_file_clone);
-            icon_picker.init(&app_clone);
+            icon_picker.init(&app_clone, Some(&toast_overlay_clone));
             icon_picker.show_dialog(&app_clone);
         });
 

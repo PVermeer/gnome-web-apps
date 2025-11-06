@@ -1,5 +1,5 @@
 use crate::{application::App, config};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
     self, Align, Button, ContentFit, FlowBox, Label, Orientation, Picture, SelectionMode,
@@ -8,27 +8,37 @@ use gtk::{
 };
 use libadwaita::{
     AlertDialog, ButtonContent, ButtonRow, PreferencesGroup, PreferencesPage, PreferencesRow,
-    ResponseAppearance, Spinner, StatusPage,
+    ResponseAppearance, Spinner, StatusPage, Toast, ToastOverlay,
     gio::{Cancellable, MemoryInputStream},
     glib,
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::{debug, error, info};
+use sanitize_filename::sanitize;
 use scraper::{Html, Selector};
-use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, cmp::Reverse, collections::HashMap, path::Path, rc::Rc};
+
+struct Icon {
+    filename: String,
+    pixbuf: Pixbuf,
+}
 
 pub struct IconPicker {
     prefs_page: PreferencesPage,
     desktop_file: Rc<RefCell<DesktopEntry>>,
-    icons: Rc<RefCell<HashMap<String, Pixbuf>>>,
+    toast_overlay: RefCell<Option<ToastOverlay>>,
+    icons: Rc<RefCell<HashMap<String, Rc<Icon>>>>,
     pref_row_icons: PreferencesRow,
     pref_row_icons_fail: PreferencesRow,
+    pref_row_icons_flow_box: RefCell<Option<FlowBox>>,
     pref_group_icons_reset_button: Button,
     pref_group_icons_add_button_row: ButtonRow,
     content_box: gtk::Box,
     spinner: Spinner,
 }
 impl IconPicker {
+    const ICON_DIR: &str = "icons";
+
     pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
@@ -50,9 +60,11 @@ impl IconPicker {
         Rc::new(Self {
             prefs_page,
             desktop_file: desktop_file.clone(),
+            toast_overlay: RefCell::new(None),
             icons,
             pref_row_icons,
             pref_row_icons_fail,
+            pref_row_icons_flow_box: RefCell::new(None),
             pref_group_icons_reset_button,
             pref_group_icons_add_button_row,
             content_box,
@@ -60,11 +72,14 @@ impl IconPicker {
         })
     }
 
-    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
+    pub fn init(self: &Rc<Self>, app: &Rc<App>, toast_overlay: Option<&ToastOverlay>) {
         self.load_icons(app);
 
         let self_clone = self.clone();
         let app_clone = app.clone();
+        if let Some(toast_overlay) = toast_overlay {
+            *self.toast_overlay.borrow_mut() = Some(toast_overlay.clone());
+        }
 
         self.pref_group_icons_reset_button
             .connect_clicked(move |_| {
@@ -88,11 +103,102 @@ impl IconPicker {
         dialog.set_default_response(Some("save"));
         dialog.set_close_response("cancel");
 
-        dialog.connect_response(Some("save"), |_, _| {
-            debug!("TODO Saving icon");
+        let self_clone = self.clone();
+        let app_clone = app.clone();
+        dialog.connect_response(Some("save"), move |_, _| {
+            let icon = match self_clone.get_selected_icon() {
+                Ok(icon) => icon,
+                Err(error) => {
+                    error!("{error:?}");
+                    return;
+                }
+            };
+
+            if let Err(err) = self_clone.save_icon(&app_clone, &icon) {
+                error!("{err:?}");
+            }
         });
 
         dialog.present(Some(&app.window.adw_window));
+    }
+
+    fn save_icon(&self, app: &Rc<App>, icon: &Rc<Icon>) -> Result<()> {
+        let mut desktop_file = self.desktop_file.borrow_mut();
+        let app_id = desktop_file
+            .desktop_entry(config::DesktopFile::ID_KEY)
+            .context("No app id on desktop file!")?;
+        let data_dir = app
+            .dirs
+            .get_data_home()
+            .context("No data dir???")?
+            .to_string_lossy()
+            .to_string();
+
+        let filename = match Path::new(&icon.filename).extension() {
+            Some(extension) => {
+                if extension == "png" {
+                    icon.filename.clone()
+                } else {
+                    format!("{}.png", icon.filename)
+                }
+            }
+            None => format!("{}.png", icon.filename),
+        };
+
+        let save_dir = format!("{data_dir}{}", Self::ICON_DIR);
+        let icon_name = sanitize(format!("{app_id}-{filename}"));
+        let save_path = format!("{save_dir}/{icon_name}");
+
+        let toast_overlay = self.toast_overlay.borrow().clone();
+
+        debug!("Saving {icon_name} to fs: {save_path}");
+        let save_to_fs = || -> Result<()> {
+            app.dirs
+                .place_data_file(&save_path)
+                .context("Failed to create paths")?;
+            icon.pixbuf
+                .savev(save_path.clone(), "png", &[])
+                .context("Failed to save to fs")?;
+            Ok(())
+        };
+
+        if let Err(error) = save_to_fs() {
+            if let Some(toast_overlay) = toast_overlay {
+                toast_overlay.add_toast(Toast::new("Error saving icon"));
+            }
+            bail!(error)
+        }
+
+        if let Some(toast_overlay) = toast_overlay {
+            toast_overlay.add_toast(Toast::new("Saved icon"));
+        }
+        desktop_file.add_desktop_entry("Icon".to_string(), save_path);
+
+        Ok(())
+    }
+
+    fn get_selected_icon(self: &Rc<Self>) -> Result<Rc<Icon>> {
+        let url_or_path = self
+            .clone()
+            .pref_row_icons_flow_box
+            .borrow()
+            .clone()
+            .context("Flow box does not exist")?
+            .selected_children()
+            .first()
+            .context("Flowbox does not have a selected item")?
+            .first_child()
+            .context("Could not get container of selected flowbox item")?
+            .widget_name()
+            .to_string();
+
+        let icon = self
+            .icons
+            .borrow()
+            .get(&url_or_path)
+            .context("Cannot find icon in HashMap???")?
+            .clone();
+        Ok(icon)
     }
 
     fn load_icons(self: &Rc<Self>, app: &Rc<App>) {
@@ -123,23 +229,25 @@ impl IconPicker {
                 pref_row_icons.set_child(Some(&flow_box));
 
                 let icons = self_clone.icons.borrow();
-                let mut icons: Vec<(&String, &Pixbuf)> = icons.iter().collect();
+                let mut icons: Vec<(&String, &Rc<Icon>)> = icons.iter().collect();
 
-                icons.sort_by_key(|(_, a)| Reverse(a.byte_length()));
+                icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
 
-                for (_, icon) in icons {
+                for (url, icon) in icons {
                     let frame = gtk::Box::new(Orientation::Vertical, 0);
+                    frame.set_widget_name(url);
                     let picture = Picture::new();
-                    picture.set_pixbuf(Some(icon));
+                    picture.set_pixbuf(Some(&icon.pixbuf));
                     picture.set_content_fit(ContentFit::ScaleDown);
                     frame.append(&picture);
 
-                    let size_text = format!("{} x {}", icon.width(), icon.height());
+                    let size_text = format!("{} x {}", icon.pixbuf.width(), icon.pixbuf.height());
                     let label = Label::builder().label(&size_text).build();
                     frame.append(&label);
 
                     flow_box.insert(&frame, -1);
                 }
+                *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
 
                 self_clone.pref_row_icons.set_visible(true);
                 self_clone.pref_row_icons_fail.set_visible(false);
@@ -150,7 +258,7 @@ impl IconPicker {
         });
     }
 
-    async fn set_online_icons(self: &Rc<Self>, url: &str, app: &Rc<App>) -> Result<()> {
+    async fn set_online_icons(&self, url: &str, app: &Rc<App>) -> Result<()> {
         debug!("Fetching online icons");
         let url_clone = url.to_string();
 
@@ -181,6 +289,10 @@ impl IconPicker {
 
         for handle in handles {
             let (handle, url) = handle;
+            let Some(filename) = url.split('/').next_back() else {
+                error!("Failed to parse url for filename: '{url}'");
+                continue;
+            };
             let Ok(Ok(image_bytes)) = handle.await else {
                 error!("Failed to fetch image: '{url}'");
                 continue;
@@ -191,8 +303,11 @@ impl IconPicker {
                 error!("Failed to convert image: '{url}'");
                 continue;
             };
-
-            self.icons.borrow_mut().insert(url, pixbuf);
+            let icon = Icon {
+                filename: filename.to_string(),
+                pixbuf,
+            };
+            self.icons.borrow_mut().insert(url, Rc::new(icon));
         }
 
         if self.icons.borrow().is_empty() {

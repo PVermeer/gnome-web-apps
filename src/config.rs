@@ -14,4 +14,5 @@ pub struct DesktopFile {}
 impl DesktopFile {
     pub const GWA_KEY: &str = "X-GWA";
     pub const URL_KEY: &str = "X-GWA-URL";
+    pub const ID_KEY: &str = "X-GWA-ID";
 }
