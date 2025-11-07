@@ -57,6 +57,7 @@ struct PrefPage {
     nav_page: NavigationPage,
     prefs_page: PreferencesPage,
     toast_overlay: ToastOverlay,
+    header: HeaderBar,
 }
 struct PrefNavPage {
     nav_page: NavigationPage,
@@ -68,6 +69,7 @@ pub struct PageBuilder {
     nav_page: NavigationPage,
     nav_row: ActionRow,
     toolbar: ToolbarView,
+    header: HeaderBar,
 }
 impl PageBuilder {
     fn with_content_box(self) -> ContentPage {
@@ -105,6 +107,7 @@ impl PageBuilder {
             nav_page: self.nav_page,
             prefs_page,
             toast_overlay,
+            header: self.header,
         }
     }
 
@@ -160,6 +163,7 @@ pub trait NavPage {
             nav_page,
             nav_row,
             toolbar,
+            header,
         }
     }
 }

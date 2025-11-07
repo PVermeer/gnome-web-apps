@@ -10,8 +10,8 @@ use crate::{
 };
 use freedesktop_desktop_entry::DesktopEntry;
 use libadwaita::{
-    ActionRow, ButtonContent, EntryRow, NavigationPage, PreferencesGroup, PreferencesPage, Toast,
-    ToastOverlay, WrapBox,
+    ActionRow, ButtonContent, EntryRow, HeaderBar, NavigationPage, PreferencesGroup,
+    PreferencesPage, Toast, ToastOverlay, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -24,10 +24,13 @@ use validator::ValidateUrl;
 
 pub struct WebAppView {
     nav_page: NavigationPage,
+    header: HeaderBar,
     desktop_file: Rc<RefCell<DesktopEntry>>,
+    desktop_file_original: DesktopEntry,
     locales: Vec<String>,
     prefs_page: PreferencesPage,
     toast_overlay: ToastOverlay,
+    reset_button: Button,
 }
 impl NavPage for WebAppView {
     fn get_navpage(&self) -> &NavigationPage {
@@ -39,38 +42,56 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>, locales: &[String]) -> Self {
-        let desktop_file_borrow = desktop_file.borrow_mut();
-
+    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>, locales: &[String]) -> Rc<Self> {
+        let desktop_file_borrow = desktop_file.borrow();
+        let desktop_file_original = desktop_file_borrow.clone(); // Deep clone
         let title = desktop_file_borrow
             .name(locales)
             .unwrap_or(Cow::Borrowed("No name"));
         let icon = "preferences-desktop-apps-symbolic";
-
         let PrefPage {
             nav_page,
             prefs_page,
             toast_overlay,
+            header,
             ..
         } = Self::build_nav_page(&title, icon).with_preference_page();
+        let reset_button = Self::build_header_reset_button();
 
-        drop(desktop_file_borrow);
-
-        Self {
+        Rc::new(Self {
             nav_page,
+            header,
             desktop_file: desktop_file.clone(),
+            desktop_file_original,
             locales: locales.to_owned(),
             prefs_page,
             toast_overlay,
-        }
+            reset_button,
+        })
     }
 
-    pub fn init(&self, app: &Rc<App>) {
-        let header = self.build_app_header();
+    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
+        let self_clone = self.clone();
+        self.header.pack_end(&self.reset_button);
+        self.reset_button
+            .connect_clicked(move |_| self_clone.reset_desktop_file());
+
+        let web_app_header = self.build_app_header();
         let general_pref_group = self.build_general_pref_group(app);
 
-        self.prefs_page.add(&header);
+        self.prefs_page.add(&web_app_header);
         self.prefs_page.add(&general_pref_group);
+    }
+
+    fn build_header_reset_button() -> Button {
+        let reset_button = Button::with_label("Reset");
+        reset_button.set_sensitive(false);
+
+        reset_button
+    }
+
+    fn reset_desktop_file(&self) {
+        println!("TODO Reset button clicked!");
     }
 
     fn build_app_header(&self) -> PreferencesGroup {
@@ -132,7 +153,7 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_general_pref_group(&self, app: &Rc<App>) -> PreferencesGroup {
+    fn build_general_pref_group(self: &Rc<Self>, app: &Rc<App>) -> PreferencesGroup {
         let update_icon_button = self.build_update_icon_button(app);
         let pref_group = PreferencesGroup::builder()
             .header_suffix(&update_icon_button)
@@ -144,7 +165,7 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_url_row(&self) -> EntryRow {
+    fn build_url_row(self: &Rc<Self>) -> EntryRow {
         let desktop_file_borrow = self.desktop_file.borrow();
 
         let url = desktop_file_borrow
@@ -182,10 +203,12 @@ impl WebAppView {
             }
         });
 
+        let self_clone = self.clone();
         entry_row.connect_apply(move |entry_row| {
+            let key = config::DesktopFile::URL_KEY;
             let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
             let undo_text = desktop_file_borrow
-                .desktop_entry(config::DesktopFile::URL_KEY)
+                .desktop_entry(key)
                 .unwrap_or_default()
                 .to_string();
 
@@ -193,6 +216,7 @@ impl WebAppView {
                 config::DesktopFile::URL_KEY.to_string(),
                 entry_row.text().to_string(),
             );
+            drop(desktop_file_borrow);
 
             let entry_row_clone = entry_row.clone();
             let saved_toast = Toast::builder().title("Saved").build();
@@ -201,11 +225,13 @@ impl WebAppView {
                 entry_row_clone.set_text(&undo_text);
             });
             toast_overlay_clone.add_toast(saved_toast);
+            self_clone.desktop_file_entry_has_changed();
 
             debug!(
                 "Set new URL on `desktop file`: {}",
-                desktop_file_borrow
-                    .desktop_entry(config::DesktopFile::URL_KEY)
+                desktop_file_clone
+                    .borrow()
+                    .desktop_entry(key)
                     .unwrap_or_default()
             );
         });
@@ -230,5 +256,13 @@ impl WebAppView {
         });
 
         button
+    }
+
+    fn desktop_file_entry_has_changed(&self) {
+        if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
+            self.reset_button.set_sensitive(false);
+        } else {
+            self.reset_button.set_sensitive(true);
+        }
     }
 }
