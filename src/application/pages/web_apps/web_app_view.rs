@@ -133,23 +133,9 @@ impl WebAppView {
     }
 
     fn build_general_pref_group(&self, app: &Rc<App>) -> PreferencesGroup {
-        let button_content = ButtonContent::builder()
-            .label("Update icon")
-            .icon_name("software-update-available-symbolic")
-            .build();
-        let edit_icon_button = Button::builder().child(&button_content).build();
-
-        let app_clone = app.clone();
-        let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
-        edit_icon_button.connect_clicked(move |_| {
-            let icon_picker = IconPicker::new(&desktop_file_clone);
-            icon_picker.init(&app_clone, Some(&toast_overlay_clone));
-            icon_picker.show_dialog(&app_clone);
-        });
-
+        let update_icon_button = self.build_update_icon_button(app);
         let pref_group = PreferencesGroup::builder()
-            .header_suffix(&edit_icon_button)
+            .header_suffix(&update_icon_button)
             .build();
 
         let url_row = self.build_url_row();
@@ -225,5 +211,24 @@ impl WebAppView {
         });
 
         entry_row
+    }
+
+    fn build_update_icon_button(&self, app: &Rc<App>) -> Button {
+        let button_content = ButtonContent::builder()
+            .label("Update icon")
+            .icon_name("software-update-available-symbolic")
+            .build();
+        let button = Button::builder().child(&button_content).build();
+
+        let app_clone = app.clone();
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
+        button.connect_clicked(move |_| {
+            let icon_picker = IconPicker::new(&desktop_file_clone);
+            icon_picker.init(&app_clone, Some(&toast_overlay_clone));
+            icon_picker.show_dialog(&app_clone);
+        });
+
+        button
     }
 }
