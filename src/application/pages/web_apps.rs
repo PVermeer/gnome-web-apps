@@ -141,12 +141,12 @@ impl WebAppsPage {
         if cfg!(debug_assertions) {
             debug!("Adding debug desktop files");
 
-            let test_desktop_file = DesktopEntry::from_path(
+            if let Ok(test_desktop_file) = DesktopEntry::from_path(
                 Path::new("./assets/WebApp-test.desktop"),
                 Some(&self.locales),
-            )
-            .unwrap();
-            owned_desktop_files.push(Rc::new(RefCell::new(test_desktop_file)));
+            ) {
+                owned_desktop_files.push(Rc::new(RefCell::new(test_desktop_file)));
+            }
         }
 
         let Some(data_home_path) = app.dirs.data_home.as_ref() else {
