@@ -15,7 +15,8 @@
 	},
 	"runArgs": [
 		"--device",
-		"/dev/dri"
+		"/dev/dri",
+		"--network=host" // If network is slow in container
 		// "--device",
 		// "/dev/fuse"
 		// "--privileged"
