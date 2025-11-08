@@ -115,6 +115,7 @@ impl WebAppView {
     }
 
     fn reset_view(self: &Rc<Self>) {
+        debug!("Resetting view");
         self.init();
         self.on_desktop_file_change();
     }
@@ -303,19 +304,35 @@ impl WebAppView {
         let button = Button::builder().child(&button_content).build();
 
         let self_clone = self.clone();
-        let app_clone = self.app.clone();
-        let desktop_file_clone = self.desktop_file.clone();
         button.connect_clicked(move |_| {
+            let desktop_file_borrow = self_clone.desktop_file.borrow();
+            let undo_icon_path = desktop_file_borrow.icon().unwrap_or_default().to_string();
+
             let icon_picker = IconPicker::new(
-                &app_clone,
-                &desktop_file_clone,
-                Some(&self_clone.toast_overlay),
+                &self_clone.app,
+                &self_clone.desktop_file,
             );
             let dialog = icon_picker.show_dialog();
 
             let self_clone = self_clone.clone();
             dialog.connect_response(Some(IconPicker::DIALOG_SAVE), move |_, _| {
+                let toast = Toast::new(Self::TOAST_SAVED);
+                toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
+                toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
+
+                let undo_icon_path = undo_icon_path.clone();
+                let self_clone_undo = self_clone.clone();
+                toast.connect_button_clicked(move |_| {
+                    let mut desktop_file_borrow = self_clone_undo.desktop_file.borrow_mut();
+                    desktop_file_borrow
+                        .add_desktop_entry("Icon".to_string(), undo_icon_path.clone());
+
+                    drop(desktop_file_borrow);
+                    self_clone_undo.reset_view();
+                });
+
                 self_clone.reset_view();
+                self_clone.toast_overlay.add_toast(toast);
             });
         });
 

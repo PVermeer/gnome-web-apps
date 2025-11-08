@@ -8,7 +8,7 @@ use gtk::{
 };
 use libadwaita::{
     AlertDialog, ButtonContent, ButtonRow, PreferencesGroup, PreferencesPage, PreferencesRow,
-    ResponseAppearance, Spinner, StatusPage, Toast, ToastOverlay,
+    ResponseAppearance, Spinner, StatusPage,
     gio::{Cancellable, MemoryInputStream},
     glib,
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
@@ -28,7 +28,6 @@ pub struct IconPicker {
     prefs_page: PreferencesPage,
     app: Rc<App>,
     desktop_file: Rc<RefCell<DesktopEntry>>,
-    toast_overlay: RefCell<Option<ToastOverlay>>,
     icons: Rc<RefCell<HashMap<String, Rc<Icon>>>>,
     pref_row_icons: PreferencesRow,
     pref_row_icons_fail: PreferencesRow,
@@ -43,12 +42,7 @@ impl IconPicker {
     pub const DIALOG_SAVE: &str = "save";
     pub const DIALOG_CANCEL: &str = "cancel";
 
-    pub fn new(
-        app: &Rc<App>,
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        toast_overlay: Option<&ToastOverlay>,
-    ) -> Rc<Self> {
-        let toast_overlay = toast_overlay.cloned();
+    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
         let spinner = Self::build_spinner();
@@ -71,7 +65,6 @@ impl IconPicker {
             prefs_page,
             app: app.clone(),
             desktop_file: desktop_file.clone(),
-            toast_overlay: RefCell::new(toast_overlay),
             icons,
             pref_row_icons,
             pref_row_icons_fail,
@@ -163,8 +156,6 @@ impl IconPicker {
         let icon_name = sanitize(format!("{app_id}-{filename}"));
         let save_path = format!("{save_dir}/{icon_name}");
 
-        let toast_overlay = self.toast_overlay.borrow().clone();
-
         debug!("Saving {icon_name} to fs: {save_path}");
         let save_to_fs = || -> Result<()> {
             self.app
@@ -178,17 +169,10 @@ impl IconPicker {
         };
 
         if let Err(error) = save_to_fs() {
-            if let Some(toast_overlay) = toast_overlay {
-                toast_overlay.add_toast(Toast::new("Error saving icon"));
-            }
             bail!(error)
         }
 
-        if let Some(toast_overlay) = toast_overlay {
-            toast_overlay.add_toast(Toast::new("Saved icon"));
-        }
         desktop_file.add_desktop_entry("Icon".to_string(), save_path);
-
         Ok(())
     }
 
