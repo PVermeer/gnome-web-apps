@@ -16,7 +16,9 @@ use libadwaita::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
     },
-    prelude::{EntryRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt},
+    prelude::{
+        AlertDialogExt, EntryRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt,
+    },
 };
 use log::{debug, error};
 use std::{borrow::Cow, cell::RefCell, process::Command, rc::Rc};
@@ -24,11 +26,13 @@ use validator::ValidateUrl;
 
 pub struct WebAppView {
     nav_page: NavigationPage,
+    app: Rc<App>,
     header: HeaderBar,
     desktop_file: Rc<RefCell<DesktopEntry>>,
     desktop_file_original: DesktopEntry,
     locales: Vec<String>,
     prefs_page: PreferencesPage,
+    pref_groups: RefCell<Vec<PreferencesGroup>>,
     toast_overlay: ToastOverlay,
     reset_button: Button,
 }
@@ -42,7 +46,17 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>, locales: &[String]) -> Rc<Self> {
+    const TOAST_MESSAGE_TIMEOUT: u32 = 2;
+    const TOAST_UNDO_TIMEOUT: u32 = 4;
+    const TOAST_SAVED: &str = "Saved";
+    const TOAST_RESET: &str = "Reset";
+    const TOAST_UNDO_BUTTON: &str = "Undo";
+
+    pub fn new(
+        app: &Rc<App>,
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        locales: &[String],
+    ) -> Rc<Self> {
         let desktop_file_borrow = desktop_file.borrow();
         let desktop_file_original = desktop_file_borrow.clone(); // Deep clone
         let title = desktop_file_borrow
@@ -60,27 +74,60 @@ impl WebAppView {
 
         Rc::new(Self {
             nav_page,
+            app: app.clone(),
             header,
             desktop_file: desktop_file.clone(),
             desktop_file_original,
             locales: locales.to_owned(),
             prefs_page,
+            pref_groups: RefCell::new(Vec::new()),
             toast_overlay,
             reset_button,
         })
     }
 
-    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
+    /// Init may be run sequentially to reset the view.
+    pub fn init(self: &Rc<Self>) {
         let self_clone = self.clone();
-        self.header.pack_end(&self.reset_button);
-        self.reset_button
-            .connect_clicked(move |_| self_clone.reset_desktop_file());
+        let mut pref_groups = self.pref_groups.borrow_mut();
+
+        if pref_groups.is_empty() {
+            // First init
+            self.header.pack_end(&self.reset_button);
+            self.reset_button
+                .connect_clicked(move |_| self_clone.reset_desktop_file());
+        } else {
+            // Sequential init
+            for pref_group in pref_groups.iter() {
+                self.prefs_page.remove(pref_group);
+            }
+            pref_groups.clear();
+        }
 
         let web_app_header = self.build_app_header();
-        let general_pref_group = self.build_general_pref_group(app);
+        let general_pref_group = self.build_general_pref_group();
 
         self.prefs_page.add(&web_app_header);
         self.prefs_page.add(&general_pref_group);
+
+        pref_groups.push(web_app_header);
+        pref_groups.push(general_pref_group);
+    }
+
+    fn reset_view(self: &Rc<Self>) {
+        self.init();
+        self.on_desktop_file_change();
+    }
+
+    fn reset_desktop_file(self: &Rc<Self>) {
+        debug!("Resetting desktop file");
+
+        *self.desktop_file.borrow_mut() = self.desktop_file_original.clone();
+        self.reset_view();
+
+        let toast = Toast::new(Self::TOAST_RESET);
+        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
+        self.toast_overlay.add_toast(toast);
     }
 
     fn build_header_reset_button() -> Button {
@@ -88,10 +135,6 @@ impl WebAppView {
         reset_button.set_sensitive(false);
 
         reset_button
-    }
-
-    fn reset_desktop_file(&self) {
-        println!("TODO Reset button clicked!");
     }
 
     fn build_app_header(&self) -> PreferencesGroup {
@@ -153,8 +196,8 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_general_pref_group(self: &Rc<Self>, app: &Rc<App>) -> PreferencesGroup {
-        let update_icon_button = self.build_update_icon_button(app);
+    fn build_general_pref_group(self: &Rc<Self>) -> PreferencesGroup {
+        let update_icon_button = self.build_update_icon_button();
         let pref_group = PreferencesGroup::builder()
             .header_suffix(&update_icon_button)
             .build();
@@ -218,18 +261,31 @@ impl WebAppView {
             );
             drop(desktop_file_borrow);
 
+            let saved_toast = Toast::new(Self::TOAST_SAVED);
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            saved_toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
+            saved_toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
+
+            let self_clone_undo = self_clone.clone();
             let entry_row_clone = entry_row.clone();
-            let saved_toast = Toast::builder().title("Saved").build();
-            saved_toast.set_button_label(Some("Undo"));
             saved_toast.connect_button_clicked(move |_| {
                 entry_row_clone.set_text(&undo_text);
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+                desktop_file_borrow.add_desktop_entry(
+                    config::DesktopFile::URL_KEY.to_string(),
+                    entry_row_clone.text().to_string(),
+                );
+                drop(desktop_file_borrow);
+                self_clone_undo.on_desktop_file_change();
             });
-            toast_overlay_clone.add_toast(saved_toast);
-            self_clone.desktop_file_entry_has_changed();
 
+            toast_overlay_clone.add_toast(saved_toast);
+            self_clone.on_desktop_file_change();
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
             debug!(
                 "Set new URL on `desktop file`: {}",
-                desktop_file_clone
+                &desktop_file_clone
                     .borrow()
                     .desktop_entry(key)
                     .unwrap_or_default()
@@ -239,26 +295,34 @@ impl WebAppView {
         entry_row
     }
 
-    fn build_update_icon_button(&self, app: &Rc<App>) -> Button {
+    fn build_update_icon_button(self: &Rc<Self>) -> Button {
         let button_content = ButtonContent::builder()
             .label("Update icon")
             .icon_name("software-update-available-symbolic")
             .build();
         let button = Button::builder().child(&button_content).build();
 
-        let app_clone = app.clone();
+        let self_clone = self.clone();
+        let app_clone = self.app.clone();
         let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
         button.connect_clicked(move |_| {
-            let icon_picker = IconPicker::new(&desktop_file_clone);
-            icon_picker.init(&app_clone, Some(&toast_overlay_clone));
-            icon_picker.show_dialog(&app_clone);
+            let icon_picker = IconPicker::new(
+                &app_clone,
+                &desktop_file_clone,
+                Some(&self_clone.toast_overlay),
+            );
+            let dialog = icon_picker.show_dialog();
+
+            let self_clone = self_clone.clone();
+            dialog.connect_response(Some(IconPicker::DIALOG_SAVE), move |_, _| {
+                self_clone.reset_view();
+            });
         });
 
         button
     }
 
-    fn desktop_file_entry_has_changed(&self) {
+    fn on_desktop_file_change(&self) {
         if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
             self.reset_button.set_sensitive(false);
         } else {

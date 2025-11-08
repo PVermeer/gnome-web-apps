@@ -124,8 +124,8 @@ impl WebAppsPage {
         let app_clone = app.clone();
 
         app_row.connect_activated(move |_| {
-            let app_page = WebAppView::new(&desktop_file.clone(), &self.locales);
-            app_page.init(&app_clone);
+            let app_page = WebAppView::new(&app_clone, &desktop_file.clone(), &self.locales);
+            app_page.init();
             self.nav_view.push(app_page.get_navpage());
         });
 

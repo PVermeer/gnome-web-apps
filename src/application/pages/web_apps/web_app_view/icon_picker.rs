@@ -24,7 +24,9 @@ struct Icon {
 }
 
 pub struct IconPicker {
+    init: RefCell<bool>,
     prefs_page: PreferencesPage,
+    app: Rc<App>,
     desktop_file: Rc<RefCell<DesktopEntry>>,
     toast_overlay: RefCell<Option<ToastOverlay>>,
     icons: Rc<RefCell<HashMap<String, Rc<Icon>>>>,
@@ -38,8 +40,15 @@ pub struct IconPicker {
 }
 impl IconPicker {
     const ICON_DIR: &str = "icons";
+    pub const DIALOG_SAVE: &str = "save";
+    pub const DIALOG_CANCEL: &str = "cancel";
 
-    pub fn new(desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
+    pub fn new(
+        app: &Rc<App>,
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        toast_overlay: Option<&ToastOverlay>,
+    ) -> Rc<Self> {
+        let toast_overlay = toast_overlay.cloned();
         let icons = Rc::new(RefCell::new(HashMap::new()));
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
         let spinner = Self::build_spinner();
@@ -58,9 +67,11 @@ impl IconPicker {
         content_box.append(&prefs_page);
 
         Rc::new(Self {
+            init: RefCell::new(false),
             prefs_page,
+            app: app.clone(),
             desktop_file: desktop_file.clone(),
-            toast_overlay: RefCell::new(None),
+            toast_overlay: RefCell::new(toast_overlay),
             icons,
             pref_row_icons,
             pref_row_icons_fail,
@@ -72,40 +83,41 @@ impl IconPicker {
         })
     }
 
-    pub fn init(self: &Rc<Self>, app: &Rc<App>, toast_overlay: Option<&ToastOverlay>) {
-        self.load_icons(app);
+    pub fn init(self: &Rc<Self>) {
+        let mut is_init = self.init.borrow_mut();
+        if *is_init {
+            return;
+        }
+        self.load_icons();
 
         let self_clone = self.clone();
-        let app_clone = app.clone();
-        if let Some(toast_overlay) = toast_overlay {
-            *self.toast_overlay.borrow_mut() = Some(toast_overlay.clone());
-        }
-
         self.pref_group_icons_reset_button
             .connect_clicked(move |_| {
-                self_clone.load_icons(&app_clone);
+                self_clone.load_icons();
             });
-
         self.pref_group_icons_add_button_row.connect_activated(|_| {
             debug!("TODO");
         });
+
+        *is_init = true;
     }
 
-    pub fn show_dialog(self: &Rc<Self>, app: &Rc<App>) {
+    pub fn show_dialog(self: &Rc<Self>) -> AlertDialog {
+        self.init();
+
         let dialog = AlertDialog::builder()
             .heading("Pick an icon")
             .width_request(500)
             .extra_child(&self.content_box)
             .build();
-        dialog.add_response("cancel", "_Cancel");
-        dialog.add_response("save", "_Save");
-        dialog.set_response_appearance("save", ResponseAppearance::Suggested);
-        dialog.set_default_response(Some("save"));
-        dialog.set_close_response("cancel");
+        dialog.add_response(Self::DIALOG_CANCEL, "_Cancel");
+        dialog.add_response(Self::DIALOG_SAVE, "_Save");
+        dialog.set_response_appearance(Self::DIALOG_SAVE, ResponseAppearance::Suggested);
+        dialog.set_default_response(Some(Self::DIALOG_CANCEL));
+        dialog.set_close_response(Self::DIALOG_CANCEL);
 
         let self_clone = self.clone();
-        let app_clone = app.clone();
-        dialog.connect_response(Some("save"), move |_, _| {
+        dialog.connect_response(Some(Self::DIALOG_SAVE), move |_, _| {
             let icon = match self_clone.get_selected_icon() {
                 Ok(icon) => icon,
                 Err(error) => {
@@ -114,20 +126,22 @@ impl IconPicker {
                 }
             };
 
-            if let Err(error) = self_clone.save_icon(&app_clone, &icon) {
+            if let Err(error) = self_clone.save_icon(&icon) {
                 error!("{error:?}");
             }
         });
 
-        dialog.present(Some(&app.window.adw_window));
+        dialog.present(Some(&self.app.window.adw_window));
+        dialog
     }
 
-    fn save_icon(&self, app: &Rc<App>, icon: &Rc<Icon>) -> Result<()> {
+    fn save_icon(&self, icon: &Rc<Icon>) -> Result<()> {
         let mut desktop_file = self.desktop_file.borrow_mut();
         let app_id = desktop_file
             .desktop_entry(config::DesktopFile::ID_KEY)
             .context("No app id on desktop file!")?;
-        let data_dir = app
+        let data_dir = self
+            .app
             .dirs
             .get_data_home()
             .context("No data dir???")?
@@ -153,7 +167,8 @@ impl IconPicker {
 
         debug!("Saving {icon_name} to fs: {save_path}");
         let save_to_fs = || -> Result<()> {
-            app.dirs
+            self.app
+                .dirs
                 .place_data_file(&save_path)
                 .context("Failed to create paths")?;
             icon.pixbuf
@@ -201,9 +216,8 @@ impl IconPicker {
         Ok(icon)
     }
 
-    fn load_icons(self: &Rc<Self>, app: &Rc<App>) {
+    fn load_icons(self: &Rc<Self>) {
         let self_clone = self.clone();
-        let app_clone = app.clone();
         let url: String;
         {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
@@ -219,7 +233,7 @@ impl IconPicker {
             self_clone.pref_row_icons.set_visible(false);
             self_clone.pref_row_icons_fail.set_visible(true);
 
-            if let Err(error) = self_clone.set_online_icons(&url, &app_clone).await {
+            if let Err(error) = self_clone.set_online_icons(&url).await {
                 error!("{error:?}");
                 self_clone.pref_row_icons.set_visible(false);
                 self_clone.pref_row_icons_fail.set_visible(true);
@@ -258,11 +272,11 @@ impl IconPicker {
         });
     }
 
-    async fn set_online_icons(&self, url: &str, app: &Rc<App>) -> Result<()> {
+    async fn set_online_icons(&self, url: &str) -> Result<()> {
         debug!("Fetching online icons");
         let url_clone = url.to_string();
 
-        let html_text = app.fetch.get_as_string(url_clone).await?;
+        let html_text = self.app.fetch.get_as_string(url_clone).await?;
         let fragment = Html::parse_document(&html_text);
         let selector =
             Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
@@ -277,7 +291,7 @@ impl IconPicker {
 
         let mut handles = Vec::new();
         for url in urls {
-            let app_clone = app.clone();
+            let app_clone = self.app.clone();
             let url_clone = url.clone();
             // Spawn in parallel on main thread
             let handle =
