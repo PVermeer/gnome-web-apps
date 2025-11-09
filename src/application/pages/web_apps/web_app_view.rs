@@ -115,12 +115,6 @@ impl WebAppView {
         }
     }
 
-    fn reset_view(self: &Rc<Self>) {
-        debug!("Resetting view");
-        self.init();
-        self.on_desktop_file_change();
-    }
-
     fn reset_desktop_file(self: &Rc<Self>) {
         debug!("Resetting desktop file");
 
@@ -268,19 +262,19 @@ impl WebAppView {
                 drop(desktop_file_borrow);
                 self_clone_undo.on_desktop_file_change();
             });
-
             toast_overlay_clone.add_toast(saved_toast);
-            self_clone.on_desktop_file_change();
 
             let desktop_file_clone = self_clone.desktop_file.clone();
             debug!(
-                "Set new '{}' on `desktop file`: {}",
+                "Set a new '{}' on `desktop file`: {}",
                 desktop_file_key_clone,
                 &desktop_file_clone
                     .borrow()
                     .desktop_entry(&desktop_file_key_clone)
                     .unwrap_or_default()
             );
+
+            self_clone.on_desktop_file_change();
         });
 
         entry_row
@@ -348,10 +342,10 @@ impl WebAppView {
                         .add_desktop_entry("Icon".to_string(), undo_icon_path.clone());
 
                     drop(desktop_file_borrow);
-                    self_clone_undo.reset_view();
+                    self_clone_undo.on_desktop_file_change();
                 });
 
-                self_clone.reset_view();
+                self_clone.on_desktop_file_change();
                 self_clone.toast_overlay.add_toast(toast);
             });
         });
@@ -359,7 +353,17 @@ impl WebAppView {
         button
     }
 
+    fn reset_reset_button(&self) {
+        if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
+            self.reset_button.set_sensitive(false);
+        } else {
+            self.reset_button.set_sensitive(true);
+        }
+    }
+
     fn reset_app_header(&self) {
+        debug!("Resetting app header");
+
         let mut pref_groups = self.pref_groups.borrow_mut();
 
         for pref_group in pref_groups.iter() {
@@ -377,13 +381,16 @@ impl WebAppView {
         }
     }
 
-    fn on_desktop_file_change(&self) {
-        if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
-            self.reset_button.set_sensitive(false);
-        } else {
-            self.reset_button.set_sensitive(true);
-        }
+    fn reset_view(self: &Rc<Self>) {
+        debug!("Resetting view");
+        self.init();
+        self.reset_reset_button();
+    }
 
+    fn on_desktop_file_change(&self) {
+        debug!("Desktop file changed");
+
+        self.reset_reset_button();
         self.reset_app_header();
     }
 }

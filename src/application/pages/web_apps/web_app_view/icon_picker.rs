@@ -173,6 +173,11 @@ impl IconPicker {
         }
 
         desktop_file.add_desktop_entry("Icon".to_string(), save_path);
+
+        debug!(
+            "Set a new 'Icon' on `desktop file`: {}",
+            &desktop_file.desktop_entry("Icon").unwrap_or_default()
+        );
         Ok(())
     }
 
