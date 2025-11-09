@@ -107,11 +107,12 @@ impl WebAppView {
         let web_app_header = self.build_app_header();
         let general_pref_group = self.build_general_pref_group();
 
-        self.prefs_page.add(&web_app_header);
-        self.prefs_page.add(&general_pref_group);
-
         pref_groups.push(web_app_header);
         pref_groups.push(general_pref_group);
+
+        for pref_group in pref_groups.iter() {
+            self.prefs_page.add(pref_group);
+        }
     }
 
     fn reset_view(self: &Rc<Self>) {
@@ -203,33 +204,101 @@ impl WebAppView {
             .header_suffix(&update_icon_button)
             .build();
 
+        let name_row = self.build_name_row();
         let url_row = self.build_url_row();
+
+        pref_group.add(&name_row);
         pref_group.add(&url_row);
 
         pref_group
     }
 
-    fn build_url_row(self: &Rc<Self>) -> EntryRow {
+    fn build_input_row(
+        self: &Rc<Self>,
+        row_title: &str,
+        purpose: InputPurpose,
+        desktop_file_key: &str,
+    ) -> EntryRow {
         let desktop_file_borrow = self.desktop_file.borrow();
-
-        let url = desktop_file_borrow
-            .desktop_entry(config::DesktopFile::URL_KEY)
+        let name = desktop_file_borrow
+            .desktop_entry(desktop_file_key)
             .unwrap_or_default();
 
         let entry_row = EntryRow::builder()
-            .title("Website URL")
-            .text(url)
+            .title(row_title)
+            .text(name)
             .show_apply_button(true)
-            .input_purpose(InputPurpose::Url)
+            .input_purpose(purpose)
             .build();
+
+        drop(desktop_file_borrow);
+
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
+        let self_clone = self.clone();
+        let desktop_file_key_clone = desktop_file_key.to_string();
+
+        entry_row.connect_apply(move |entry_row| {
+            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+            let undo_text = desktop_file_borrow
+                .desktop_entry(&desktop_file_key_clone)
+                .unwrap_or_default()
+                .to_string();
+
+            desktop_file_borrow
+                .add_desktop_entry(desktop_file_key_clone.clone(), entry_row.text().to_string());
+            drop(desktop_file_borrow);
+
+            let saved_toast = Toast::new(Self::TOAST_SAVED);
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            saved_toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
+            saved_toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
+
+            let self_clone_undo = self_clone.clone();
+            let entry_row_clone = entry_row.clone();
+            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                entry_row_clone.set_text(&undo_text);
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+                desktop_file_borrow.add_desktop_entry(
+                    desktop_file_key_undo_clone.clone(),
+                    entry_row_clone.text().to_string(),
+                );
+                drop(desktop_file_borrow);
+                self_clone_undo.on_desktop_file_change();
+            });
+
+            toast_overlay_clone.add_toast(saved_toast);
+            self_clone.on_desktop_file_change();
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            debug!(
+                "Set new '{}' on `desktop file`: {}",
+                desktop_file_key_clone,
+                &desktop_file_clone
+                    .borrow()
+                    .desktop_entry(&desktop_file_key_clone)
+                    .unwrap_or_default()
+            );
+        });
+
+        entry_row
+    }
+
+    fn build_name_row(self: &Rc<Self>) -> EntryRow {
+        let desktop_file_key = "Name";
+        self.build_input_row("Website URL", InputPurpose::Name, desktop_file_key)
+    }
+
+    fn build_url_row(self: &Rc<Self>) -> EntryRow {
+        let desktop_file_key = config::DesktopFile::URL_KEY;
         let validate_icon = Image::from_icon_name("dialog-warning-symbolic");
+        let entry_row = self.build_input_row("Website URL", InputPurpose::Url, desktop_file_key);
+
         validate_icon.set_visible(false);
         validate_icon.set_css_classes(&["error"]);
         entry_row.add_suffix(&validate_icon);
-
-        drop(desktop_file_borrow);
-        let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
 
         entry_row.connect_changed(move |entry_row| {
             let is_valid = entry_row.text().validate_url();
@@ -247,52 +316,6 @@ impl WebAppView {
             }
         });
 
-        let self_clone = self.clone();
-        entry_row.connect_apply(move |entry_row| {
-            let key = config::DesktopFile::URL_KEY;
-            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-            let undo_text = desktop_file_borrow
-                .desktop_entry(key)
-                .unwrap_or_default()
-                .to_string();
-
-            desktop_file_borrow.add_desktop_entry(
-                config::DesktopFile::URL_KEY.to_string(),
-                entry_row.text().to_string(),
-            );
-            drop(desktop_file_borrow);
-
-            let saved_toast = Toast::new(Self::TOAST_SAVED);
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            saved_toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
-            saved_toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
-
-            let self_clone_undo = self_clone.clone();
-            let entry_row_clone = entry_row.clone();
-            saved_toast.connect_button_clicked(move |_| {
-                entry_row_clone.set_text(&undo_text);
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-                desktop_file_borrow.add_desktop_entry(
-                    config::DesktopFile::URL_KEY.to_string(),
-                    entry_row_clone.text().to_string(),
-                );
-                drop(desktop_file_borrow);
-                self_clone_undo.on_desktop_file_change();
-            });
-
-            toast_overlay_clone.add_toast(saved_toast);
-            self_clone.on_desktop_file_change();
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set new URL on `desktop file`: {}",
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(key)
-                    .unwrap_or_default()
-            );
-        });
-
         entry_row
     }
 
@@ -308,10 +331,7 @@ impl WebAppView {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
             let undo_icon_path = desktop_file_borrow.icon().unwrap_or_default().to_string();
 
-            let icon_picker = IconPicker::new(
-                &self_clone.app,
-                &self_clone.desktop_file,
-            );
+            let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
             let dialog = icon_picker.show_dialog();
 
             let self_clone = self_clone.clone();
@@ -339,11 +359,31 @@ impl WebAppView {
         button
     }
 
+    fn reset_app_header(&self) {
+        let mut pref_groups = self.pref_groups.borrow_mut();
+
+        for pref_group in pref_groups.iter() {
+            self.prefs_page.remove(pref_group);
+        }
+
+        let Some(old_app_header) = pref_groups.first_mut() else {
+            return;
+        };
+        let new_app_header = self.build_app_header();
+        *old_app_header = new_app_header;
+
+        for pref_group in pref_groups.iter() {
+            self.prefs_page.add(pref_group);
+        }
+    }
+
     fn on_desktop_file_change(&self) {
         if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
             self.reset_button.set_sensitive(false);
         } else {
             self.reset_button.set_sensitive(true);
         }
+
+        self.reset_app_header();
     }
 }
