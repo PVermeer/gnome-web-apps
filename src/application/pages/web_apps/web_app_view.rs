@@ -11,7 +11,7 @@ use crate::{
 use freedesktop_desktop_entry::DesktopEntry;
 use libadwaita::{
     ActionRow, ButtonContent, EntryRow, HeaderBar, NavigationPage, PreferencesGroup,
-    PreferencesPage, Toast, ToastOverlay, WrapBox,
+    PreferencesPage, SwitchRow, Toast, ToastOverlay, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -21,7 +21,12 @@ use libadwaita::{
     },
 };
 use log::{debug, error};
-use std::{borrow::Cow, cell::RefCell, process::Command, rc::Rc};
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    process::Command,
+    rc::Rc,
+};
 use validator::ValidateUrl;
 
 pub struct WebAppView {
@@ -121,8 +126,7 @@ impl WebAppView {
         *self.desktop_file.borrow_mut() = self.desktop_file_original.clone();
         self.reset_view();
 
-        let toast = Toast::new(Self::TOAST_RESET);
-        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
+        let toast = Self::build_reset_toast();
         self.toast_overlay.add_toast(toast);
     }
 
@@ -200,9 +204,11 @@ impl WebAppView {
 
         let name_row = self.build_name_row();
         let url_row = self.build_url_row();
+        let isolate_row = self.build_isolate_row();
 
         pref_group.add(&name_row);
         pref_group.add(&url_row);
+        pref_group.add(&isolate_row);
 
         pref_group
     }
@@ -243,11 +249,8 @@ impl WebAppView {
                 .add_desktop_entry(desktop_file_key_clone.clone(), entry_row.text().to_string());
             drop(desktop_file_borrow);
 
-            let saved_toast = Toast::new(Self::TOAST_SAVED);
+            let saved_toast = Self::build_saved_toast();
             let desktop_file_clone = self_clone.desktop_file.clone();
-            saved_toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
-            saved_toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
-
             let self_clone_undo = self_clone.clone();
             let entry_row_clone = entry_row.clone();
             let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
@@ -313,6 +316,79 @@ impl WebAppView {
         entry_row
     }
 
+    fn build_isolate_row(self: &Rc<Self>) -> SwitchRow {
+        let desktop_file_key = config::DesktopFile::ISOLATE_KEY;
+        let desktop_file_borrow = self.desktop_file.borrow();
+        let is_isolated = desktop_file_borrow
+            .desktop_entry(desktop_file_key)
+            .is_some_and(|is_isolated| is_isolated == "true");
+
+        let switch_row = SwitchRow::builder()
+            .title("Isolate")
+            .subtitle("Use an isolated profile")
+            .active(is_isolated)
+            .build();
+
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
+        let self_clone = self.clone();
+        let desktop_file_key_clone = desktop_file_key.to_string();
+        let is_blocked = Rc::new(Cell::new(false)); // SwitchRow behaves differently and might recurse.
+
+        switch_row.connect_active_notify(move |switch_row| {
+            if is_blocked.get() {
+                return;
+            }
+
+            let is_on = switch_row.is_active();
+            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+            let undo_state = desktop_file_borrow
+                .desktop_entry(&desktop_file_key_clone)
+                .is_some_and(|is_isolated| is_isolated == "true");
+
+            desktop_file_borrow
+                .add_desktop_entry(desktop_file_key_clone.clone(), is_on.to_string());
+            drop(desktop_file_borrow);
+
+            let saved_toast = Self::build_saved_toast();
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            let self_clone_undo = self_clone.clone();
+            let switch_row_clone = switch_row.clone();
+            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
+            let is_blocked_clone = is_blocked.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                is_blocked_clone.set(true);
+                switch_row_clone.set_active(undo_state);
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+                desktop_file_borrow.add_desktop_entry(
+                    desktop_file_key_undo_clone.clone(),
+                    switch_row_clone.is_active().to_string(),
+                );
+                drop(desktop_file_borrow);
+
+                self_clone_undo.on_desktop_file_change();
+                is_blocked_clone.set(false);
+            });
+            toast_overlay_clone.add_toast(saved_toast);
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            debug!(
+                "Set a new '{}' on `desktop file`: {}",
+                desktop_file_key_clone,
+                &desktop_file_clone
+                    .borrow()
+                    .desktop_entry(&desktop_file_key_clone)
+                    .unwrap_or_default()
+            );
+
+            self_clone.on_desktop_file_change();
+        });
+
+        switch_row
+    }
+
     fn build_update_icon_button(self: &Rc<Self>) -> Button {
         let button_content = ButtonContent::builder()
             .label("Update icon")
@@ -330,12 +406,10 @@ impl WebAppView {
 
             let self_clone = self_clone.clone();
             dialog.connect_response(Some(IconPicker::DIALOG_SAVE), move |_, _| {
-                let toast = Toast::new(Self::TOAST_SAVED);
-                toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
-                toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
-
+                let toast = Self::build_saved_toast();
                 let undo_icon_path = undo_icon_path.clone();
                 let self_clone_undo = self_clone.clone();
+
                 toast.connect_button_clicked(move |_| {
                     let mut desktop_file_borrow = self_clone_undo.desktop_file.borrow_mut();
                     desktop_file_borrow
@@ -351,6 +425,21 @@ impl WebAppView {
         });
 
         button
+    }
+
+    fn build_saved_toast() -> Toast {
+        let toast = Toast::new(Self::TOAST_SAVED);
+        toast.set_button_label(Some(Self::TOAST_UNDO_BUTTON));
+        toast.set_timeout(Self::TOAST_UNDO_TIMEOUT);
+
+        toast
+    }
+
+    fn build_reset_toast() -> Toast {
+        let toast = Toast::new(Self::TOAST_RESET);
+        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
+
+        toast
     }
 
     fn reset_reset_button(&self) {
