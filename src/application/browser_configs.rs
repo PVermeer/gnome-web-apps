@@ -1,23 +1,34 @@
 use super::App;
-use log::{debug, info};
+use log::{debug, error, info};
 use std::{
     cell::RefCell,
     fs,
     path::{Path, PathBuf},
+    process::Command,
     rc::Rc,
 };
 
+pub enum Installation {
+    Flatpak,
+    System,
+}
+
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-struct Browser {
+struct BrowserConfig {
     name: String,
     flatpak: Option<String>,
-    command: Option<String>,
+    system_bin: Option<String>,
     #[serde(default)]
     can_isolate: bool,
 }
+pub struct Browser {
+    pub name: String,
+    pub installation: Installation,
+    pub can_isolate: bool,
+}
 
 pub struct BrowserConfigs {
-    browsers: RefCell<Vec<Browser>>,
+    pub browsers: RefCell<Vec<Browser>>,
 }
 impl BrowserConfigs {
     pub fn new() -> Self {
@@ -30,12 +41,75 @@ impl BrowserConfigs {
         self.set_browsers_from_files(app);
     }
 
+    fn is_installed_flatpak(flatpak: &str) -> bool {
+        let command = "flatpak";
+        let arguments = &["info", flatpak];
+
+        let output = Command::new(command).args(arguments).output();
+
+        match output {
+            Err(error) => {
+                error!("Could not run command '{command} {arguments:?}'. Error: {error}");
+                false
+            }
+            Ok(response) => response.status.success(),
+        }
+    }
+
+    fn is_installed_system(system_bin: &str) -> bool {
+        let command = "which";
+        let arguments = &[system_bin];
+
+        let output = Command::new(command).args(arguments).output();
+
+        match output {
+            Err(error) => {
+                error!("Could not run command '{command} {arguments:?}'. Error: {error}");
+                false
+            }
+            Ok(response) => response.status.success(),
+        }
+    }
+
     fn set_browsers_from_files(&self, app: &Rc<App>) {
+        let browser_configs = Self::get_browsers_from_files(app);
+        let mut browsers = self.browsers.borrow_mut();
+
+        for (browser_config, file_name) in browser_configs {
+            if let Some(flatpak) = &browser_config.flatpak {
+                if Self::is_installed_flatpak(flatpak) {
+                    info!("Found flatpak browser '{flatpak}' from config '{file_name}'");
+                    browsers.push(Browser {
+                        name: browser_config.name,
+                        installation: Installation::Flatpak,
+                        can_isolate: browser_config.can_isolate,
+                    });
+                    continue;
+                }
+                info!("Flatpak browser '{flatpak}' from '{file_name}' is not installed");
+            }
+
+            if let Some(system_bin) = &browser_config.system_bin {
+                if Self::is_installed_system(system_bin) {
+                    info!("Found system browser '{system_bin}' from config '{file_name}'");
+                    browsers.push(Browser {
+                        name: browser_config.name,
+                        installation: Installation::System,
+                        can_isolate: browser_config.can_isolate,
+                    });
+                    continue;
+                }
+                info!("System browser '{system_bin}' from '{file_name}' is not installed");
+            }
+        }
+    }
+
+    fn get_browsers_from_files(app: &Rc<App>) -> Vec<(BrowserConfig, String)> {
         debug!("Loading browsers configs");
 
         let browsers_dir = Path::new("browsers");
         let mut browser_files: Vec<PathBuf> = app.dirs.find_data_files(browsers_dir).collect();
-        let mut browsers = self.browsers.borrow_mut();
+        let mut browser_configs = Vec::new();
 
         if cfg!(debug_assertions) {
             let dev_browser_dir = Path::new("./assets/").join(browsers_dir);
@@ -45,7 +119,7 @@ impl BrowserConfigs {
             );
 
             let Ok(dev_browser_files) = fs::read_dir(&dev_browser_dir) else {
-                return;
+                return browser_configs;
             };
 
             for file in dev_browser_files {
@@ -70,16 +144,18 @@ impl BrowserConfigs {
                 debug!("Failed to read to string: '{file_name}'");
                 continue;
             };
-            let browser: Browser = match serde_yaml::from_str(&file_string) {
+            let browser: BrowserConfig = match serde_yaml::from_str(&file_string) {
                 Ok(result) => result,
                 Err(error) => {
                     debug!("Failed to parse yml: '{file_name}'. Error: '{error}'");
                     continue;
                 }
             };
-            browsers.push(browser);
+            browser_configs.push((browser, file_name.to_string()));
 
             info!("Loaded browser config: '{file_name}'");
         }
+
+        browser_configs
     }
 }

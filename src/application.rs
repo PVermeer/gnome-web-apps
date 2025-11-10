@@ -15,7 +15,7 @@ pub struct App {
     dirs: BaseDirectories,
     fetch: Fetch,
     pages: Pages,
-    browsers: BrowserConfigs,
+    browsers_configs: BrowserConfigs,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -31,15 +31,15 @@ impl App {
                 dirs: app_dirs,
                 fetch,
                 pages,
-                browsers,
+                browsers_configs: browsers,
             }
         })
     }
 
     pub fn init(self: &Rc<Self>) {
         self.window.init(self);
+        self.browsers_configs.init(self);
         self.pages.init(self);
-        self.browsers.init(self);
 
         self.navigate(&Page::Home);
     }
