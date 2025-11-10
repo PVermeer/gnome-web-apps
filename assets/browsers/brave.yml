@@ -1,0 +1,5 @@
+name: Brave
+flatpak: com.brave.Browser
+command: brave
+can_isolate: true
+
