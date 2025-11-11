@@ -16,10 +16,10 @@
 	"runArgs": [
 		"--device",
 		"/dev/dri",
-		"--network=host" // If network is slow in container
-		// "--device",
-		// "/dev/fuse"
-		// "--privileged"
+		"--network=host", // If network is slow in container
+		"--device",
+		"/dev/fuse",
+		"--privileged"
 	],
 	"containerEnv": {
 		"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
@@ -27,9 +27,13 @@
 	"mounts": [
 		"type=bind,source=/run/user/1000,target=/run/user/1000"
 	],
+	"postCreateCommand": {
+		"system": "sudo dnf install -y chromium firefox",
+		"flatpak": "sudo dbus-daemon --system || true && flatpak --user install -y com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox"
+	},
 	"postStartCommand": {
-		"update": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable))"
-		// "dbus": "sudo dbus-daemon --system"
+		"system": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable))",
+		"flatpak": "sudo dbus-daemon --system || true && flatpak --user update -y"
 	},
 	"remoteUser": "vscode",
 	"customizations": {
