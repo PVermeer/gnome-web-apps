@@ -1,7 +1,8 @@
+mod browsers;
 mod home;
 mod web_apps;
 
-use crate::application::App;
+use crate::application::{App, pages::browsers::Browsers};
 use home::HomePage;
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView,
@@ -17,11 +18,13 @@ use web_apps::WebAppsPage;
 pub enum Page {
     Home,
     WebApps,
+    Browsers,
 }
 
 pub struct Pages {
     home: Rc<HomePage>,
     web_apps: Rc<WebAppsPage>,
+    browsers: Rc<Browsers>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
@@ -29,21 +32,25 @@ impl Pages {
         Self {
             home: HomePage::new(),
             web_apps: WebAppsPage::new(),
+            browsers: Browsers::new(),
         }
     }
 
     pub fn init(&self, app: &Rc<App>) {
         self.web_apps.init(app);
+        self.browsers.init(app);
 
         let sidebar = &app.window.view.sidebar;
         sidebar.add_nav_row(app.clone(), Page::Home);
         sidebar.add_nav_row(app.clone(), Page::WebApps);
+        sidebar.add_nav_row(app.clone(), Page::Browsers);
     }
 
     pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
         match page {
             Page::Home => self.home.clone(),
             Page::WebApps => self.web_apps.clone(),
+            Page::Browsers => self.browsers.clone(),
         }
     }
 }
@@ -55,6 +62,7 @@ struct ContentPage {
 }
 struct PrefPage {
     nav_page: NavigationPage,
+    nav_row: ActionRow,
     prefs_page: PreferencesPage,
     toast_overlay: ToastOverlay,
     header: HeaderBar,
@@ -105,6 +113,7 @@ impl PageBuilder {
 
         PrefPage {
             nav_page: self.nav_page,
+            nav_row: self.nav_row,
             prefs_page,
             toast_overlay,
             header: self.header,
