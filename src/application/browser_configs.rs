@@ -1,4 +1,5 @@
 use super::App;
+use gtk::Image;
 use log::{debug, error, info};
 use std::{
     cell::RefCell,
@@ -24,6 +25,7 @@ impl Installation {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 struct BrowserConfig {
     name: String,
+    icon_name: Option<String>,
     flatpak: Option<String>,
     system_bin: Option<String>,
     #[serde(default)]
@@ -31,8 +33,33 @@ struct BrowserConfig {
 }
 pub struct Browser {
     pub name: String,
+    pub icon: Image,
     pub installation: Installation,
     pub can_isolate: bool,
+}
+impl Browser {
+    pub fn new(
+        name: &str,
+        icon_name: Option<&str>,
+        installation: Installation,
+        can_isolate: bool,
+    ) -> Self {
+        let mut icon = if let Some(icon_name) = icon_name {
+            Image::from_icon_name(icon_name)
+        } else {
+            Image::from_icon_name("web-browser-symbolic")
+        };
+        if icon.uses_fallback() {
+            icon = Image::from_icon_name("web-browser-symbolic");
+        }
+
+        Self {
+            name: name.to_string(),
+            icon,
+            installation,
+            can_isolate,
+        }
+    }
 }
 
 pub struct BrowserConfigs {
@@ -87,14 +114,19 @@ impl BrowserConfigs {
         let mut system_browsers = self.system.borrow_mut();
 
         for (browser_config, file_name) in browser_configs {
+            let name = browser_config.name.clone();
+            let can_isolate = browser_config.can_isolate;
+
             if let Some(flatpak) = &browser_config.flatpak {
                 if Self::is_installed_flatpak(flatpak) {
                     info!("Found flatpak browser '{flatpak}' from config '{file_name}'");
-                    flatpak_browsers.push(Browser {
-                        name: browser_config.name.clone(),
-                        installation: Installation::Flatpak,
-                        can_isolate: browser_config.can_isolate,
-                    });
+
+                    flatpak_browsers.push(Browser::new(
+                        &name,
+                        browser_config.icon_name.as_deref(),
+                        Installation::Flatpak,
+                        can_isolate,
+                    ));
                 } else {
                     info!("Flatpak browser '{flatpak}' from '{file_name}' is not installed");
                 }
@@ -103,11 +135,13 @@ impl BrowserConfigs {
             if let Some(system_bin) = &browser_config.system_bin {
                 if Self::is_installed_system(system_bin) {
                     info!("Found system browser '{system_bin}' from config '{file_name}'");
-                    system_browsers.push(Browser {
-                        name: browser_config.name,
-                        installation: Installation::System,
-                        can_isolate: browser_config.can_isolate,
-                    });
+
+                    system_browsers.push(Browser::new(
+                        &name,
+                        browser_config.icon_name.as_deref(),
+                        Installation::System,
+                        can_isolate,
+                    ));
                 } else {
                     info!("System browser '{system_bin}' from '{file_name}' is not installed");
                 }

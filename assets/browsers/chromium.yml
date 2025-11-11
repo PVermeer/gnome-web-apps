@@ -1,0 +1,5 @@
+name: Chromium
+icon_name: org.chromium.Chromium
+flatpak: org.chromium.Chromium
+system_bin: chromium-browser
+can_isolate: true
