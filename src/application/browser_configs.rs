@@ -12,6 +12,14 @@ pub enum Installation {
     Flatpak,
     System,
 }
+impl Installation {
+    pub fn get_name(&self) -> String {
+        match self {
+            Self::Flatpak => String::from("Flatpak"),
+            Self::System => String::from("System"),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 struct BrowserConfig {
@@ -28,12 +36,14 @@ pub struct Browser {
 }
 
 pub struct BrowserConfigs {
-    pub browsers: RefCell<Vec<Browser>>,
+    pub flatpak: RefCell<Vec<Browser>>,
+    pub system: RefCell<Vec<Browser>>,
 }
 impl BrowserConfigs {
     pub fn new() -> Self {
         Self {
-            browsers: RefCell::new(Vec::new()),
+            flatpak: RefCell::new(Vec::new()),
+            system: RefCell::new(Vec::new()),
         }
     }
 
@@ -73,33 +83,34 @@ impl BrowserConfigs {
 
     fn set_browsers_from_files(&self, app: &Rc<App>) {
         let browser_configs = Self::get_browsers_from_files(app);
-        let mut browsers = self.browsers.borrow_mut();
+        let mut flatpak_browsers = self.flatpak.borrow_mut();
+        let mut system_browsers = self.system.borrow_mut();
 
         for (browser_config, file_name) in browser_configs {
             if let Some(flatpak) = &browser_config.flatpak {
                 if Self::is_installed_flatpak(flatpak) {
                     info!("Found flatpak browser '{flatpak}' from config '{file_name}'");
-                    browsers.push(Browser {
-                        name: browser_config.name,
+                    flatpak_browsers.push(Browser {
+                        name: browser_config.name.clone(),
                         installation: Installation::Flatpak,
                         can_isolate: browser_config.can_isolate,
                     });
-                    continue;
+                } else {
+                    info!("Flatpak browser '{flatpak}' from '{file_name}' is not installed");
                 }
-                info!("Flatpak browser '{flatpak}' from '{file_name}' is not installed");
             }
 
             if let Some(system_bin) = &browser_config.system_bin {
                 if Self::is_installed_system(system_bin) {
                     info!("Found system browser '{system_bin}' from config '{file_name}'");
-                    browsers.push(Browser {
+                    system_browsers.push(Browser {
                         name: browser_config.name,
                         installation: Installation::System,
                         can_isolate: browser_config.can_isolate,
                     });
-                    continue;
+                } else {
+                    info!("System browser '{system_bin}' from '{file_name}' is not installed");
                 }
-                info!("System browser '{system_bin}' from '{file_name}' is not installed");
             }
         }
     }
