@@ -20,10 +20,10 @@
 		"--device=/dev/fuse"
 	],
 	"containerEnv": {
-		// "DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}"
+		"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}" // For debus GTK
 	},
 	"mounts": [
-		// "type=bind,source=/run/user/1000,target=/run/user/1000"
+		"type=bind,source=/run/user/1000,target=/run/user/1000" // For debus GTK
 	],
 	"postCreateCommand": "sudo dnf install -y chromium firefox && sudo dbus-daemon --system || true && flatpak --user install -y com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox",
 	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && sudo dbus-daemon --system || true && flatpak --user update -y",
