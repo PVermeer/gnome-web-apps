@@ -2,8 +2,10 @@ use crate::{application::App, config};
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
-    self, Align, Button, ContentFit, FlowBox, Label, Orientation, Picture, SelectionMode,
+    self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, Label, Orientation, Picture,
+    SelectionMode,
     gdk_pixbuf::Pixbuf,
+    gio::prelude::FileExt,
     prelude::{BoxExt, ButtonExt, ListBoxRowExt, WidgetExt},
 };
 use libadwaita::{
@@ -88,9 +90,12 @@ impl IconPicker {
             .connect_clicked(move |_| {
                 self_clone.load_icons();
             });
-        self.pref_group_icons_add_button_row.connect_activated(|_| {
-            debug!("TODO");
-        });
+
+        let self_clone = self.clone();
+        self.pref_group_icons_add_button_row
+            .connect_activated(move |_| {
+                self_clone.load_icon_file_picker();
+            });
 
         *is_init = true;
     }
@@ -226,39 +231,43 @@ impl IconPicker {
                 error!("{error:?}");
                 self_clone.pref_row_icons.set_visible(false);
                 self_clone.pref_row_icons_fail.set_visible(true);
-            } else {
-                let flow_box = Self::build_pref_row_icons_flow_box();
-                let pref_row_icons = &self_clone.pref_row_icons;
-                pref_row_icons.set_child(Some(&flow_box));
-
-                let icons = self_clone.icons.borrow();
-                let mut icons: Vec<(&String, &Rc<Icon>)> = icons.iter().collect();
-
-                icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
-
-                for (url, icon) in icons {
-                    let frame = gtk::Box::new(Orientation::Vertical, 0);
-                    frame.set_widget_name(url);
-                    let picture = Picture::new();
-                    picture.set_pixbuf(Some(&icon.pixbuf));
-                    picture.set_content_fit(ContentFit::ScaleDown);
-                    frame.append(&picture);
-
-                    let size_text = format!("{} x {}", icon.pixbuf.width(), icon.pixbuf.height());
-                    let label = Label::builder().label(&size_text).build();
-                    frame.append(&label);
-
-                    flow_box.insert(&frame, -1);
-                }
-                *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
-
-                self_clone.pref_row_icons.set_visible(true);
-                self_clone.pref_row_icons_fail.set_visible(false);
+                return;
             }
 
+            self_clone.reload_icons();
+            self_clone.pref_row_icons.set_visible(true);
+            self_clone.pref_row_icons_fail.set_visible(false);
             self_clone.spinner.set_visible(false);
             self_clone.prefs_page.set_visible(true);
         });
+    }
+
+    fn reload_icons(self: &Rc<Self>) {
+        let self_clone = self.clone();
+        let flow_box = Self::build_pref_row_icons_flow_box();
+        let pref_row_icons = &self_clone.pref_row_icons;
+        pref_row_icons.set_child(Some(&flow_box));
+
+        let icons = self_clone.icons.borrow();
+        let mut icons: Vec<(&String, &Rc<Icon>)> = icons.iter().collect();
+
+        icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
+
+        for (url, icon) in icons {
+            let frame = gtk::Box::new(Orientation::Vertical, 0);
+            frame.set_widget_name(url);
+            let picture = Picture::new();
+            picture.set_pixbuf(Some(&icon.pixbuf));
+            picture.set_content_fit(ContentFit::ScaleDown);
+            frame.append(&picture);
+
+            let size_text = format!("{} x {}", icon.pixbuf.width(), icon.pixbuf.height());
+            let label = Label::builder().label(&size_text).build();
+            frame.append(&label);
+
+            flow_box.insert(&frame, -1);
+        }
+        *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
     async fn set_online_icons(&self, url: &str) -> Result<()> {
@@ -318,6 +327,60 @@ impl IconPicker {
         }
 
         Ok(())
+    }
+
+    fn load_icon_file_picker(self: &Rc<Self>) {
+        debug!("Opening file picker");
+
+        let file_filter = FileFilter::new();
+        file_filter.set_name(Some("Images"));
+        file_filter.add_mime_type("image/png");
+        file_filter.add_mime_type("image/jpeg");
+
+        let file_dialog = FileDialog::builder()
+            .title("Pick an image")
+            .default_filter(&file_filter)
+            .build();
+
+        let self_clone = self.clone();
+        let app_clone = self.app.clone();
+
+        file_dialog.open(
+            Some(&app_clone.window.adw_window),
+            None::<&Cancellable>,
+            move |file| {
+                let Ok(file) = file else {
+                    error!("Could not get file");
+                    return;
+                };
+                let Some(path) = file.path() else {
+                    error!("Could not get path");
+                    return;
+                };
+
+                let filename = file.parse_name().to_string();
+                debug!("Loading image: '{filename}'");
+
+                let pixbuf = match Pixbuf::from_file(&path) {
+                    Err(error) => {
+                        error!("Could not load image into a Pixbuf: '{error}'");
+                        return;
+                    }
+                    Ok(pixbuf) => pixbuf,
+                };
+
+                let icon = Icon {
+                    filename: filename.clone(),
+                    pixbuf,
+                };
+                self_clone
+                    .icons
+                    .borrow_mut()
+                    .insert(filename, Rc::new(icon));
+
+                self_clone.reload_icons();
+            },
+        );
     }
 
     fn build_spinner() -> Spinner {

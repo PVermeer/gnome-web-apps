@@ -6,7 +6,7 @@ Exec=flatpak run --command=brave com.brave.Browser --app="https://www.youtube.co
 Terminal=false
 X-MultipleArgs=false
 Type=Application
-Icon=./test-assets/WebApp-test.png
+Icon=./test-assets/YouTube.png
 Categories=GTK;WebApps;
 MimeType=text/html;text/xml;application/xhtml_xml;
 StartupWMClass=WebApp-YouTube7707
