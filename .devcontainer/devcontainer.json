@@ -20,7 +20,7 @@
 		"--device=/dev/fuse"
 	],
 	"containerEnv": {
-		"DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}" // For debus GTK
+		// "DBUS_SESSION_BUS_ADDRESS": "${localEnv:DBUS_SESSION_BUS_ADDRESS}" // For debus GTK
 	},
 	"mounts": [
 		"type=bind,source=/run/user/1000,target=/run/user/1000" // For debus GTK
