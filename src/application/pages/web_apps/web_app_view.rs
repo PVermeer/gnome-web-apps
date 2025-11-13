@@ -154,26 +154,24 @@ impl WebAppView {
             .label("Open")
             .css_classes(["suggested-action", "pill"])
             .build();
-        let mut exec_args = desktop_file_borrow.parse_exec().unwrap_or_default();
-        let command = if exec_args.is_empty() {
-            run_button.set_sensitive(false);
-            None
-        } else {
-            Some(exec_args.remove(0))
-        };
-        let args = exec_args;
-        if let Some(cmd) = command {
+
+        if let Some(exec) = desktop_file_borrow.exec() {
+            let executable = exec.to_string();
+
             run_button.connect_clicked(move |_| {
-                debug!("Running app: '{} {}'", cmd, args.join(" "));
+                debug!("Running web app: '{executable}'");
 
                 #[allow(clippy::zombie_processes)]
-                let result = Command::new(cmd.clone()).args(&args).spawn();
+                let result = Command::new("sh").arg("-c").arg(executable.clone()).spawn();
 
                 if let Err(error) = result {
-                    error!("Failed to run app '{} {}': {error:?}", cmd, args.join(" "));
+                    error!("Failed to run app '{executable}': {error:?}");
                 }
             });
+        } else {
+            run_button.set_sensitive(false);
         }
+
         let button_wrap_box = WrapBox::builder()
             .align(0.5)
             .margin_top(12)
