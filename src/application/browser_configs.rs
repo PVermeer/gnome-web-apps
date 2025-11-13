@@ -162,7 +162,9 @@ impl BrowserConfigs {
         for (browser_config, file_name) in browser_configs {
             if let Some(flatpak) = &browser_config.flatpak {
                 if let Some(installation) = Self::is_installed_flatpak(flatpak) {
-                    info!("Found flatpak browser '{flatpak}' from config '{file_name}'");
+                    info!(
+                        "Found flatpak browser '{flatpak} ({installation})' for config '{file_name}'"
+                    );
 
                     let browser = Rc::new(Browser::new(
                         &browser_config.clone(),
@@ -171,20 +173,20 @@ impl BrowserConfigs {
 
                     all_browser_borrow.push(browser);
                 } else {
-                    info!("Flatpak browser '{flatpak}' from '{file_name}' is not installed");
+                    debug!("Flatpak browser '{flatpak}' for '{file_name}' is not installed");
                 }
             }
 
             if let Some(system_bin) = &browser_config.system_bin {
                 if Self::is_installed_system(system_bin) {
-                    info!("Found system browser '{system_bin}' from config '{file_name}'");
+                    info!("Found system browser '{system_bin}' for config '{file_name}'");
 
                     let browser =
                         Rc::new(Browser::new(&browser_config.clone(), Installation::System));
 
                     all_browser_borrow.push(browser);
                 } else {
-                    info!("System browser '{system_bin}' from '{file_name}' is not installed");
+                    debug!("System browser '{system_bin}' for '{file_name}' is not installed");
                 }
             }
         }
@@ -212,11 +214,9 @@ impl BrowserConfigs {
                 let installation = installation_line.split("Installation: ").last()?;
 
                 if installation == FlatpakInstallation::User.to_string() {
-                    debug!("'{flatpak}' is user installed");
                     return Some(FlatpakInstallation::User);
                 }
                 if installation == FlatpakInstallation::System.to_string() {
-                    debug!("'{flatpak}' is system installed");
                     return Some(FlatpakInstallation::System);
                 }
 
@@ -242,7 +242,7 @@ impl BrowserConfigs {
     }
 
     fn get_browsers_from_files(app: &Rc<App>) -> Vec<(Rc<BrowserConfig>, String)> {
-        debug!("Loading browsers configs");
+        debug!("Loading browsers config files");
 
         let browsers_dir = Path::new("browsers");
         let mut browser_files: Vec<PathBuf> = app.dirs.find_data_files(browsers_dir).collect();
@@ -268,10 +268,9 @@ impl BrowserConfigs {
         }
 
         for file_path in browser_files {
-            debug!("Loading browser configs");
-
             let file_name = file_path.file_name().unwrap_or_default().to_string_lossy();
             let extension = file_path.extension().unwrap_or_default().to_string_lossy();
+            debug!("Loading browser config: '{file_name}'");
 
             if extension != "yml" && extension != "yaml" {
                 debug!("Not a yml file: '{file_name}'");
@@ -289,8 +288,6 @@ impl BrowserConfigs {
                 }
             };
             browser_configs.push((Rc::new(browser), file_name.to_string()));
-
-            info!("Loaded browser config: '{file_name}'");
         }
 
         browser_configs
