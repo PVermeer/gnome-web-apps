@@ -1,6 +1,7 @@
 use super::App;
 use gtk::Image;
 use log::{debug, error, info};
+use std::fmt::Write as _;
 use std::{
     cell::RefCell,
     fs,
@@ -38,6 +39,7 @@ pub struct BrowserConfig {
     can_isolate: bool,
 }
 pub struct Browser {
+    pub id: String,
     pub name: String,
     pub installation: Installation,
     pub can_isolate: bool,
@@ -55,13 +57,27 @@ impl Browser {
             Self::FALLBACK_IMAGE.to_string()
         };
 
+        let name = browser_config.name.clone();
+        let can_isolate = browser_config.can_isolate;
+        let flatpak_id = browser_config.flatpak.clone();
+        let executable = browser_config.system_bin.clone();
+
+        let id = if matches!(installation, Installation::Flatpak(_)) {
+            flatpak_id.clone().unwrap()
+        } else if matches!(installation, Installation::System) {
+            executable.clone().unwrap()
+        } else {
+            panic!("Could not create id for Browser")
+        };
+
         Self {
-            name: browser_config.name.clone(),
+            id,
+            name,
             installation,
-            can_isolate: browser_config.can_isolate,
-            flatpak_id: browser_config.flatpak.clone(),
-            executable: browser_config.system_bin.clone(),
-            icon_name: icon_name.clone(),
+            can_isolate,
+            flatpak_id,
+            executable,
+            icon_name,
         }
     }
 
@@ -113,6 +129,14 @@ impl BrowserConfigs {
             .filter(|browser| browser.installation == Installation::System)
             .cloned()
             .collect()
+    }
+
+    pub fn get_by_id(&self, id: &str) -> Option<Rc<Browser>> {
+        self.all_browsers
+            .borrow()
+            .iter()
+            .find(|browser| browser.id == id)
+            .cloned()
     }
 
     fn set_browsers_from_files(&self, app: &Rc<App>) {

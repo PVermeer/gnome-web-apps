@@ -14,4 +14,5 @@ StartupNotify=true
 X-GWA=true
 X-GWA-URL=https://www.youtube.com
 X-GWA-ID=12345678-https://www.youtube.com
+X-GWA-BROWSER-ID=com.brave.Browser
 X-GWA-ISOLATE=true

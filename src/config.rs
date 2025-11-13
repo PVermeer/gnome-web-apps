@@ -15,5 +15,6 @@ impl DesktopFile {
     pub const GWA_KEY: &str = "X-GWA";
     pub const URL_KEY: &str = "X-GWA-URL";
     pub const ID_KEY: &str = "X-GWA-ID";
+    pub const BROWSER_ID: &str = "X-GWA-BROWSER-ID";
     pub const ISOLATE_KEY: &str = "X-GWA-ISOLATE";
 }
