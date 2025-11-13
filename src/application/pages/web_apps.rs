@@ -139,13 +139,15 @@ impl WebAppsPage {
         let mut owned_desktop_files = Vec::new();
 
         if cfg!(debug_assertions) {
-            debug!("Adding debug desktop files");
+            debug!("Adding dev desktop files");
 
-            if let Ok(test_desktop_file) = DesktopEntry::from_path(
-                Path::new("./test-assets/WebApp-test.desktop"),
-                Some(&self.locales),
-            ) {
-                owned_desktop_files.push(Rc::new(RefCell::new(test_desktop_file)));
+            let dev_desktop_files_path = Path::new("./dev-assets/desktop-files");
+
+            for file in dev_desktop_files_path.read_dir().unwrap().flatten() {
+                if let Ok(desktop_file) = DesktopEntry::from_path(file.path(), Some(&self.locales))
+                {
+                    owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
+                }
             }
         }
 
