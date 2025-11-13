@@ -10,8 +10,21 @@ use std::{
 };
 
 #[derive(PartialEq)]
+pub enum FlatpakInstallation {
+    System,
+    User,
+}
+impl std::fmt::Display for FlatpakInstallation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::System => write!(f, "system"),
+            Self::User => write!(f, "user"),
+        }
+    }
+}
+#[derive(PartialEq)]
 pub enum Installation {
-    Flatpak,
+    Flatpak(FlatpakInstallation),
     System,
 }
 
@@ -52,6 +65,14 @@ impl Browser {
         }
     }
 
+    pub fn is_flatpak(&self) -> bool {
+        matches!(self.installation, Installation::Flatpak(_))
+    }
+
+    pub fn is_system(&self) -> bool {
+        matches!(self.installation, Installation::System)
+    }
+
     pub fn get_icon(&self) -> Image {
         let mut image = Image::from_icon_name(&self.icon_name);
         if image.uses_fallback() {
@@ -80,7 +101,7 @@ impl BrowserConfigs {
         let all_browsers_borrow = self.all_browsers.borrow();
         all_browsers_borrow
             .iter()
-            .filter(|browser| browser.installation == Installation::Flatpak)
+            .filter(|browser| browser.is_flatpak())
             .cloned()
             .collect()
     }
@@ -100,11 +121,13 @@ impl BrowserConfigs {
 
         for (browser_config, file_name) in browser_configs {
             if let Some(flatpak) = &browser_config.flatpak {
-                if Self::is_installed_flatpak(flatpak) {
+                if let Some(installation) = Self::is_installed_flatpak(flatpak) {
                     info!("Found flatpak browser '{flatpak}' from config '{file_name}'");
 
-                    let browser =
-                        Rc::new(Browser::new(&browser_config.clone(), Installation::Flatpak));
+                    let browser = Rc::new(Browser::new(
+                        &browser_config.clone(),
+                        Installation::Flatpak(installation),
+                    ));
 
                     all_browser_borrow.push(browser);
                 } else {
@@ -127,7 +150,7 @@ impl BrowserConfigs {
         }
     }
 
-    fn is_installed_flatpak(flatpak: &str) -> bool {
+    fn is_installed_flatpak(flatpak: &str) -> Option<FlatpakInstallation> {
         let command = "flatpak";
         let arguments = &["info", flatpak];
 
@@ -136,9 +159,30 @@ impl BrowserConfigs {
         match output {
             Err(error) => {
                 error!("Could not run command '{command} {arguments:?}'. Error: {error}");
-                false
+                None
             }
-            Ok(response) => response.status.success(),
+            Ok(response) => {
+                if !response.status.success() {
+                    return None;
+                }
+                let output_txt = String::from_utf8_lossy(&response.stdout);
+                let installation_line = output_txt
+                    .lines()
+                    .find(|line| line.contains("Installation:"))?;
+                let installation = installation_line.split("Installation: ").last()?;
+
+                if installation == FlatpakInstallation::User.to_string() {
+                    debug!("'{flatpak}' is user installed");
+                    return Some(FlatpakInstallation::User);
+                }
+                if installation == FlatpakInstallation::System.to_string() {
+                    debug!("'{flatpak}' is system installed");
+                    return Some(FlatpakInstallation::System);
+                }
+
+                debug!("Could not determine installation type for '{flatpak}'");
+                None
+            }
         }
     }
 

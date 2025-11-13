@@ -1,5 +1,9 @@
 use super::NavPage;
-use crate::application::{App, browser_configs::Browser, pages::PrefPage};
+use crate::application::{
+    App,
+    browser_configs::{Browser, Installation},
+    pages::PrefPage,
+};
 use gtk::{
     Align, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
@@ -8,6 +12,7 @@ use libadwaita::{
     ActionRow, ExpanderRow, NavigationPage, PreferencesGroup, PreferencesPage, StatusPage,
     prelude::{ExpanderRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
+use std::fmt::Write as _;
 use std::rc::Rc;
 
 pub struct Browsers {
@@ -116,23 +121,28 @@ impl Browsers {
         header_box.append(&app_label);
         content_box.append(&header_box);
 
-        if let Some(flatpak_id) = &browser.flatpak_id {
-            let flatpak_label = Label::builder()
-                .label(format!("<b>Flatpak id: </b><span>{flatpak_id}</span>"))
-                .use_markup(true)
-                .valign(Align::Center)
-                .build();
+        if browser.is_flatpak() {
+            let mut label = String::new();
 
+            if let Some(flatpak_id) = &browser.flatpak_id {
+                let _ = write!(label, "{flatpak_id}");
+            }
+
+            if let Installation::Flatpak(installation) = &browser.installation {
+                let _ = write!(label, " ({installation})");
+            }
+
+            let flatpak_label = Label::builder().label(&label).valign(Align::Center).build();
             content_box.append(&flatpak_label);
         }
 
-        if let Some(executable) = &browser.executable {
+        if browser.is_system()
+            && let Some(executable) = &browser.executable
+        {
             let executable_label = Label::builder()
-                .label(format!("<b>Executable: </b><span>{executable}</span>"))
-                .use_markup(true)
+                .label(executable)
                 .valign(Align::Center)
                 .build();
-
             content_box.append(&executable_label);
         }
 
@@ -141,10 +151,8 @@ impl Browsers {
                 .label("<b>This browser can isolate your web apps.</b>")
                 .use_markup(true)
                 .build();
-
             content_box.append(&isolation_label);
         }
-
         content_box
     }
 }
