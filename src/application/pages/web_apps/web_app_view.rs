@@ -187,8 +187,17 @@ impl WebAppView {
         app_image.set_margin_start(25);
         app_image.set_margin_end(25);
 
+        let browser_label = Label::new(None);
+        let browser_id = desktop_file_borrow
+            .desktop_entry(config::DesktopFile::BROWSER_ID)
+            .unwrap_or_default();
+        if let Some(browser) = self.app.browsers_configs.get_by_id(browser_id) {
+            browser_label.set_markup(&format!("<b>{}</b>", &browser.get_name_with_installation()));
+        }
+
         content_box.append(&app_image);
         content_box.append(&app_label);
+        content_box.append(&browser_label);
         content_box.append(&button_wrap_box);
 
         pref_group.add(&content_box);

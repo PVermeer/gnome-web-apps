@@ -89,6 +89,22 @@ impl Browser {
         matches!(self.installation, Installation::System)
     }
 
+    pub fn get_name_with_installation(&self) -> String {
+        let mut txt = String::new();
+        let _ = write!(txt, "{}", self.name);
+
+        match self.installation {
+            Installation::Flatpak(_) => {
+                let _ = write!(txt, " (Flatpak)");
+            }
+            Installation::System => {
+                let _ = write!(txt, " (System)");
+            }
+        }
+
+        txt
+    }
+
     pub fn get_icon(&self) -> Image {
         let mut image = Image::from_icon_name(&self.icon_name);
         if image.uses_fallback() {
