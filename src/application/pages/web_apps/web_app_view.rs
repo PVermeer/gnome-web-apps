@@ -4,20 +4,27 @@ use super::WebAppsPage;
 use crate::{
     application::{
         App,
+        browser_configs::Browser,
         pages::{NavPage, PrefPage, web_apps::web_app_view::icon_picker::IconPicker},
     },
     config,
 };
 use freedesktop_desktop_entry::DesktopEntry;
+use gtk::{
+    ListItem, SignalListItemFactory, gio,
+    glib::{BoxedAnyObject, object::Cast},
+    prelude::ListItemExt,
+};
 use libadwaita::{
-    ActionRow, ButtonContent, EntryRow, HeaderBar, NavigationPage, PreferencesGroup,
+    ActionRow, ButtonContent, ComboRow, EntryRow, HeaderBar, NavigationPage, PreferencesGroup,
     PreferencesPage, SwitchRow, Toast, ToastOverlay, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
     },
     prelude::{
-        AlertDialogExt, EntryRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt,
+        AlertDialogExt, ComboRowExt, EntryRowExt, PreferencesGroupExt, PreferencesPageExt,
+        PreferencesRowExt,
     },
 };
 use log::{debug, error};
@@ -211,11 +218,13 @@ impl WebAppView {
 
         let name_row = self.build_name_row();
         let url_row = self.build_url_row();
+        let browser_row = self.build_browser_row();
         let isolate_row = self.build_isolate_row();
 
         pref_group.add(&name_row);
         pref_group.add(&url_row);
         pref_group.add(&isolate_row);
+        pref_group.add(&browser_row);
 
         pref_group
     }
@@ -292,7 +301,7 @@ impl WebAppView {
 
     fn build_name_row(self: &Rc<Self>) -> EntryRow {
         let desktop_file_key = "Name";
-        self.build_input_row("Website URL", InputPurpose::Name, desktop_file_key)
+        self.build_input_row("Web app name", InputPurpose::Name, desktop_file_key)
     }
 
     fn build_url_row(self: &Rc<Self>) -> EntryRow {
@@ -323,6 +332,116 @@ impl WebAppView {
         entry_row
     }
 
+    fn build_browser_row(self: &Rc<Self>) -> ComboRow {
+        let all_browsers = Rc::new(self.app.browsers_configs.get_all_browsers());
+
+        // Some weird factory setup where the list calls factory methods...
+        // First create all data structures, then set data from ListStore.
+        // Why is this so unnecessary complicated? ¯\_(ツ)_/¯
+        let list = gio::ListStore::new::<BoxedAnyObject>();
+        for browser in all_browsers.iter() {
+            let boxed = BoxedAnyObject::new(browser.clone());
+            list.append(&boxed);
+        }
+        let factory = SignalListItemFactory::new();
+        factory.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<ListItem>().unwrap();
+            let browser_item_boxed = list_item
+                .item()
+                .unwrap()
+                .downcast::<BoxedAnyObject>()
+                .unwrap();
+            let browser = browser_item_boxed.borrow::<Rc<Browser>>();
+            let box_container = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+
+            box_container.append(&browser.get_icon());
+            box_container.append(&Label::new(Some(&browser.get_name_with_installation())));
+
+            list_item.set_child(Some(&box_container));
+        });
+
+        let combo_row = ComboRow::builder()
+            .title("Browser")
+            .subtitle("Pick a browser")
+            .model(&list)
+            .factory(&factory)
+            .build();
+
+        let desktop_file_key = config::DesktopFile::BROWSER_ID;
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
+        let self_clone = self.clone();
+        let desktop_file_key_clone = desktop_file_key.to_string();
+        let all_browsers_clone = all_browsers.clone();
+        let is_blocked = Rc::new(Cell::new(false)); // ComboRow recurses on undo.
+
+        combo_row.connect_selected_item_notify(move |combo_row| {
+            if is_blocked.get() {
+                return;
+            }
+
+            let selected_item = combo_row.selected_item();
+            let Some(selected_item) = selected_item else {
+                return;
+            };
+            let browser_item_boxed = selected_item.downcast::<BoxedAnyObject>().unwrap();
+            let browser = browser_item_boxed.borrow::<Rc<Browser>>();
+            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+            let undo_browser_id = desktop_file_borrow
+                .desktop_entry(&desktop_file_key_clone.clone())
+                .unwrap_or_default()
+                .to_string();
+            let undo_state = all_browsers_clone
+                .iter()
+                .position(|browser| browser.id == undo_browser_id);
+
+            desktop_file_borrow
+                .add_desktop_entry(desktop_file_key_clone.clone(), browser.id.clone());
+            drop(desktop_file_borrow);
+
+            let saved_toast = Self::build_saved_toast();
+            let combo_row_clone = combo_row.clone();
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
+            let self_clone_undo = self_clone.clone();
+            let is_blocked_clone = is_blocked.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                is_blocked_clone.set(true);
+                let Some(undo_state) = undo_state else {
+                    return;
+                };
+                combo_row_clone.set_selected(undo_state.try_into().unwrap());
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+                desktop_file_borrow.add_desktop_entry(
+                    desktop_file_key_undo_clone.clone(),
+                    undo_browser_id.clone(),
+                );
+                drop(desktop_file_borrow);
+
+                self_clone_undo.on_desktop_file_change();
+                is_blocked_clone.set(false);
+            });
+            toast_overlay_clone.add_toast(saved_toast);
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            debug!(
+                "Set a new '{}' on `desktop file`: {}",
+                desktop_file_key_clone,
+                &desktop_file_clone
+                    .borrow()
+                    .desktop_entry(&desktop_file_key_clone)
+                    .unwrap_or_default()
+            );
+
+            self_clone.on_desktop_file_change();
+        });
+
+        combo_row
+    }
+
     fn build_isolate_row(self: &Rc<Self>) -> SwitchRow {
         let desktop_file_key = config::DesktopFile::ISOLATE_KEY;
         let desktop_file_borrow = self.desktop_file.borrow();
@@ -340,7 +459,7 @@ impl WebAppView {
         let toast_overlay_clone = self.toast_overlay.clone();
         let self_clone = self.clone();
         let desktop_file_key_clone = desktop_file_key.to_string();
-        let is_blocked = Rc::new(Cell::new(false)); // SwitchRow behaves differently and might recurse.
+        let is_blocked = Rc::new(Cell::new(false)); // SwitchRow recurses on undo.
 
         switch_row.connect_active_notify(move |switch_row| {
             if is_blocked.get() {

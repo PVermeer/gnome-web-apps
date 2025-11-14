@@ -129,6 +129,10 @@ impl BrowserConfigs {
         self.set_browsers_from_files(app);
     }
 
+    pub fn get_all_browsers(&self) -> Vec<Rc<Browser>> {
+        self.all_browsers.borrow().clone()
+    }
+
     pub fn get_flatpak_browsers(&self) -> Vec<Rc<Browser>> {
         let all_browsers_borrow = self.all_browsers.borrow();
         all_browsers_borrow
