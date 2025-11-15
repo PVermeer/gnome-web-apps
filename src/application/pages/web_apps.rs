@@ -44,6 +44,7 @@ pub struct WebAppsPage {
     nav_row: ActionRow,
     nav_view: NavigationView,
     prefs_page: PreferencesPage,
+    app_section: RefCell<PreferencesGroup>
 }
 impl NavPage for WebAppsPage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -58,6 +59,7 @@ impl WebAppsPage {
     pub fn new() -> Rc<Self> {
         let title = "Web Apps";
         let icon = "preferences-desktop-apps-symbolic";
+        let app_section = RefCell::new(PreferencesGroup::new());
 
         let PrefNavPage {
             nav_page,
@@ -72,12 +74,23 @@ impl WebAppsPage {
             nav_row,
             nav_view,
             prefs_page,
+            app_section
         })
     }
 
     pub fn init(self: &Rc<Self>, app: &Rc<App>) {
         let app_section = self.clone().build_apps_section(app);
         self.prefs_page.add(&app_section);
+        *self.app_section.borrow_mut() = app_section;
+
+        let self_clone = self.clone();
+        let app_clone = app.clone();
+
+        self.nav_view.connect_popped(move |_, _| {
+            self_clone.prefs_page.remove(&*self_clone.app_section.borrow());
+            *self_clone.app_section.borrow_mut() = self_clone.clone().build_apps_section(&app_clone);
+            self_clone.prefs_page.add(&*self_clone.app_section.borrow());
+        });
     }
 
     fn build_apps_section(self: Rc<Self>, app: &Rc<App>) -> PreferencesGroup {
