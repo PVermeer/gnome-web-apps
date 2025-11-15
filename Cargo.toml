@@ -10,10 +10,13 @@ freedesktop-desktop-entry = "0"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }
 libadwaita = { version = "0", features = ["v1_7"] }
 log = "0"
+rand = "0.8"
+regex = "1"
 sanitize-filename = "0.6"
 scraper = { version = "0", features = ["atomic"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 ureq = { version = "3.1", features = ["gzip"] }
+url = "2.5.7"
 validator = "0"
 xdg = "3"

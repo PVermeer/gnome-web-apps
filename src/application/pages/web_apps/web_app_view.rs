@@ -42,7 +42,6 @@ pub struct WebAppView {
     header: HeaderBar,
     desktop_file: Rc<RefCell<DesktopEntry>>,
     desktop_file_original: DesktopEntry,
-    locales: Vec<String>,
     prefs_page: PreferencesPage,
     pref_groups: RefCell<Vec<PreferencesGroup>>,
     toast_overlay: ToastOverlay,
@@ -64,15 +63,11 @@ impl WebAppView {
     const TOAST_RESET: &str = "Reset";
     const TOAST_UNDO_BUTTON: &str = "Undo";
 
-    pub fn new(
-        app: &Rc<App>,
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        locales: &[String],
-    ) -> Rc<Self> {
+    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
         let desktop_file_borrow = desktop_file.borrow();
         let desktop_file_original = desktop_file_borrow.clone(); // Deep clone
         let title = desktop_file_borrow
-            .name(locales)
+            .name(&app.desktop_file_locales)
             .unwrap_or(Cow::Borrowed("No name"));
         let icon = "preferences-desktop-apps-symbolic";
         let PrefPage {
@@ -90,7 +85,6 @@ impl WebAppView {
             header,
             desktop_file: desktop_file.clone(),
             desktop_file_original,
-            locales: locales.to_owned(),
             prefs_page,
             pref_groups: RefCell::new(Vec::new()),
             toast_overlay,
@@ -98,24 +92,13 @@ impl WebAppView {
         })
     }
 
-    /// Init may be run sequentially to reset the view.
     pub fn init(self: &Rc<Self>) {
         let self_clone = self.clone();
         let mut pref_groups = self.pref_groups.borrow_mut();
 
-        if pref_groups.is_empty() {
-            // First init
-            self.header.pack_end(&self.reset_button);
-            self.reset_button
-                .connect_clicked(move |_| self_clone.reset_desktop_file());
-        } else {
-            // Sequential init
-            for pref_group in pref_groups.iter() {
-                self.prefs_page.remove(pref_group);
-            }
-            pref_groups.clear();
-        }
-
+        self.header.pack_end(&self.reset_button);
+        self.reset_button
+            .connect_clicked(move |_| self_clone.reset_desktop_file());
         let web_app_header = self.build_app_header();
         let general_pref_group = self.build_general_pref_group();
 
@@ -131,7 +114,7 @@ impl WebAppView {
         debug!("Resetting desktop file");
 
         *self.desktop_file.borrow_mut() = self.desktop_file_original.clone();
-        self.reset_view();
+        self.on_desktop_file_change();
 
         let toast = Self::build_reset_toast();
         self.toast_overlay.add_toast(toast);
@@ -150,7 +133,7 @@ impl WebAppView {
         let pref_group = PreferencesGroup::builder().build();
         let content_box = gtk::Box::new(Orientation::Vertical, 6);
         let app_name = desktop_file_borrow
-            .name(&self.locales)
+            .name(&self.app.desktop_file_locales)
             .unwrap_or(Cow::Borrowed("No name..."));
         let app_label = Label::builder()
             .label(app_name)
@@ -194,7 +177,7 @@ impl WebAppView {
 
         let browser_label = Label::new(None);
         let browser_id = desktop_file_borrow
-            .desktop_entry(config::DesktopFile::BROWSER_ID)
+            .desktop_entry(config::DesktopFile::BROWSER_ID_KEY)
             .unwrap_or_default();
         if let Some(browser) = self.app.browsers_configs.get_by_id(browser_id) {
             browser_label.set_markup(&format!("<b>{}</b>", &browser.get_name_with_installation()));
@@ -367,7 +350,7 @@ impl WebAppView {
             .factory(&factory)
             .build();
 
-        let desktop_file_key = config::DesktopFile::BROWSER_ID;
+        let desktop_file_key = config::DesktopFile::BROWSER_ID_KEY;
         let desktop_file_clone = self.desktop_file.clone();
         let toast_overlay_clone = self.toast_overlay.clone();
         let self_clone = self.clone();
@@ -568,6 +551,13 @@ impl WebAppView {
         toast
     }
 
+    fn build_error_toast() -> Toast {
+        let toast = Toast::new("Error saving");
+        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
+
+        toast
+    }
+
     fn reset_reset_button(&self) {
         if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
             self.reset_button.set_sensitive(false);
@@ -596,14 +586,13 @@ impl WebAppView {
         }
     }
 
-    fn reset_view(self: &Rc<Self>) {
-        debug!("Resetting view");
-        self.init();
-        self.reset_reset_button();
-    }
-
     fn on_desktop_file_change(&self) {
         debug!("Desktop file changed");
+
+        if WebAppsPage::save(&self.app, &self.desktop_file).is_err() {
+            let toast = Self::build_error_toast();
+            self.toast_overlay.add_toast(toast);
+        }
 
         self.reset_reset_button();
         self.reset_app_header();

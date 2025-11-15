@@ -5,6 +5,7 @@ mod window;
 
 use crate::{application::browser_configs::BrowserConfigs, config};
 use fetch::Fetch;
+use freedesktop_desktop_entry::get_languages_from_env;
 use pages::{Page, Pages};
 use std::rc::Rc;
 use window::AppWindow;
@@ -16,6 +17,7 @@ pub struct App {
     fetch: Fetch,
     pages: Pages,
     browsers_configs: BrowserConfigs,
+    desktop_file_locales: Vec<String>,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -25,6 +27,7 @@ impl App {
             let fetch = Fetch::new();
             let pages = Pages::new();
             let browsers = BrowserConfigs::new();
+            let desktop_file_locales = get_languages_from_env();
 
             Self {
                 window,
@@ -32,6 +35,7 @@ impl App {
                 fetch,
                 pages,
                 browsers_configs: browsers,
+                desktop_file_locales,
             }
         })
     }
