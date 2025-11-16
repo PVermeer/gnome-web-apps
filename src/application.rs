@@ -1,23 +1,28 @@
-mod browser_configs;
-mod fetch;
 mod pages;
 mod window;
 
-use crate::{application::browser_configs::BrowserConfigs, config};
-use fetch::Fetch;
+use crate::{
+    config,
+    services::{browsers::BrowserConfigs, fetch::Fetch},
+};
+use anyhow::{Result, bail};
 use freedesktop_desktop_entry::get_languages_from_env;
+use log::debug;
 use pages::{Page, Pages};
-use std::rc::Rc;
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 use window::AppWindow;
 use xdg::BaseDirectories;
 
 pub struct App {
+    pub dirs: BaseDirectories,
+    pub desktop_file_locales: Vec<String>,
+    pub browsers_configs: BrowserConfigs,
     window: AppWindow,
-    dirs: BaseDirectories,
     fetch: Fetch,
     pages: Pages,
-    browsers_configs: BrowserConfigs,
-    desktop_file_locales: Vec<String>,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -30,12 +35,12 @@ impl App {
             let desktop_file_locales = get_languages_from_env();
 
             Self {
-                window,
                 dirs: app_dirs,
+                desktop_file_locales,
+                browsers_configs: browsers,
+                window,
                 fetch,
                 pages,
-                browsers_configs: browsers,
-                desktop_file_locales,
             }
         })
     }
@@ -50,5 +55,26 @@ impl App {
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {
         self.window.view.navigate(self, page);
+    }
+
+    pub fn get_applications_path(&self) -> Result<PathBuf> {
+        if cfg!(debug_assertions) {
+            let path = Path::new("./dev-assets/desktop-files").to_path_buf();
+            debug!("Using dev applications path: {}", path.display());
+            return Ok(path);
+        }
+
+        let Some(data_home_path) = self.dirs.data_home.as_ref() else {
+            bail!("Could not get data home path")
+        };
+
+        let path = data_home_path.join("applications");
+        debug!("Using applications path: {}", path.display());
+
+        if !path.is_dir() {
+            bail!("Could not get applications path");
+        }
+
+        Ok(path)
     }
 }

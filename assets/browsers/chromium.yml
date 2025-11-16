@@ -3,4 +3,4 @@ icon_name: org.chromium.Chromium
 flatpak: org.chromium.Chromium
 system_bin: chromium-browser
 can_isolate: true
-file_name: org.chromium.Chromium.chrome
+desktop_file_name_prefix: org.chromium.Chromium.chrome

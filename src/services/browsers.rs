@@ -1,4 +1,3 @@
-use super::App;
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::Image;
@@ -11,6 +10,8 @@ use std::{
     process::Command,
     rc::Rc,
 };
+
+use crate::application::App;
 
 #[derive(PartialEq)]
 pub enum FlatpakInstallation {
@@ -39,7 +40,7 @@ pub struct BrowserYaml {
     system_bin: Option<String>,
     #[serde(default)]
     can_isolate: bool,
-    file_name: String,
+    desktop_file_name_prefix: String,
 }
 
 struct BrowserConfig {
@@ -55,7 +56,7 @@ pub struct Browser {
     pub flatpak_id: Option<String>,
     pub executable: Option<String>,
     pub desktop_file: DesktopEntry,
-    pub file_name: String,
+    pub desktop_file_name_prefix: String,
     icon_name: String,
 }
 impl Browser {
@@ -73,7 +74,7 @@ impl Browser {
         let flatpak_id = browser_config.config.flatpak.clone();
         let executable = browser_config.config.system_bin.clone();
         let desktop_file = browser_config.desktop_file.clone();
-        let file_name = browser_config.config.file_name.clone();
+        let desktop_file_name_prefix = browser_config.config.desktop_file_name_prefix.clone();
 
         let id = if matches!(installation, Installation::Flatpak(_)) {
             flatpak_id.clone().unwrap()
@@ -91,7 +92,7 @@ impl Browser {
             flatpak_id,
             executable,
             desktop_file,
-            file_name,
+            desktop_file_name_prefix,
             icon_name,
         }
     }

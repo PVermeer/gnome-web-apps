@@ -1,4 +1,7 @@
-use crate::{application::App, config};
+use crate::{
+    application::App,
+    ext::desktop_entry::{self, DesktopEntryExt, Icon},
+};
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
@@ -16,14 +19,8 @@ use libadwaita::{
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::{debug, error, info};
-use sanitize_filename::sanitize;
 use scraper::{Html, Selector};
-use std::{cell::RefCell, cmp::Reverse, collections::HashMap, path::Path, rc::Rc};
-
-struct Icon {
-    filename: String,
-    pixbuf: Pixbuf,
-}
+use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc};
 
 pub struct IconPicker {
     init: RefCell<bool>,
@@ -40,7 +37,6 @@ pub struct IconPicker {
     spinner: Spinner,
 }
 impl IconPicker {
-    const ICON_DIR: &str = "icons";
     pub const DIALOG_SAVE: &str = "save";
     pub const DIALOG_CANCEL: &str = "cancel";
 
@@ -124,66 +120,17 @@ impl IconPicker {
                 }
             };
 
-            if let Err(error) = self_clone.save_icon(&icon) {
+            if let Err(error) = self_clone
+                .desktop_file
+                .borrow_mut()
+                .set_icon(&self_clone.app, &icon)
+            {
                 error!("{error:?}");
             }
         });
 
         dialog.present(Some(&self.app.window.adw_window));
         dialog
-    }
-
-    fn save_icon(&self, icon: &Rc<Icon>) -> Result<()> {
-        let mut desktop_file = self.desktop_file.borrow_mut();
-        let app_id = desktop_file
-            .desktop_entry(config::DesktopFile::ID_KEY)
-            .context("No app id on desktop file!")?;
-        let data_dir = self
-            .app
-            .dirs
-            .get_data_home()
-            .context("No data dir???")?
-            .to_string_lossy()
-            .to_string();
-
-        let filename = match Path::new(&icon.filename).extension() {
-            Some(extension) => {
-                if extension == "png" {
-                    icon.filename.clone()
-                } else {
-                    format!("{}.png", icon.filename)
-                }
-            }
-            None => format!("{}.png", icon.filename),
-        };
-
-        let save_dir = format!("{data_dir}{}", Self::ICON_DIR);
-        let icon_name = sanitize(format!("{app_id}-{filename}"));
-        let save_path = format!("{save_dir}/{icon_name}");
-
-        debug!("Saving {icon_name} to fs: {save_path}");
-        let save_to_fs = || -> Result<()> {
-            self.app
-                .dirs
-                .place_data_file(&save_path)
-                .context("Failed to create paths")?;
-            icon.pixbuf
-                .savev(save_path.clone(), "png", &[])
-                .context("Failed to save to fs")?;
-            Ok(())
-        };
-
-        if let Err(error) = save_to_fs() {
-            bail!(error)
-        }
-
-        desktop_file.add_desktop_entry("Icon".to_string(), save_path);
-
-        debug!(
-            "Set a new 'Icon' on `desktop file`: {}",
-            &desktop_file.desktop_entry("Icon").unwrap_or_default()
-        );
-        Ok(())
     }
 
     fn get_selected_icon(self: &Rc<Self>) -> Result<Rc<Icon>> {
@@ -216,7 +163,7 @@ impl IconPicker {
         {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
             url = desktop_file_borrow
-                .desktop_entry(config::DesktopFile::URL_KEY)
+                .desktop_entry(&desktop_entry::KeysExt::Url.to_string())
                 .unwrap_or_default()
                 .to_string();
         }

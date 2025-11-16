@@ -1,13 +1,12 @@
 mod icon_picker;
 
-use super::WebAppsPage;
 use crate::{
     application::{
         App,
-        browser_configs::Browser,
         pages::{NavPage, PrefPage, web_apps::web_app_view::icon_picker::IconPicker},
     },
-    config,
+    ext::desktop_entry::{self, DesktopEntryExt},
+    services::browsers::Browser,
 };
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
@@ -169,7 +168,7 @@ impl WebAppView {
             .build();
         button_wrap_box.append(&run_button);
 
-        let app_image = WebAppsPage::get_image_icon(&desktop_file_borrow);
+        let app_image = desktop_file_borrow.get_image_icon();
         app_image.set_css_classes(&["icon-dropshadow"]);
         app_image.set_pixel_size(96);
         app_image.set_margin_start(25);
@@ -177,7 +176,7 @@ impl WebAppView {
 
         let browser_label = Label::new(None);
         let browser_id = desktop_file_borrow
-            .desktop_entry(config::DesktopFile::BROWSER_ID_KEY)
+            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
             .unwrap_or_default();
         if let Some(browser) = self.app.browsers_configs.get_by_id(browser_id) {
             browser_label.set_markup(&format!("<b>{}</b>", &browser.get_name_with_installation()));
@@ -288,9 +287,9 @@ impl WebAppView {
     }
 
     fn build_url_row(self: &Rc<Self>) -> EntryRow {
-        let desktop_file_key = config::DesktopFile::URL_KEY;
+        let desktop_file_key = desktop_entry::KeysExt::Url.to_string();
         let validate_icon = Image::from_icon_name("dialog-warning-symbolic");
-        let entry_row = self.build_input_row("Website URL", InputPurpose::Url, desktop_file_key);
+        let entry_row = self.build_input_row("Website URL", InputPurpose::Url, &desktop_file_key);
 
         validate_icon.set_visible(false);
         validate_icon.set_css_classes(&["error"]);
@@ -350,11 +349,10 @@ impl WebAppView {
             .factory(&factory)
             .build();
 
-        let desktop_file_key = config::DesktopFile::BROWSER_ID_KEY;
+        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
         let desktop_file_clone = self.desktop_file.clone();
         let toast_overlay_clone = self.toast_overlay.clone();
         let self_clone = self.clone();
-        let desktop_file_key_clone = desktop_file_key.to_string();
         let all_browsers_clone = all_browsers.clone();
         let is_blocked = Rc::new(Cell::new(false)); // ComboRow recurses on undo.
 
@@ -372,21 +370,20 @@ impl WebAppView {
             let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
 
             let undo_browser_id = desktop_file_borrow
-                .desktop_entry(&desktop_file_key_clone.clone())
+                .desktop_entry(&desktop_file_key)
                 .unwrap_or_default()
                 .to_string();
             let undo_state = all_browsers_clone
                 .iter()
                 .position(|browser| browser.id == undo_browser_id);
 
-            desktop_file_borrow
-                .add_desktop_entry(desktop_file_key_clone.clone(), browser.id.clone());
+            desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
             drop(desktop_file_borrow);
 
             let saved_toast = Self::build_saved_toast();
             let combo_row_clone = combo_row.clone();
             let desktop_file_clone = self_clone.desktop_file.clone();
-            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
+            let desktop_file_key_undo_clone = desktop_file_key.clone();
             let self_clone_undo = self_clone.clone();
             let is_blocked_clone = is_blocked.clone();
 
@@ -412,10 +409,10 @@ impl WebAppView {
             let desktop_file_clone = self_clone.desktop_file.clone();
             debug!(
                 "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key_clone,
+                desktop_file_key,
                 &desktop_file_clone
                     .borrow()
-                    .desktop_entry(&desktop_file_key_clone)
+                    .desktop_entry(&desktop_file_key)
                     .unwrap_or_default()
             );
 
@@ -426,10 +423,10 @@ impl WebAppView {
     }
 
     fn build_isolate_row(self: &Rc<Self>) -> SwitchRow {
-        let desktop_file_key = config::DesktopFile::ISOLATE_KEY;
+        let desktop_file_key = desktop_entry::KeysExt::Isolate.to_string();
         let desktop_file_borrow = self.desktop_file.borrow();
         let is_isolated = desktop_file_borrow
-            .desktop_entry(desktop_file_key)
+            .desktop_entry(&desktop_file_key)
             .is_some_and(|is_isolated| is_isolated == "true");
 
         let switch_row = SwitchRow::builder()
@@ -441,7 +438,7 @@ impl WebAppView {
         let desktop_file_clone = self.desktop_file.clone();
         let toast_overlay_clone = self.toast_overlay.clone();
         let self_clone = self.clone();
-        let desktop_file_key_clone = desktop_file_key.to_string();
+        let desktop_file_key_clone = desktop_file_key.clone();
         let is_blocked = Rc::new(Cell::new(false)); // SwitchRow recurses on undo.
 
         switch_row.connect_active_notify(move |switch_row| {
@@ -589,7 +586,7 @@ impl WebAppView {
     fn on_desktop_file_change(&self) {
         debug!("Desktop file changed");
 
-        if WebAppsPage::save(&self.app, &self.desktop_file).is_err() {
+        if self.desktop_file.borrow_mut().save(&self.app).is_err() {
             let toast = Self::build_error_toast();
             self.toast_overlay.add_toast(toast);
         }

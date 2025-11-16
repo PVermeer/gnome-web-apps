@@ -1,8 +1,7 @@
 use super::NavPage;
-use crate::application::{
-    App,
-    browser_configs::{Browser, Installation},
-    pages::PrefPage,
+use crate::{
+    application::{App, pages::PrefPage},
+    services::browsers::{Browser, Installation},
 };
 use gtk::{
     Align, Label, Orientation,
