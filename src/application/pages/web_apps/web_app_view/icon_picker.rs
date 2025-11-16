@@ -96,7 +96,16 @@ impl IconPicker {
         *is_init = true;
     }
 
-    pub fn show_dialog(self: &Rc<Self>) -> AlertDialog {
+    /// Pass an optional `ToastOverlay` to show a possible error
+    pub fn show_dialog<Success, Fail>(
+        self: &Rc<Self>,
+        success_cb: Option<Success>,
+        fail_cb: Option<Fail>,
+    ) -> AlertDialog
+    where
+        Success: Fn() + 'static,
+        Fail: Fn() + 'static,
+    {
         self.init();
 
         let dialog = AlertDialog::builder()
@@ -116,16 +125,27 @@ impl IconPicker {
                 Ok(icon) => icon,
                 Err(error) => {
                     error!("{error:?}");
+                    if let Some(fail_cb) = &fail_cb {
+                        fail_cb();
+                    }
                     return;
                 }
             };
 
-            if let Err(error) = self_clone
-                .desktop_file
-                .borrow_mut()
-                .set_icon(&self_clone.app, &icon)
-            {
+            let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
+            let result = desktop_file_borrow.set_icon(&self_clone.app, &icon);
+            drop(desktop_file_borrow);
+
+            if let Err(error) = result {
                 error!("{error:?}");
+                if let Some(fail_cb) = &fail_cb {
+                    fail_cb();
+                }
+                return;
+            }
+
+            if let Some(success_cb) = &success_cb {
+                success_cb();
             }
         });
 

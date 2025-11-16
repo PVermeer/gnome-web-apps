@@ -66,8 +66,6 @@ impl std::fmt::Display for ReplaceKeys {
 }
 
 pub trait DesktopEntryExt {
-    const ICON_DIR: &str = "icons";
-
     fn get_entries(&self, app: &Rc<App>) -> Result<DesktopFileEntries>;
     fn save(&mut self, app: &Rc<App>) -> Result<()>;
     fn get_image_icon(&self) -> Image;
@@ -221,12 +219,6 @@ impl DesktopEntryExt for DesktopEntry {
         let app_id = self
             .desktop_entry(&KeysExt::Id.to_string())
             .context("No app id on desktop file!")?;
-        let data_dir = app
-            .dirs
-            .get_data_home()
-            .context("No data dir???")?
-            .to_string_lossy()
-            .to_string();
 
         let filename = match Path::new(&icon.filename).extension() {
             Some(extension) => {
@@ -239,26 +231,25 @@ impl DesktopEntryExt for DesktopEntry {
             None => format!("{}.png", icon.filename),
         };
 
-        let save_dir = format!("{data_dir}{}", Self::ICON_DIR);
+        let icon_dir = app.get_icons_dir()?;
         let icon_name = sanitize_filename::sanitize(format!("{app_id}-{filename}"));
-        let save_path = format!("{save_dir}/{icon_name}");
+        let save_path = icon_dir.join(&icon_name);
 
-        debug!("Saving {icon_name} to fs: {save_path}");
-        let save_to_fs = || -> Result<()> {
-            app.dirs
-                .place_data_file(&save_path)
-                .context("Failed to create paths")?;
-            icon.pixbuf
-                .savev(save_path.clone(), "png", &[])
-                .context("Failed to save to fs")?;
-            Ok(())
-        };
+        debug!("Saving {} to fs: {}", &icon_name, save_path.display());
+        app.dirs
+            .place_data_file(&save_path)
+            .context("Failed to create paths")?;
+        icon.pixbuf
+            .savev(save_path.clone(), "png", &[])
+            .context("Failed to save icon to fs")?;
 
-        if let Err(error) = save_to_fs() {
-            bail!(error)
-        }
-
-        self.add_desktop_entry("Icon".to_string(), save_path);
+        self.add_desktop_entry(
+            "Icon".to_string(),
+            save_path
+                .to_str()
+                .context("Cannot convert icon path to string")?
+                .to_string(),
+        );
 
         debug!(
             "Set a new 'Icon' on `desktop file`: {}",
@@ -272,7 +263,7 @@ impl DesktopEntryExt for DesktopEntry {
         desktop_files_entries: &DesktopFileEntries,
         browser: &Browser,
     ) -> Result<PathBuf> {
-        let applications_dir = app.get_applications_path()?;
+        let applications_dir = app.get_applications_dir()?;
         let file_name = format!(
             "{}-{}{}",
             browser.desktop_file_name_prefix,

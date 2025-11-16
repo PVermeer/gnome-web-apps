@@ -148,7 +148,7 @@ impl WebAppsPage {
         let owned_web_app_key = desktop_entry::KeysExt::Gwa.to_string();
         let mut owned_desktop_files = Vec::new();
 
-        let applications_path = match app.get_applications_path() {
+        let applications_path = match app.get_applications_dir() {
             Err(error) => {
                 error!("{error}");
                 return owned_desktop_files;

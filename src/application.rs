@@ -57,14 +57,14 @@ impl App {
         self.window.view.navigate(self, page);
     }
 
-    pub fn get_applications_path(&self) -> Result<PathBuf> {
+    pub fn get_applications_dir(&self) -> Result<PathBuf> {
         if cfg!(debug_assertions) {
             let path = Path::new("./dev-assets/desktop-files").to_path_buf();
             debug!("Using dev applications path: {}", path.display());
             return Ok(path);
         }
 
-        let Some(data_home_path) = self.dirs.data_home.as_ref() else {
+        let Some(data_home_path) = self.dirs.get_data_home() else {
             bail!("Could not get data home path")
         };
 
@@ -74,6 +74,23 @@ impl App {
         if !path.is_dir() {
             bail!("Could not get applications path");
         }
+
+        Ok(path)
+    }
+
+    pub fn get_icons_dir(&self) -> Result<PathBuf> {
+        if cfg!(debug_assertions) {
+            let path = Path::new("./dev-assets/icons").to_path_buf();
+            debug!("Using dev icons path: {}", path.display());
+            return Ok(path);
+        }
+
+        let Some(data_home_path) = self.dirs.get_data_home() else {
+            bail!("Could not get data home path")
+        };
+
+        let path = data_home_path.join("icons");
+        debug!("Using icons path: {}", path.display());
 
         Ok(path)
     }

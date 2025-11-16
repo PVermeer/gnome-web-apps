@@ -22,8 +22,7 @@ use libadwaita::{
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
     },
     prelude::{
-        AlertDialogExt, ComboRowExt, EntryRowExt, PreferencesGroupExt, PreferencesPageExt,
-        PreferencesRowExt,
+        ComboRowExt, EntryRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt,
     },
 };
 use log::{debug, error};
@@ -506,28 +505,48 @@ impl WebAppView {
         button.connect_clicked(move |_| {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
             let undo_icon_path = desktop_file_borrow.icon().unwrap_or_default().to_string();
+            let undo_icon_path_success = undo_icon_path.clone();
+            let undo_icon_path_fail = undo_icon_path.clone();
+
+            let self_clone_success = self_clone.clone();
+            let self_clone_fail = self_clone.clone();
 
             let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
-            let dialog = icon_picker.show_dialog();
 
-            let self_clone = self_clone.clone();
-            dialog.connect_response(Some(IconPicker::DIALOG_SAVE), move |_, _| {
-                let toast = Self::build_saved_toast();
-                let undo_icon_path = undo_icon_path.clone();
-                let self_clone_undo = self_clone.clone();
+            drop(desktop_file_borrow);
 
-                toast.connect_button_clicked(move |_| {
-                    let mut desktop_file_borrow = self_clone_undo.desktop_file.borrow_mut();
-                    desktop_file_borrow
-                        .add_desktop_entry("Icon".to_string(), undo_icon_path.clone());
+            icon_picker.show_dialog(
+                Some(move || {
+                    // Success
+                    let toast = Self::build_saved_toast();
+                    let undo_icon_path = undo_icon_path_success.clone();
+                    let self_clone_undo = self_clone_success.clone();
 
-                    drop(desktop_file_borrow);
-                    self_clone_undo.on_desktop_file_change();
-                });
+                    toast.connect_button_clicked(move |_| {
+                        let mut desktop_file_borrow = self_clone_undo.desktop_file.borrow_mut();
+                        desktop_file_borrow
+                            .add_desktop_entry("Icon".to_string(), undo_icon_path.clone());
 
-                self_clone.on_desktop_file_change();
-                self_clone.toast_overlay.add_toast(toast);
-            });
+                        drop(desktop_file_borrow);
+                        self_clone_undo.on_desktop_file_change();
+                    });
+
+                    self_clone_success.on_desktop_file_change();
+                    self_clone_success.toast_overlay.add_toast(toast);
+                }),
+                Some(move || {
+                    // Fail
+                    let toast = Self::build_error_toast("Failed to save icon");
+                    let undo_icon_path = undo_icon_path_fail.clone();
+                    self_clone_fail
+                        .desktop_file
+                        .borrow_mut()
+                        .add_desktop_entry("Icon".to_string(), undo_icon_path);
+
+                    self_clone_fail.on_desktop_file_change();
+                    self_clone_fail.toast_overlay.add_toast(toast);
+                }),
+            );
         });
 
         button
@@ -548,8 +567,8 @@ impl WebAppView {
         toast
     }
 
-    fn build_error_toast() -> Toast {
-        let toast = Toast::new("Error saving");
+    fn build_error_toast(message: &str) -> Toast {
+        let toast = Toast::new(message);
         toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
 
         toast
@@ -587,7 +606,7 @@ impl WebAppView {
         debug!("Desktop file changed");
 
         if self.desktop_file.borrow_mut().save(&self.app).is_err() {
-            let toast = Self::build_error_toast();
+            let toast = Self::build_error_toast("Failed to save app");
             self.toast_overlay.add_toast(toast);
         }
 
