@@ -1,32 +1,32 @@
 mod web_app_view;
 
 use super::NavPage;
-use super::PrefNavPage;
-use crate::application::App;
-use crate::application::browser_configs::Browser;
-use crate::application::pages::web_apps::web_app_view::WebAppView;
-use crate::config;
-use anyhow::Context;
-use anyhow::Result;
-use anyhow::bail;
+use crate::{
+    application::{
+        App,
+        browser_configs::Browser,
+        pages::{PrefNavPage, web_apps::web_app_view::WebAppView},
+    },
+    config,
+};
+use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
-use libadwaita::StatusPage;
+use gtk::{Button, Image, prelude::ButtonExt};
 use libadwaita::{
     ActionRow, ButtonContent, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
-    gtk::{Button, Image, prelude::ButtonExt},
+    StatusPage,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use log::debug;
-use log::error;
-use rand::Rng;
-use rand::distributions::Alphanumeric;
+use log::{debug, error};
+use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
-use std::rc::Rc;
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    fs,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 use url::Url;
 
 struct DesktopFileEntries {
@@ -44,7 +44,7 @@ pub struct WebAppsPage {
     nav_row: ActionRow,
     nav_view: NavigationView,
     prefs_page: PreferencesPage,
-    app_section: RefCell<PreferencesGroup>
+    app_section: RefCell<PreferencesGroup>,
 }
 impl NavPage for WebAppsPage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -74,7 +74,7 @@ impl WebAppsPage {
             nav_row,
             nav_view,
             prefs_page,
-            app_section
+            app_section,
         })
     }
 
@@ -87,8 +87,11 @@ impl WebAppsPage {
         let app_clone = app.clone();
 
         self.nav_view.connect_popped(move |_, _| {
-            self_clone.prefs_page.remove(&*self_clone.app_section.borrow());
-            *self_clone.app_section.borrow_mut() = self_clone.clone().build_apps_section(&app_clone);
+            self_clone
+                .prefs_page
+                .remove(&*self_clone.app_section.borrow());
+            *self_clone.app_section.borrow_mut() =
+                self_clone.clone().build_apps_section(&app_clone);
             self_clone.prefs_page.add(&*self_clone.app_section.borrow());
         });
     }
