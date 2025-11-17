@@ -46,25 +46,6 @@ impl std::fmt::Display for KeysExt {
     }
 }
 
-pub enum ReplaceKeys {
-    Name,
-    Command,
-    Url,
-    Domain,
-    Icon,
-}
-impl std::fmt::Display for ReplaceKeys {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Name => write!(f, "%{{name}}"),
-            Self::Command => write!(f, "%{{command}}"),
-            Self::Url => write!(f, "%{{url}}"),
-            Self::Domain => write!(f, "%{{domain}}"),
-            Self::Icon => write!(f, "%{{icon}}"),
-        }
-    }
-}
-
 pub trait DesktopEntryExt {
     fn get_entries(&self, app: &Rc<App>) -> Result<DesktopFileEntries>;
     fn save(&mut self, app: &Rc<App>) -> Result<()>;
@@ -147,11 +128,11 @@ impl DesktopEntryExt for DesktopEntry {
 
             let mut d_str = browser.desktop_file.clone().to_string();
 
-            d_str = d_str.replace(&ReplaceKeys::Command.to_string(), &browser.get_command()?);
-            d_str = d_str.replace(&ReplaceKeys::Name.to_string(), &entries.name);
-            d_str = d_str.replace(&ReplaceKeys::Url.to_string(), &entries.url);
-            d_str = d_str.replace(&ReplaceKeys::Domain.to_string(), &entries.domain);
-            d_str = d_str.replace(&ReplaceKeys::Icon.to_string(), &entries.icon);
+            d_str = d_str.replace("%{command}", &browser.get_command()?);
+            d_str = d_str.replace("%{name}", &entries.name);
+            d_str = d_str.replace("%{url}", &entries.url);
+            d_str = d_str.replace("%{domain}", &entries.domain);
+            d_str = d_str.replace("%{icon}", &entries.icon);
 
             let isolate_key = "is_isolated";
             let optional_isolated_value =
