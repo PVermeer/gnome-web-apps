@@ -65,14 +65,8 @@ impl WebAppsPage {
         let self_clone = self.clone();
         let app_clone = app.clone();
 
-        self.nav_view.connect_popped(move |_, _| {
-            self_clone
-                .prefs_page
-                .remove(&*self_clone.app_section.borrow());
-            *self_clone.app_section.borrow_mut() =
-                self_clone.clone().build_apps_section(&app_clone);
-            self_clone.prefs_page.add(&*self_clone.app_section.borrow());
-        });
+        self.nav_view
+            .connect_popped(move |_, _| self_clone.reset_app_section(&app_clone));
     }
 
     fn build_apps_section(self: Rc<Self>, app: &Rc<App>) -> PreferencesGroup {
@@ -176,5 +170,11 @@ impl WebAppsPage {
         }
 
         owned_desktop_files
+    }
+
+    fn reset_app_section(self: &Rc<Self>, app: &Rc<App>) {
+        self.prefs_page.remove(&*self.app_section.borrow());
+        *self.app_section.borrow_mut() = self.clone().build_apps_section(app);
+        self.prefs_page.add(&*self.app_section.borrow());
     }
 }
