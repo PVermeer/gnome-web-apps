@@ -20,7 +20,7 @@ impl AppWindow {
         let window = ApplicationWindow::builder()
             .application(adw_application)
             .title(&title)
-            .default_height(650)
+            .default_height(700)
             .default_width(850)
             .content(&view.nav_split)
             .build();

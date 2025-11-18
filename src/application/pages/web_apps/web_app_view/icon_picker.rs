@@ -96,7 +96,6 @@ impl IconPicker {
         *is_init = true;
     }
 
-    /// Pass an optional `ToastOverlay` to show a possible error
     pub fn show_dialog<Success, Fail>(
         self: &Rc<Self>,
         success_cb: Option<Success>,
@@ -153,6 +152,23 @@ impl IconPicker {
         dialog
     }
 
+    pub async fn set_first_icon(self: &Rc<Self>, url: &str) -> Result<()> {
+        self.set_online_icons(url).await?;
+        let icons_borrow = self.icons.borrow();
+        let mut icons: Vec<(&String, &Rc<Icon>)> = icons_borrow.iter().collect();
+        icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
+
+        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+
+        let Some((_url, icon)) = icons.first() else {
+            bail!("No icons found")
+        };
+
+        desktop_file_borrow.set_icon(&self.app, icon)?;
+
+        Ok(())
+    }
+
     fn get_selected_icon(self: &Rc<Self>) -> Result<Rc<Icon>> {
         let url_or_path = self
             .clone()
@@ -196,16 +212,18 @@ impl IconPicker {
 
             if let Err(error) = self_clone.set_online_icons(&url).await {
                 error!("{error:?}");
+                self_clone.prefs_page.set_visible(true);
+                self_clone.spinner.set_visible(false);
                 self_clone.pref_row_icons.set_visible(false);
                 self_clone.pref_row_icons_fail.set_visible(true);
                 return;
             }
 
             self_clone.reload_icons();
+            self_clone.prefs_page.set_visible(true);
+            self_clone.spinner.set_visible(false);
             self_clone.pref_row_icons.set_visible(true);
             self_clone.pref_row_icons_fail.set_visible(false);
-            self_clone.spinner.set_visible(false);
-            self_clone.prefs_page.set_visible(true);
         });
     }
 

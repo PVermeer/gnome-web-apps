@@ -47,9 +47,12 @@ impl std::fmt::Display for KeysExt {
 }
 
 pub trait DesktopEntryExt {
+    fn new() -> Self;
+
     fn get_entries(&self, app: &Rc<App>) -> Result<DesktopFileEntries>;
     fn save(&mut self, app: &Rc<App>) -> Result<()>;
     fn get_image_icon(&self) -> Image;
+    fn set_app_id(&mut self) -> String;
     fn set_icon(&mut self, app: &Rc<App>, icon: &Rc<Icon>) -> Result<()>;
     fn get_save_path(
         app: &Rc<App>,
@@ -57,45 +60,75 @@ pub trait DesktopEntryExt {
         browser: &Browser,
     ) -> Result<PathBuf>;
     fn get_profile_path(app: &Rc<App>, app_id: &str) -> Result<PathBuf>;
+    fn to_new_from_browser(&self, app: &Rc<App>) -> Result<DesktopEntry>;
+    fn validate(&self, app: &Rc<App>) -> Result<()>;
 }
 impl DesktopEntryExt for DesktopEntry {
+    fn new() -> Self {
+        let mut desktop_file = DesktopEntry::from_appid(String::new());
+        desktop_file.set_app_id();
+
+        desktop_file
+    }
+
     fn get_entries(&self, app: &Rc<App>) -> Result<DesktopFileEntries> {
         match (|| -> Result<DesktopFileEntries> {
             let name = self
                 .name(&app.desktop_file_locales)
+                .and_then(|name| if name.is_empty() { None } else { Some(name) })
                 .context("Missing 'Name'")?
                 .to_string();
 
+            let mut self_clone = self.clone();
             let id = self
                 .desktop_entry(&KeysExt::Id.to_string())
+                .and_then(|id| if id.is_empty() { None } else { Some(id) })
                 .map(std::string::ToString::to_string)
-                .or_else(|| {
-                    let random_id: String = rand::thread_rng()
-                        .sample_iter(&Alphanumeric)
-                        .take(8)
-                        .map(char::from)
-                        .collect();
+                .or_else(move || {
+                    let random_id = self_clone.set_app_id();
                     Some(random_id)
                 })
                 .context(format!("Missing '{}'", KeysExt::Id))?;
 
             let browser_id = self
                 .desktop_entry(&KeysExt::BrowserId.to_string())
+                .and_then(|browser_id| {
+                    if browser_id.is_empty() {
+                        None
+                    } else {
+                        Some(browser_id)
+                    }
+                })
                 .context(format!("Missing '{}'", KeysExt::BrowserId))?
                 .to_string();
 
             let url = self
                 .desktop_entry(&KeysExt::Url.to_string())
+                .and_then(|url| if url.is_empty() { None } else { Some(url) })
                 .context(format!("Missing '{}'", KeysExt::Url))?
                 .to_string();
 
             let domain = Url::parse(&url)?
                 .domain()
+                .and_then(|domain| {
+                    if domain.is_empty() {
+                        None
+                    } else {
+                        Some(domain)
+                    }
+                })
                 .context("Failed to get domain of url")?
                 .to_string();
 
             let isolate = self
                 .desktop_entry(&KeysExt::Isolate.to_string())
+                .and_then(|isolate| {
+                    if isolate.is_empty() {
+                        None
+                    } else {
+                        Some(isolate)
+                    }
+                })
                 .context(format!("Missing '{}'", KeysExt::Isolate))?
                 .eq("true");
 
@@ -120,50 +153,7 @@ impl DesktopEntryExt for DesktopEntry {
 
     fn save(&mut self, app: &Rc<App>) -> Result<()> {
         if let Err(error) = (|| -> Result<()> {
-            let entries = self.get_entries(app)?;
-            let browser = app
-                .browsers_configs
-                .get_by_id(&entries.browser_id)
-                .context("Failed to get browser")?;
-
-            let mut d_str = browser.desktop_file.clone().to_string();
-
-            d_str = d_str.replace("%{command}", &browser.get_command()?);
-            d_str = d_str.replace("%{name}", &entries.name);
-            d_str = d_str.replace("%{url}", &entries.url);
-            d_str = d_str.replace("%{domain}", &entries.domain);
-            d_str = d_str.replace("%{icon}", &entries.icon);
-
-            let isolate_key = "is_isolated";
-            let optional_isolated_value =
-                Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*([^}}]+)"))
-                    .unwrap()
-                    .captures(&d_str)
-                    .and_then(|caps| caps.get(1).map(|value| value.as_str().to_string()));
-
-            if let Some(value) = optional_isolated_value {
-                let path = Self::get_profile_path(app, &entries.id)?;
-                let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
-
-                let replacement = if entries.isolate {
-                    format!("{value}={}", path.to_string_lossy())
-                } else {
-                    String::new()
-                };
-
-                d_str = re.replace_all(&d_str, replacement).to_string();
-            }
-
-            let save_path = Self::get_save_path(app, &entries, &browser)?;
-            let mut new_desktop_file =
-                DesktopEntry::from_str(&save_path, &d_str, Some(&app.desktop_file_locales))?;
-
-            new_desktop_file.add_desktop_entry(KeysExt::Gwa.to_string(), "true".to_string());
-            new_desktop_file.add_desktop_entry(KeysExt::Url.to_string(), entries.url);
-            new_desktop_file.add_desktop_entry(KeysExt::Id.to_string(), entries.id);
-            new_desktop_file.add_desktop_entry(KeysExt::BrowserId.to_string(), entries.browser_id);
-            new_desktop_file
-                .add_desktop_entry(KeysExt::Isolate.to_string(), entries.isolate.to_string());
+            let new_desktop_file = self.to_new_from_browser(app)?;
 
             if self.path.is_file() {
                 match fs::remove_file(&self.path) {
@@ -173,6 +163,8 @@ impl DesktopEntryExt for DesktopEntry {
                     }
                 }
             }
+
+            let save_path = new_desktop_file.path.clone();
 
             debug!("Saving desktop file to: {}", save_path.display());
             fs::write(&save_path, new_desktop_file.to_string())?;
@@ -187,13 +179,28 @@ impl DesktopEntryExt for DesktopEntry {
     }
 
     fn get_image_icon(&self) -> Image {
-        let icon_name = self.icon().unwrap_or("image-missing-symbolic");
+        let fallback_icon = "image-missing-symbolic";
+        let icon_name = self.icon().unwrap_or(fallback_icon);
         let icon_path = Path::new(icon_name);
         if icon_path.is_file() {
             Image::from_file(icon_path)
-        } else {
+        } else if !icon_name.is_empty() {
             Image::from_icon_name(icon_name)
+        } else {
+            Image::from_icon_name(fallback_icon)
         }
+    }
+
+    fn set_app_id(&mut self) -> String {
+        let random_id: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(8)
+            .map(char::from)
+            .collect();
+
+        self.add_desktop_entry(KeysExt::Id.to_string(), random_id.clone());
+
+        random_id
     }
 
     fn set_icon(&mut self, app: &Rc<App>, icon: &Rc<Icon>) -> Result<()> {
@@ -261,5 +268,59 @@ impl DesktopEntryExt for DesktopEntry {
         let profiles_path = app.dirs.create_data_directory("profiles")?;
         let path = profiles_path.join(app_id);
         Ok(path)
+    }
+
+    fn to_new_from_browser(&self, app: &Rc<App>) -> Result<DesktopEntry> {
+        let entries = self.get_entries(app)?;
+        let browser = app
+            .browsers_configs
+            .get_by_id(&entries.browser_id)
+            .context("Failed to get browser")?;
+
+        let mut d_str = browser.desktop_file.clone().to_string();
+        d_str = d_str.replace("%{command}", &browser.get_command()?);
+        d_str = d_str.replace("%{name}", &entries.name);
+        d_str = d_str.replace("%{url}", &entries.url);
+        d_str = d_str.replace("%{domain}", &entries.domain);
+        d_str = d_str.replace("%{icon}", &entries.icon);
+
+        let isolate_key = "is_isolated";
+        let optional_isolated_value = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*([^}}]+)"))
+            .unwrap()
+            .captures(&d_str)
+            .and_then(|caps| caps.get(1).map(|value| value.as_str().to_string()));
+
+        if let Some(value) = optional_isolated_value {
+            let path = Self::get_profile_path(app, &entries.id)?;
+            let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
+
+            let replacement = if entries.isolate {
+                format!("{value}={}", path.to_string_lossy())
+            } else {
+                String::new()
+            };
+
+            d_str = re.replace_all(&d_str, replacement).to_string();
+        }
+
+        let save_path = Self::get_save_path(app, &entries, &browser)?;
+        let mut new_desktop_file =
+            DesktopEntry::from_str(&save_path, &d_str, Some(&app.desktop_file_locales))?;
+
+        new_desktop_file.add_desktop_entry(KeysExt::Gwa.to_string(), "true".to_string());
+        new_desktop_file.add_desktop_entry(KeysExt::Url.to_string(), entries.url);
+        new_desktop_file.add_desktop_entry(KeysExt::Id.to_string(), entries.id);
+        new_desktop_file.add_desktop_entry(KeysExt::BrowserId.to_string(), entries.browser_id);
+        new_desktop_file
+            .add_desktop_entry(KeysExt::Isolate.to_string(), entries.isolate.to_string());
+
+        Ok(new_desktop_file)
+    }
+
+    fn validate(&self, app: &Rc<App>) -> Result<()> {
+        match self.to_new_from_browser(app) {
+            Err(error) => Err(error),
+            Ok(_) => Ok(()),
+        }
     }
 }

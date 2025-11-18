@@ -2,10 +2,7 @@ mod web_app_view;
 
 use super::NavPage;
 use crate::{
-    application::{
-        App,
-        pages::{PrefNavPage, web_apps::web_app_view::WebAppView},
-    },
+    application::{App, pages::PrefNavPage},
     ext::desktop_entry::{self, DesktopEntryExt},
 };
 use freedesktop_desktop_entry::DesktopEntry;
@@ -17,6 +14,7 @@ use libadwaita::{
 };
 use log::{debug, error};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use web_app_view::WebAppView;
 
 pub struct WebAppsPage {
     nav_page: NavigationPage,
@@ -78,7 +76,16 @@ impl WebAppsPage {
             .css_classes(["flat"])
             .child(&button_content)
             .build();
-        new_app_button.connect_clicked(|_| debug!("TODO"));
+
+        let self_clone = self.clone();
+        let app_clone = app.clone();
+        new_app_button.connect_clicked(move |_| {
+            let desktop_file = Rc::new(RefCell::new(DesktopEntry::new()));
+            let app_page = WebAppView::new(&app_clone, &desktop_file, true);
+            app_page.init();
+
+            self_clone.nav_view.push(app_page.get_navpage());
+        });
 
         let pref_group = PreferencesGroup::builder()
             .header_suffix(&new_app_button)
@@ -128,7 +135,7 @@ impl WebAppsPage {
         let app_clone = app.clone();
 
         app_row.connect_activated(move |_| {
-            let app_page = WebAppView::new(&app_clone, &desktop_file.clone());
+            let app_page = WebAppView::new(&app_clone, &desktop_file.clone(), false);
             app_page.init();
             self.nav_view.push(app_page.get_navpage());
         });
