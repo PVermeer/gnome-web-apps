@@ -366,6 +366,7 @@ impl WebAppView {
 
     fn build_browser_row(self: &Rc<Self>) -> ComboRow {
         let all_browsers = Rc::new(self.app.browsers_configs.get_all_browsers());
+        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
 
         // Some weird factory setup where the list calls factory methods...
         // First create all data structures, then set data from ListStore.
@@ -399,7 +400,21 @@ impl WebAppView {
             .factory(&factory)
             .build();
 
-        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
+        if let Some(browser_id) = self.desktop_file.borrow().desktop_entry(&desktop_file_key) {
+            let browser_id = browser_id.to_string();
+            let index = all_browsers
+                .iter()
+                .position(|browser| browser.id == browser_id);
+            if let Some(index) = index {
+                combo_row.set_selected(index.try_into().unwrap());
+            }
+        // ComboRow has already a selected item on load, so save this if empty.
+        } else if let Some(browser) = all_browsers.first() {
+            self.desktop_file
+                .borrow_mut()
+                .add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
+        }
+
         let desktop_file_key_clone = desktop_file_key.clone();
         let desktop_file_clone = self.desktop_file.clone();
         let toast_overlay_clone = self.toast_overlay.clone();
@@ -470,13 +485,6 @@ impl WebAppView {
 
             self_clone.on_desktop_file_change();
         });
-
-        // ComboRow has already a selected item on load, so save this.
-        if let Some(browser) = all_browsers.first() {
-            self.desktop_file
-                .borrow_mut()
-                .add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
-        }
 
         combo_row
     }
