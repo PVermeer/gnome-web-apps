@@ -69,10 +69,6 @@ impl AppMenu {
         self.build_menu_item(
             "Reset app",
             ("reset_app", move || {
-                if let Err(error) = app_clone.assets.reset_config_files() {
-                    app_clone.show_error(&error);
-                }
-
                 let dialog_ok = "ok";
                 let dialog_cancel = "cancel";
 
@@ -92,6 +88,9 @@ impl AppMenu {
 
                 let app_clone_response = app_clone.clone();
                 dialog.connect_response(Some(dialog_ok), move |_, _| {
+                    if let Err(error) = app_clone_response.assets.reset_config_files() {
+                        app_clone_response.show_error(&error);
+                    }
                     app_clone_response.clone().restart();
                 });
 
