@@ -147,7 +147,12 @@ impl WebAppView {
     fn reset_desktop_file(self: &Rc<Self>) {
         debug!("Resetting desktop file");
 
-        *self.desktop_file.borrow_mut() = self.desktop_file_original.clone();
+        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+        let save_path = desktop_file_borrow.path.clone();
+        *desktop_file_borrow = self.desktop_file_original.clone();
+        desktop_file_borrow.path = save_path;
+        drop(desktop_file_borrow);
+
         self.on_desktop_file_change();
 
         let toast = Self::build_reset_toast();
