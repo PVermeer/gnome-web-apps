@@ -5,10 +5,11 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
-    self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, Label, Orientation, Picture,
-    SelectionMode,
+    self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, FlowBoxChild, Label,
+    Orientation, Picture, SelectionMode,
     gdk_pixbuf::Pixbuf,
     gio::prelude::FileExt,
+    glib::object::Cast,
     prelude::{BoxExt, ButtonExt, ListBoxRowExt, WidgetExt},
 };
 use libadwaita::{
@@ -227,6 +228,14 @@ impl IconPicker {
 
             flow_box.insert(&frame, -1);
         }
+
+        if let Some(first_child) = flow_box.first_child() {
+            let flow_box_child = first_child.downcast_ref::<FlowBoxChild>();
+            if let Some(flow_box_child) = flow_box_child {
+                flow_box.select_child(flow_box_child);
+            }
+        }
+
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
@@ -341,6 +350,39 @@ impl IconPicker {
                 self_clone.reload_icons();
             },
         );
+    }
+
+    fn save<Success, Fail>(self: &Rc<Self>, success_cb: Option<&Success>, fail_cb: Option<&Fail>)
+    where
+        Success: Fn() + 'static,
+        Fail: Fn() + 'static,
+    {
+        let icon = match self.get_selected_icon() {
+            Ok(icon) => icon,
+            Err(error) => {
+                error!("{error:?}");
+                if let Some(fail_cb) = &fail_cb {
+                    fail_cb();
+                }
+                return;
+            }
+        };
+
+        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+        let result = desktop_file_borrow.set_icon(&self.app, &icon);
+        drop(desktop_file_borrow);
+
+        if let Err(error) = result {
+            error!("{error:?}");
+            if let Some(fail_cb) = &fail_cb {
+                fail_cb();
+            }
+            return;
+        }
+
+        if let Some(success_cb) = &success_cb {
+            success_cb();
+        }
     }
 
     fn build_spinner() -> Spinner {
