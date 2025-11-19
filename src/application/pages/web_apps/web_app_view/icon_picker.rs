@@ -120,32 +120,7 @@ impl IconPicker {
 
         let self_clone = self.clone();
         dialog.connect_response(Some(Self::DIALOG_SAVE), move |_, _| {
-            let icon = match self_clone.get_selected_icon() {
-                Ok(icon) => icon,
-                Err(error) => {
-                    error!("{error:?}");
-                    if let Some(fail_cb) = &fail_cb {
-                        fail_cb();
-                    }
-                    return;
-                }
-            };
-
-            let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
-            let result = desktop_file_borrow.set_icon(&self_clone.app, &icon);
-            drop(desktop_file_borrow);
-
-            if let Err(error) = result {
-                error!("{error:?}");
-                if let Some(fail_cb) = &fail_cb {
-                    fail_cb();
-                }
-                return;
-            }
-
-            if let Some(success_cb) = &success_cb {
-                success_cb();
-            }
+            self_clone.save(success_cb.as_ref(), fail_cb.as_ref());
         });
 
         dialog.present(Some(&self.app.window.adw_window));
