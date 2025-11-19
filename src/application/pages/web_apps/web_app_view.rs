@@ -38,6 +38,7 @@ use validator::ValidateUrl;
 
 pub struct WebAppView {
     is_new: RefCell<bool>,
+    browser_can_isolate: RefCell<bool>,
     nav_page: NavigationPage,
     app: Rc<App>,
     header: HeaderBar,
@@ -50,6 +51,7 @@ pub struct WebAppView {
     change_icon_button: Button,
     run_app_button: Button,
     save_button: Button,
+    isolate_row: SwitchRow,
 }
 impl NavPage for WebAppView {
     fn get_navpage(&self) -> &NavigationPage {
@@ -74,6 +76,10 @@ impl WebAppView {
             .name(&app.desktop_file_locales)
             .and_then(|name| if name.is_empty() { None } else { Some(name) })
             .unwrap_or(Cow::Borrowed("New Web App"));
+        let browser_can_isolate = desktop_file_borrow
+            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
+            .and_then(|browser_id| app.browsers_configs.get_by_id(browser_id))
+            .is_some_and(|browser| browser.can_isolate);
         let icon = "preferences-desktop-apps-symbolic";
         let PrefPage {
             nav_page,
@@ -82,13 +88,17 @@ impl WebAppView {
             header,
             ..
         } = Self::build_nav_page(&title, icon).with_preference_page();
+        drop(desktop_file_borrow);
+
         let reset_button = Self::build_header_reset_button();
         let change_icon_button = Self::build_change_icon_button();
         let run_app_button = Self::build_run_app_button();
         let save_button = Self::build_save_button();
+        let isolate_row = Self::build_isolate_row(desktop_file, browser_can_isolate);
 
         Rc::new(Self {
             is_new: RefCell::new(is_new),
+            browser_can_isolate: RefCell::new(browser_can_isolate),
             nav_page,
             app: app.clone(),
             header,
@@ -101,6 +111,7 @@ impl WebAppView {
             change_icon_button,
             run_app_button,
             save_button,
+            isolate_row,
         })
     }
 
@@ -130,6 +141,7 @@ impl WebAppView {
         self.connect_change_icon_button();
         self.connect_run_button();
         self.connect_save_button();
+        self.connect_isolate_row();
     }
 
     fn reset_desktop_file(self: &Rc<Self>) {
@@ -214,11 +226,10 @@ impl WebAppView {
         let name_row = self.build_name_row();
         let url_row = self.build_url_row();
         let browser_row = self.build_browser_row();
-        let isolate_row = self.build_isolate_row();
 
         pref_group.add(&name_row);
         pref_group.add(&url_row);
-        pref_group.add(&isolate_row);
+        pref_group.add(&self.isolate_row);
         pref_group.add(&browser_row);
 
         pref_group
@@ -447,6 +458,8 @@ impl WebAppView {
                 .add_desktop_entry(desktop_file_key_clone.clone(), browser.id.clone());
             drop(desktop_file_borrow);
 
+            *self_clone.browser_can_isolate.borrow_mut() = browser.can_isolate;
+
             let saved_toast = Self::build_saved_toast();
             let combo_row_clone = combo_row.clone();
             let desktop_file_clone = self_clone.desktop_file.clone();
@@ -489,9 +502,13 @@ impl WebAppView {
         combo_row
     }
 
-    fn build_isolate_row(self: &Rc<Self>) -> SwitchRow {
+    fn build_isolate_row(
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        browser_can_isolate: bool,
+    ) -> SwitchRow {
         let desktop_file_key = desktop_entry::KeysExt::Isolate.to_string();
-        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+        let mut desktop_file_borrow = desktop_file.borrow_mut();
+
         let is_isolated = desktop_file_borrow
             .desktop_entry(&desktop_file_key)
             .is_some_and(|is_isolated| is_isolated == "true");
@@ -500,64 +517,14 @@ impl WebAppView {
             .title("Isolate")
             .subtitle("Use an isolated profile")
             .active(is_isolated)
+            .sensitive(browser_can_isolate)
             .build();
 
-        let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
-        let self_clone = self.clone();
-        let desktop_file_key_clone = desktop_file_key.clone();
-        let is_blocked = Rc::new(Cell::new(false)); // SwitchRow recurses on undo.
-
-        switch_row.connect_active_notify(move |switch_row| {
-            if is_blocked.get() {
-                return;
-            }
-
-            let is_on = switch_row.is_active();
-            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-            let undo_state = desktop_file_borrow
-                .desktop_entry(&desktop_file_key_clone)
-                .is_some_and(|is_isolated| is_isolated == "true");
-
-            desktop_file_borrow
-                .add_desktop_entry(desktop_file_key_clone.clone(), is_on.to_string());
-            drop(desktop_file_borrow);
-
-            let saved_toast = Self::build_saved_toast();
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            let self_clone_undo = self_clone.clone();
-            let switch_row_clone = switch_row.clone();
-            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
-            let is_blocked_clone = is_blocked.clone();
-
-            saved_toast.connect_button_clicked(move |_| {
-                is_blocked_clone.set(true);
-                switch_row_clone.set_active(undo_state);
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-
-                desktop_file_borrow.add_desktop_entry(
-                    desktop_file_key_undo_clone.clone(),
-                    switch_row_clone.is_active().to_string(),
-                );
-                drop(desktop_file_borrow);
-
-                self_clone_undo.on_desktop_file_change();
-                is_blocked_clone.set(false);
-            });
-            toast_overlay_clone.add_toast(saved_toast);
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key_clone,
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(&desktop_file_key_clone)
-                    .unwrap_or_default()
-            );
-
-            self_clone.on_desktop_file_change();
-        });
+        if !browser_can_isolate && is_isolated {
+            debug!("Found desktop file with isolate on a browser that is incapable");
+            switch_row.set_active(false);
+            desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), false.to_string());
+        }
 
         // SwitchRow has already a setting on load, so save this.
         desktop_file_borrow
@@ -705,6 +672,61 @@ impl WebAppView {
         });
     }
 
+    fn connect_isolate_row(self: &Rc<Self>) {
+        let is_blocked = Rc::new(Cell::new(false)); // SwitchRow recurses on undo.
+        let self_clone = self.clone();
+
+        self.isolate_row.connect_active_notify(move |switch_row| {
+            if is_blocked.get() {
+                return;
+            }
+            let desktop_file_key = desktop_entry::KeysExt::Isolate.to_string();
+            let is_on = switch_row.is_active();
+            let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
+            let undo_state = desktop_file_borrow
+                .desktop_entry(&desktop_file_key)
+                .is_some_and(|is_isolated| is_isolated == "true");
+
+            desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), is_on.to_string());
+            drop(desktop_file_borrow);
+
+            let saved_toast = Self::build_saved_toast();
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            let self_clone_undo = self_clone.clone();
+            let switch_row_clone = switch_row.clone();
+            let desktop_file_key_undo_clone = desktop_file_key.clone();
+            let is_blocked_clone = is_blocked.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                is_blocked_clone.set(true);
+                switch_row_clone.set_active(undo_state);
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+                desktop_file_borrow.add_desktop_entry(
+                    desktop_file_key_undo_clone.clone(),
+                    switch_row_clone.is_active().to_string(),
+                );
+                drop(desktop_file_borrow);
+
+                self_clone_undo.on_desktop_file_change();
+                is_blocked_clone.set(false);
+            });
+            self_clone.toast_overlay.add_toast(saved_toast);
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            debug!(
+                "Set a new '{}' on `desktop file`: {}",
+                desktop_file_key,
+                &desktop_file_clone
+                    .borrow()
+                    .desktop_entry(&desktop_file_key)
+                    .unwrap_or_default()
+            );
+
+            self_clone.on_desktop_file_change();
+        });
+    }
+
     fn reset_reset_button(self: &Rc<Self>) {
         if self.desktop_file_original.to_string() == self.desktop_file.borrow().to_string() {
             self.reset_button.set_sensitive(false);
@@ -736,6 +758,14 @@ impl WebAppView {
         }
     }
 
+    fn reset_browser_isolation(self: &Rc<Self>) {
+        let browser_can_isolate = *self.browser_can_isolate.borrow();
+        self.isolate_row.set_sensitive(browser_can_isolate);
+        if !browser_can_isolate {
+            self.isolate_row.set_active(false);
+        }
+    }
+
     fn on_desktop_file_change(self: &Rc<Self>) {
         debug!("Desktop file changed");
 
@@ -754,6 +784,7 @@ impl WebAppView {
 
         self.reset_reset_button();
         self.reset_app_header();
+        self.reset_browser_isolation();
     }
 
     fn on_new_desktop_file_save(self: &Rc<Self>) {
