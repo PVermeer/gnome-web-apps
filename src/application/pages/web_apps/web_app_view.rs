@@ -61,8 +61,8 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    const TOAST_MESSAGE_TIMEOUT: u32 = 2;
-    const TOAST_UNDO_TIMEOUT: u32 = 4;
+    const TOAST_MESSAGE_TIMEOUT: u32 = 1;
+    const TOAST_UNDO_TIMEOUT: u32 = 2;
     const TOAST_SAVED: &str = "Saved";
     const TOAST_RESET: &str = "Reset";
     const TOAST_UNDO_BUTTON: &str = "Undo";
