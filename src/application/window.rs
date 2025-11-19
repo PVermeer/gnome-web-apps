@@ -50,4 +50,8 @@ impl AppWindow {
 
         about.present(Some(&self.adw_window));
     }
+
+    pub fn close(&self) {
+        self.adw_window.close();
+    }
 }

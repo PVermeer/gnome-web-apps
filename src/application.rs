@@ -6,6 +6,7 @@ use crate::{
     services::{browsers::BrowserConfigs, fetch::Fetch},
 };
 use anyhow::{Result, bail};
+use error_dialog::ErrorDialog;
 use freedesktop_desktop_entry::get_languages_from_env;
 use log::debug;
 use pages::{Page, Pages};
@@ -20,6 +21,7 @@ pub struct App {
     pub dirs: BaseDirectories,
     pub desktop_file_locales: Vec<String>,
     pub browsers_configs: BrowserConfigs,
+    pub error_dialog: ErrorDialog,
     window: AppWindow,
     fetch: Fetch,
     pages: Pages,
@@ -33,11 +35,13 @@ impl App {
             let pages = Pages::new();
             let browsers = BrowserConfigs::new();
             let desktop_file_locales = get_languages_from_env();
+            let error_dialog = ErrorDialog::new();
 
             Self {
                 dirs: app_dirs,
                 desktop_file_locales,
                 browsers_configs: browsers,
+                error_dialog,
                 window,
                 fetch,
                 pages,
@@ -46,11 +50,19 @@ impl App {
     }
 
     pub fn init(self: &Rc<Self>) {
-        self.window.init(self);
-        self.browsers_configs.init(self);
-        self.pages.init(self);
+        if let Err(error) = (|| -> Result<()> {
+            self.window.init(self);
+            self.error_dialog.init(self);
 
-        self.navigate(&Page::Home);
+            self.browsers_configs.init(self);
+            self.pages.init(self);
+
+            self.navigate(&Page::Home);
+
+            Ok(())
+        })() {
+            self.error_dialog.show(self, &error);
+        }
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {
@@ -93,5 +105,9 @@ impl App {
         debug!("Using icons path: {}", path.display());
 
         Ok(path)
+    }
+
+    pub fn close(self: &Rc<Self>) {
+        self.window.close();
     }
 }
