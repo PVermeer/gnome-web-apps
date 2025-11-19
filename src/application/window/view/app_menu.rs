@@ -1,7 +1,9 @@
-use crate::application::App;
+use crate::{application::App, services::config};
 use libadwaita::{
+    AlertDialog, ResponseAppearance,
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
     gtk::{MenuButton, prelude::WidgetExt},
+    prelude::{AdwDialogExt, AlertDialogExt},
 };
 use std::rc::Rc;
 
@@ -39,19 +41,64 @@ impl AppMenu {
             .adw_window
             .insert_action_group(Self::ACTION_LABEL, Some(&self.actions));
 
-        self.add_about(app.clone());
+        let section_1 = Menu::new();
+        let section_2 = Menu::new();
+
+        let reset = self.build_reset(app);
+        let about = self.build_about(app);
+
+        section_1.append_item(&reset);
+        section_2.append_item(&about);
+
+        self.menu.append_section(None, &section_1);
+        self.menu.append_section(None, &section_2);
     }
 
-    fn add_about(&self, app: Rc<App>) {
-        let item = self.build_menu_item(
+    fn build_about(&self, app: &Rc<App>) -> MenuItem {
+        let app_clone = app.clone();
+        self.build_menu_item(
             "About",
             ("about", move || {
-                app.window.show_about();
+                app_clone.window.show_about();
             }),
-        );
-        self.menu.prepend_item(&item);
+        )
     }
 
+    fn build_reset(&self, app: &Rc<App>) -> MenuItem {
+        let app_clone = app.clone();
+        self.build_menu_item(
+            "Reset app",
+            ("reset_app", move || {
+                if let Err(error) = app_clone.assets.reset_config_files() {
+                    app_clone.show_error(&error);
+                }
+
+                let dialog_ok = "ok";
+                let dialog_cancel = "cancel";
+
+                let dialog = AlertDialog::builder()
+                    .heading(format!("Reset {}?", config::APP_NAME))
+                    .body(
+                        "This will reset the config files (e.g.: browser configs).\n\n\
+                        It will not remove your create web apps.",
+                    )
+                    .build();
+
+                dialog.add_response(dialog_cancel, "Cancel");
+                dialog.add_response(dialog_ok, "I understand");
+                dialog.set_response_appearance(dialog_cancel, ResponseAppearance::Suggested);
+                dialog.set_default_response(Some(dialog_cancel));
+                dialog.set_close_response(dialog_cancel);
+
+                let app_clone_response = app_clone.clone();
+                dialog.connect_response(Some(dialog_ok), move |_, _| {
+                    app_clone_response.clone().restart();
+                });
+
+                dialog.present(Some(&app_clone.window.adw_window));
+            }),
+        )
+    }
     fn build_menu_item(
         &self,
         label: &str,

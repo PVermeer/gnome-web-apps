@@ -8,6 +8,7 @@ anyhow = "1"
 env_logger = "0"
 freedesktop-desktop-entry = "0"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }
+include_dir = "0.7.4"
 libadwaita = { version = "0", features = ["v1_7"] }
 log = "0"
 rand = "0.8"
