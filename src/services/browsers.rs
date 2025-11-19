@@ -122,12 +122,15 @@ impl Browser {
     }
 
     pub fn get_command(&self) -> Result<String> {
-        match self.installation {
-            Installation::Flatpak(_) => {
+        match &self.installation {
+            Installation::Flatpak(installation) => {
                 let Some(flatpak_id) = &self.flatpak_id else {
                     bail!("No flatpak id with flatpak installation")
                 };
-                Ok(format!("flatpak run {flatpak_id}"))
+                match installation {
+                    FlatpakInstallation::User => Ok(format!("flatpak run --user {flatpak_id}")),
+                    FlatpakInstallation::System => Ok(format!("flatpak run --system {flatpak_id}")),
+                }
             }
             Installation::System => {
                 let Some(executable) = &self.executable else {
