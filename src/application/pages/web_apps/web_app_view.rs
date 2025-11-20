@@ -284,7 +284,8 @@ impl WebAppView {
         browser_can_isolate: bool,
     ) -> SwitchRow {
         let mut desktop_file_borrow = desktop_file.borrow_mut();
-        let is_isolated = desktop_file_borrow.get_isolated().is_some();
+        let has_isolated = desktop_file_borrow.get_isolated();
+        let is_isolated = has_isolated.unwrap_or(false);
 
         let switch_row = SwitchRow::builder()
             .title("Isolate")
@@ -298,8 +299,10 @@ impl WebAppView {
             switch_row.set_active(false);
         }
 
-        // SwitchRow has already a setting on load, so sync this.
-        desktop_file_borrow.set_isolated(switch_row.is_active());
+        // SwitchRow has already a setting on load, so sync this if empty
+        if has_isolated.is_none() {
+            desktop_file_borrow.set_isolated(switch_row.is_active());
+        }
 
         switch_row
     }
