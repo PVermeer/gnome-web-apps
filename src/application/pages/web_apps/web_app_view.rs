@@ -51,7 +51,10 @@ pub struct WebAppView {
     change_icon_button: Button,
     run_app_button: Button,
     save_button: Button,
+    name_row: EntryRow,
+    url_row: EntryRow,
     isolate_row: SwitchRow,
+    browser_row: ComboRow,
 }
 impl NavPage for WebAppView {
     fn get_navpage(&self) -> &NavigationPage {
@@ -94,7 +97,10 @@ impl WebAppView {
         let change_icon_button = Self::build_change_icon_button();
         let run_app_button = Self::build_run_app_button();
         let save_button = Self::build_save_button();
+        let name_row = Self::build_name_row(desktop_file);
+        let url_row = Self::build_url_row(desktop_file);
         let isolate_row = Self::build_isolate_row(desktop_file, browser_can_isolate);
+        let browser_row = Self::build_browser_row(app, desktop_file);
 
         Rc::new(Self {
             is_new: RefCell::new(is_new),
@@ -111,7 +117,10 @@ impl WebAppView {
             change_icon_button,
             run_app_button,
             save_button,
+            name_row,
+            url_row,
             isolate_row,
+            browser_row,
         })
     }
 
@@ -141,17 +150,41 @@ impl WebAppView {
         self.connect_change_icon_button();
         self.connect_run_button();
         self.connect_save_button();
-        self.connect_isolate_row();
     }
 
     fn reset_desktop_file(self: &Rc<Self>) {
         debug!("Resetting desktop file");
 
+        let browsers = self.app.browsers_configs.get_all_browsers();
         let mut desktop_file_borrow = self.desktop_file.borrow_mut();
         let save_path = desktop_file_borrow.path.clone();
         *desktop_file_borrow = self.desktop_file_original.clone();
         desktop_file_borrow.path = save_path;
+
+        let name = desktop_file_borrow
+            .desktop_entry("Name")
+            .unwrap_or_default()
+            .to_string();
+        let url = desktop_file_borrow
+            .desktop_entry(&desktop_entry::KeysExt::Url.to_string())
+            .unwrap_or_default()
+            .to_string();
+        let is_isolated = desktop_file_borrow
+            .desktop_entry(&desktop_entry::KeysExt::Isolate.to_string())
+            .unwrap_or_default()
+            .eq("true");
+        let browser_index = desktop_file_borrow
+            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
+            .and_then(|browser_id| browsers.iter().position(|browser| browser.id == browser_id))
+            .and_then(|index| index.try_into().ok())
+            .unwrap_or(0);
+
         drop(desktop_file_borrow);
+
+        self.name_row.set_text(&name);
+        self.url_row.set_text(&url);
+        self.isolate_row.set_active(is_isolated);
+        self.browser_row.set_selected(browser_index);
 
         self.on_desktop_file_change();
 
@@ -228,25 +261,26 @@ impl WebAppView {
             .header_suffix(&self.change_icon_button)
             .build();
 
-        let name_row = self.build_name_row();
-        let url_row = self.build_url_row();
-        let browser_row = self.build_browser_row();
-
-        pref_group.add(&name_row);
-        pref_group.add(&url_row);
+        pref_group.add(&self.name_row);
+        pref_group.add(&self.url_row);
         pref_group.add(&self.isolate_row);
-        pref_group.add(&browser_row);
+        pref_group.add(&self.browser_row);
+
+        self.connect_name_row();
+        self.connect_url_row();
+        self.connect_isolate_row();
+        self.connect_browser_row();
 
         pref_group
     }
 
     fn build_input_row(
-        self: &Rc<Self>,
         row_title: &str,
         purpose: InputPurpose,
+        desktop_file: &Rc<RefCell<DesktopEntry>>,
         desktop_file_key: &str,
     ) -> EntryRow {
-        let desktop_file_borrow = self.desktop_file.borrow();
+        let desktop_file_borrow = desktop_file.borrow();
         let name = desktop_file_borrow
             .desktop_entry(desktop_file_key)
             .unwrap_or_default();
@@ -260,251 +294,20 @@ impl WebAppView {
 
         drop(desktop_file_borrow);
 
-        let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
-        let self_clone = self.clone();
-        let desktop_file_key_clone = desktop_file_key.to_string();
-
-        entry_row.connect_apply(move |entry_row| {
-            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-            let undo_text = desktop_file_borrow
-                .desktop_entry(&desktop_file_key_clone)
-                .unwrap_or_default()
-                .to_string();
-
-            desktop_file_borrow
-                .add_desktop_entry(desktop_file_key_clone.clone(), entry_row.text().to_string());
-            drop(desktop_file_borrow);
-
-            let saved_toast = Self::build_saved_toast();
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            let self_clone_undo = self_clone.clone();
-            let entry_row_clone = entry_row.clone();
-            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
-
-            saved_toast.connect_button_clicked(move |_| {
-                entry_row_clone.set_text(&undo_text);
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-                desktop_file_borrow.add_desktop_entry(
-                    desktop_file_key_undo_clone.clone(),
-                    entry_row_clone.text().to_string(),
-                );
-                drop(desktop_file_borrow);
-                self_clone_undo.on_desktop_file_change();
-            });
-            toast_overlay_clone.add_toast(saved_toast);
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key_clone,
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(&desktop_file_key_clone)
-                    .unwrap_or_default()
-            );
-
-            self_clone.on_desktop_file_change();
-        });
-
         entry_row
     }
 
-    fn build_name_row(self: &Rc<Self>) -> EntryRow {
-        let desktop_file_key = "Name";
-        let name_row = self.build_input_row("Web app name", InputPurpose::Name, desktop_file_key);
-
-        let self_clone = self.clone();
-        name_row.connect_apply(move |entry_row| {
-            let title = entry_row.text();
-            if title.is_empty() {
-                return;
-            }
-            self_clone.nav_page.set_title(&title);
-        });
-
-        name_row
+    fn build_name_row(desktop_file: &Rc<RefCell<DesktopEntry>>) -> EntryRow {
+        Self::build_input_row("Web app name", InputPurpose::Name, desktop_file, "Name")
     }
 
-    fn build_url_row(self: &Rc<Self>) -> EntryRow {
-        let desktop_file_key = desktop_entry::KeysExt::Url.to_string();
-        let validate_icon = Image::from_icon_name("dialog-warning-symbolic");
-        let entry_row = self.build_input_row("Website URL", InputPurpose::Url, &desktop_file_key);
-
-        validate_icon.set_visible(false);
-        validate_icon.set_css_classes(&["error"]);
-        entry_row.add_suffix(&validate_icon);
-
-        let change_icon_button_clone = self.change_icon_button.clone();
-
-        entry_row.connect_changed(move |entry_row| {
-            let is_valid = entry_row.text().validate_url();
-
-            debug!("{} is valid: {is_valid}", entry_row.title());
-
-            validate_icon.set_visible(!entry_row.text().is_empty() && !is_valid);
-            if is_valid {
-                entry_row.set_show_apply_button(true);
-                entry_row.set_tooltip_text(None);
-            } else {
-                entry_row.set_show_apply_button(false);
-                entry_row
-                    .set_tooltip_text(Some("Please enter a valid URL (e.g., https://example.com)"));
-                change_icon_button_clone.set_sensitive(false);
-            }
-        });
-
-        let self_clone = self.clone();
-        let change_icon_button_clone = self.change_icon_button.clone();
-
-        entry_row.connect_apply(move |entry_row| {
-            change_icon_button_clone.set_sensitive(true);
-
-            let url = entry_row.text().to_string();
-            let self_clone = self_clone.clone();
-
-            glib::spawn_future_local(async move {
-                let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
-
-                if let Err(error) = icon_picker.set_first_icon(&url).await {
-                    self_clone
-                        .desktop_file
-                        .borrow_mut()
-                        .add_desktop_entry("Icon".to_string(), String::new());
-                    error!("{error:?}");
-                }
-                self_clone.on_desktop_file_change();
-            });
-        });
-
-        entry_row
-    }
-
-    fn build_browser_row(self: &Rc<Self>) -> ComboRow {
-        let all_browsers = Rc::new(self.app.browsers_configs.get_all_browsers());
-        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
-
-        // Some weird factory setup where the list calls factory methods...
-        // First create all data structures, then set data from ListStore.
-        // Why is this so unnecessary complicated? ¯\_(ツ)_/¯
-        let list = gio::ListStore::new::<BoxedAnyObject>();
-        for browser in all_browsers.iter() {
-            let boxed = BoxedAnyObject::new(browser.clone());
-            list.append(&boxed);
-        }
-        let factory = SignalListItemFactory::new();
-        factory.connect_bind(|_, list_item| {
-            let list_item = list_item.downcast_ref::<ListItem>().unwrap();
-            let browser_item_boxed = list_item
-                .item()
-                .unwrap()
-                .downcast::<BoxedAnyObject>()
-                .unwrap();
-            let browser = browser_item_boxed.borrow::<Rc<Browser>>();
-            let box_container = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-
-            box_container.append(&browser.get_icon());
-            box_container.append(&Label::new(Some(&browser.get_name_with_installation())));
-
-            list_item.set_child(Some(&box_container));
-        });
-
-        let combo_row = ComboRow::builder()
-            .title("Browser")
-            .subtitle("Pick a browser")
-            .model(&list)
-            .factory(&factory)
-            .build();
-
-        if let Some(browser_id) = self.desktop_file.borrow().desktop_entry(&desktop_file_key) {
-            let browser_id = browser_id.to_string();
-            let index = all_browsers
-                .iter()
-                .position(|browser| browser.id == browser_id);
-            if let Some(index) = index {
-                combo_row.set_selected(index.try_into().unwrap());
-            }
-        // ComboRow has already a selected item on load, so save this if empty.
-        } else if let Some(browser) = all_browsers.first() {
-            self.desktop_file
-                .borrow_mut()
-                .add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
-        }
-
-        let desktop_file_key_clone = desktop_file_key.clone();
-        let desktop_file_clone = self.desktop_file.clone();
-        let toast_overlay_clone = self.toast_overlay.clone();
-        let self_clone = self.clone();
-        let all_browsers_clone = all_browsers.clone();
-        let is_blocked = Rc::new(Cell::new(false)); // ComboRow recurses on undo.
-
-        combo_row.connect_selected_item_notify(move |combo_row| {
-            if is_blocked.get() {
-                return;
-            }
-
-            let selected_item = combo_row.selected_item();
-            let Some(selected_item) = selected_item else {
-                return;
-            };
-            let browser_item_boxed = selected_item.downcast::<BoxedAnyObject>().unwrap();
-            let browser = browser_item_boxed.borrow::<Rc<Browser>>();
-            let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-
-            let undo_browser_id = desktop_file_borrow
-                .desktop_entry(&desktop_file_key_clone)
-                .unwrap_or_default()
-                .to_string();
-            let undo_state = all_browsers_clone
-                .iter()
-                .position(|browser| browser.id == undo_browser_id);
-
-            desktop_file_borrow
-                .add_desktop_entry(desktop_file_key_clone.clone(), browser.id.clone());
-            drop(desktop_file_borrow);
-
-            *self_clone.browser_can_isolate.borrow_mut() = browser.can_isolate;
-
-            let saved_toast = Self::build_saved_toast();
-            let combo_row_clone = combo_row.clone();
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
-            let self_clone_undo = self_clone.clone();
-            let is_blocked_clone = is_blocked.clone();
-
-            saved_toast.connect_button_clicked(move |_| {
-                is_blocked_clone.set(true);
-                let Some(undo_state) = undo_state else {
-                    return;
-                };
-                combo_row_clone.set_selected(undo_state.try_into().unwrap());
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-
-                desktop_file_borrow.add_desktop_entry(
-                    desktop_file_key_undo_clone.clone(),
-                    undo_browser_id.clone(),
-                );
-                drop(desktop_file_borrow);
-
-                self_clone_undo.on_desktop_file_change();
-                is_blocked_clone.set(false);
-            });
-            toast_overlay_clone.add_toast(saved_toast);
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key_clone,
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(&desktop_file_key_clone)
-                    .unwrap_or_default()
-            );
-
-            self_clone.on_desktop_file_change();
-        });
-
-        combo_row
+    fn build_url_row(desktop_file: &Rc<RefCell<DesktopEntry>>) -> EntryRow {
+        Self::build_input_row(
+            "Website URL",
+            InputPurpose::Url,
+            desktop_file,
+            &desktop_entry::KeysExt::Url.to_string(),
+        )
     }
 
     fn build_isolate_row(
@@ -536,6 +339,60 @@ impl WebAppView {
             .add_desktop_entry(desktop_file_key.clone(), switch_row.is_active().to_string());
 
         switch_row
+    }
+
+    fn build_browser_row(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>) -> ComboRow {
+        let all_browsers = app.browsers_configs.get_all_browsers();
+        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
+
+        // Some weird factory setup where the list calls factory methods...
+        // First create all data structures, then set data from ListStore.
+        // Why is this so unnecessary complicated? ¯\_(ツ)_/¯
+        let list = gio::ListStore::new::<BoxedAnyObject>();
+        for browser in &all_browsers {
+            let boxed = BoxedAnyObject::new(browser.clone());
+            list.append(&boxed);
+        }
+        let factory = SignalListItemFactory::new();
+        factory.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<ListItem>().unwrap();
+            let browser_item_boxed = list_item
+                .item()
+                .unwrap()
+                .downcast::<BoxedAnyObject>()
+                .unwrap();
+            let browser = browser_item_boxed.borrow::<Rc<Browser>>();
+            let box_container = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+
+            box_container.append(&browser.get_icon());
+            box_container.append(&Label::new(Some(&browser.get_name_with_installation())));
+
+            list_item.set_child(Some(&box_container));
+        });
+
+        let combo_row = ComboRow::builder()
+            .title("Browser")
+            .subtitle("Pick a browser")
+            .model(&list)
+            .factory(&factory)
+            .build();
+
+        if let Some(browser_id) = desktop_file.borrow().desktop_entry(&desktop_file_key) {
+            let browser_id = browser_id.to_string();
+            let index = all_browsers
+                .iter()
+                .position(|browser| browser.id == browser_id);
+            if let Some(index) = index {
+                combo_row.set_selected(index.try_into().unwrap());
+            }
+        // ComboRow has already a selected item on load, so save this if empty.
+        } else if let Some(browser) = all_browsers.first() {
+            desktop_file
+                .borrow_mut()
+                .add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
+        }
+
+        combo_row
     }
 
     fn build_change_icon_button() -> Button {
@@ -677,6 +534,118 @@ impl WebAppView {
         });
     }
 
+    fn connect_input_row(self: &Rc<Self>, entry_row: &EntryRow, desktop_file_key: &str) {
+        let self_clone = self.clone();
+        let desktop_file_key_clone = desktop_file_key.to_string();
+
+        entry_row.connect_apply(move |entry_row| {
+            let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
+            let undo_text = desktop_file_borrow
+                .desktop_entry(&desktop_file_key_clone)
+                .unwrap_or_default()
+                .to_string();
+
+            desktop_file_borrow
+                .add_desktop_entry(desktop_file_key_clone.clone(), entry_row.text().to_string());
+            drop(desktop_file_borrow);
+
+            let saved_toast = Self::build_saved_toast();
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            let self_clone_undo = self_clone.clone();
+            let entry_row_clone = entry_row.clone();
+            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                entry_row_clone.set_text(&undo_text);
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+                desktop_file_borrow.add_desktop_entry(
+                    desktop_file_key_undo_clone.clone(),
+                    entry_row_clone.text().to_string(),
+                );
+                drop(desktop_file_borrow);
+                self_clone_undo.on_desktop_file_change();
+            });
+            self_clone.toast_overlay.add_toast(saved_toast);
+
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            debug!(
+                "Set a new '{}' on `desktop file`: {}",
+                desktop_file_key_clone,
+                &desktop_file_clone
+                    .borrow()
+                    .desktop_entry(&desktop_file_key_clone)
+                    .unwrap_or_default()
+            );
+
+            self_clone.on_desktop_file_change();
+        });
+
+        if desktop_file_key == "Name" {
+            let self_clone = self.clone();
+            entry_row.connect_apply(move |entry_row| {
+                let title = entry_row.text();
+                if title.is_empty() {
+                    return;
+                }
+                self_clone.nav_page.set_title(&title);
+            });
+        }
+    }
+
+    fn connect_name_row(self: &Rc<Self>) {
+        self.connect_input_row(&self.name_row, "Name");
+    }
+
+    fn connect_url_row(self: &Rc<Self>) {
+        let self_clone = self.clone();
+
+        let validate_icon = Image::from_icon_name("dialog-warning-symbolic");
+        validate_icon.set_visible(false);
+        validate_icon.set_css_classes(&["error"]);
+        self.url_row.add_suffix(&validate_icon);
+
+        self.url_row.connect_changed(move |entry_row| {
+            let is_valid = entry_row.text().validate_url();
+
+            debug!("{} is valid: {is_valid}", entry_row.title());
+
+            validate_icon.set_visible(!entry_row.text().is_empty() && !is_valid);
+            if is_valid {
+                entry_row.set_show_apply_button(true);
+                entry_row.set_tooltip_text(None);
+            } else {
+                entry_row.set_show_apply_button(false);
+                entry_row
+                    .set_tooltip_text(Some("Please enter a valid URL (e.g., https://example.com)"));
+                self_clone.change_icon_button.set_sensitive(false);
+            }
+        });
+
+        let self_clone = self.clone();
+
+        self.url_row.connect_apply(move |entry_row| {
+            self_clone.change_icon_button.set_sensitive(true);
+
+            let url = entry_row.text().to_string();
+            let self_clone = self_clone.clone();
+
+            glib::spawn_future_local(async move {
+                let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
+
+                if let Err(error) = icon_picker.set_first_icon(&url).await {
+                    self_clone
+                        .desktop_file
+                        .borrow_mut()
+                        .add_desktop_entry("Icon".to_string(), String::new());
+                    error!("{error:?}");
+                }
+                self_clone.on_desktop_file_change();
+            });
+        });
+
+        self.connect_input_row(&self.url_row, &desktop_entry::KeysExt::Url.to_string());
+    }
+
     fn connect_isolate_row(self: &Rc<Self>) {
         let is_blocked = Rc::new(Cell::new(false)); // SwitchRow recurses on undo.
         let self_clone = self.clone();
@@ -730,6 +699,82 @@ impl WebAppView {
 
             self_clone.on_desktop_file_change();
         });
+    }
+
+    fn connect_browser_row(self: &Rc<Self>) {
+        let all_browsers = self.app.browsers_configs.get_all_browsers();
+        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
+        let desktop_file_clone = self.desktop_file.clone();
+        let toast_overlay_clone = self.toast_overlay.clone();
+        let self_clone = self.clone();
+        let all_browsers_clone = all_browsers.clone();
+        let is_blocked = Rc::new(Cell::new(false)); // ComboRow recurses on undo.
+
+        self.browser_row
+            .connect_selected_item_notify(move |combo_row| {
+                if is_blocked.get() {
+                    return;
+                }
+
+                let selected_item = combo_row.selected_item();
+                let Some(selected_item) = selected_item else {
+                    return;
+                };
+                let browser_item_boxed = selected_item.downcast::<BoxedAnyObject>().unwrap();
+                let browser = browser_item_boxed.borrow::<Rc<Browser>>();
+                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+                let undo_browser_id = desktop_file_borrow
+                    .desktop_entry(&desktop_file_key)
+                    .unwrap_or_default()
+                    .to_string();
+                let undo_state = all_browsers_clone
+                    .iter()
+                    .position(|browser| browser.id == undo_browser_id);
+
+                desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
+                drop(desktop_file_borrow);
+
+                *self_clone.browser_can_isolate.borrow_mut() = browser.can_isolate;
+
+                let saved_toast = Self::build_saved_toast();
+                let combo_row_clone = combo_row.clone();
+                let desktop_file_clone = self_clone.desktop_file.clone();
+                let desktop_file_key_undo_clone = desktop_file_key.clone();
+                let self_clone_undo = self_clone.clone();
+                let is_blocked_clone = is_blocked.clone();
+
+                saved_toast.connect_button_clicked(move |_| {
+                    is_blocked_clone.set(true);
+                    let Some(undo_state) = undo_state else {
+                        return;
+                    };
+                    combo_row_clone.set_selected(undo_state.try_into().unwrap());
+                    let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
+
+                    desktop_file_borrow.add_desktop_entry(
+                        desktop_file_key_undo_clone.clone(),
+                        undo_browser_id.clone(),
+                    );
+                    drop(desktop_file_borrow);
+
+                    self_clone_undo.on_desktop_file_change();
+                    is_blocked_clone.set(false);
+                });
+                toast_overlay_clone.add_toast(saved_toast);
+
+                let desktop_file_clone = self_clone.desktop_file.clone();
+                debug!(
+                    "Set a new '{}' on `desktop file`: {}",
+                    desktop_file_key,
+                    &desktop_file_clone
+                        .borrow()
+                        .desktop_entry(&desktop_file_key)
+                        .unwrap_or_default()
+                );
+
+                self_clone.on_desktop_file_change();
+            });
     }
 
     fn reset_reset_button(self: &Rc<Self>) {

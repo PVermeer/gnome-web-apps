@@ -319,7 +319,10 @@ impl DesktopEntryExt for DesktopEntry {
 
     fn validate(&self, app: &Rc<App>) -> Result<()> {
         match self.to_new_from_browser(app) {
-            Err(error) => Err(error),
+            Err(error) => {
+                debug!("Validate error: {error}");
+                Err(error)
+            }
             Ok(_) => Ok(()),
         }
     }
