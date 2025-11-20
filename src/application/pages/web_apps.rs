@@ -3,9 +3,8 @@ mod web_app_view;
 use super::NavPage;
 use crate::{
     application::{App, pages::PrefNavPage},
-    ext::desktop_entry::{self, DesktopEntryExt},
+    services::desktop_file::DesktopFile,
 };
-use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{Button, Image, prelude::ButtonExt};
 use libadwaita::{
     ActionRow, ButtonContent, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
@@ -13,7 +12,7 @@ use libadwaita::{
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use log::{debug, error};
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 use web_app_view::WebAppView;
 
 pub struct WebAppsPage {
@@ -80,7 +79,7 @@ impl WebAppsPage {
         let self_clone = self.clone();
         let app_clone = app.clone();
         new_app_button.connect_clicked(move |_| {
-            let desktop_file = Rc::new(RefCell::new(DesktopEntry::new()));
+            let desktop_file = Rc::new(RefCell::new(DesktopFile::new(&app_clone)));
             let app_page = WebAppView::new(&app_clone, &desktop_file, true);
             app_page.init();
 
@@ -113,19 +112,19 @@ impl WebAppsPage {
     fn build_app_row(
         self: Rc<Self>,
         app: &Rc<App>,
-        desktop_file: Rc<RefCell<DesktopEntry>>,
+        desktop_file: Rc<RefCell<DesktopFile>>,
     ) -> ActionRow {
         let desktop_file_borrow = desktop_file.borrow();
 
         let app_name = desktop_file_borrow
-            .name(&app.desktop_file_locales)
-            .unwrap_or(Cow::Borrowed("No name"));
+            .get_name()
+            .unwrap_or("No name".to_string());
         let app_row = ActionRow::builder()
             .title(app_name)
             .activatable(true)
             .build();
 
-        let app_icon = desktop_file_borrow.get_image_icon();
+        let app_icon = desktop_file_borrow.get_icon();
         let suffix = Image::from_icon_name("go-next-symbolic");
 
         app_row.add_prefix(&app_icon);
@@ -143,10 +142,9 @@ impl WebAppsPage {
         app_row
     }
 
-    fn get_owned_desktop_files(app: &Rc<App>) -> Vec<Rc<RefCell<DesktopEntry>>> {
+    fn get_owned_desktop_files(app: &Rc<App>) -> Vec<Rc<RefCell<DesktopFile>>> {
         debug!("Reading user desktop files");
 
-        let owned_web_app_key = desktop_entry::KeysExt::Gwa.to_string();
         let mut owned_desktop_files = Vec::new();
 
         let applications_path = match app.get_applications_dir() {
@@ -158,20 +156,15 @@ impl WebAppsPage {
         };
 
         for file in applications_path.read_dir().unwrap().flatten() {
-            let Ok(desktop_file) =
-                DesktopEntry::from_path(file.path(), Some(&app.desktop_file_locales))
-            else {
+            let Ok(desktop_file) = DesktopFile::from_path(&file.path(), app) else {
                 continue;
             };
 
-            if desktop_file
-                .desktop_entry(&owned_web_app_key)
-                .is_none_or(|value| value != "true")
-            {
+            if !desktop_file.get_is_owned_app() {
                 continue;
             }
 
-            debug!("Found desktop file: {}", desktop_file.path.display());
+            debug!("Found desktop file: {}", desktop_file.get_path().display());
 
             owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }

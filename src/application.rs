@@ -8,7 +8,6 @@ use crate::{
 };
 use anyhow::{Error, Result, bail};
 use error_dialog::ErrorDialog;
-use freedesktop_desktop_entry::get_languages_from_env;
 use log::{debug, error};
 use pages::{Page, Pages};
 use std::{
@@ -20,8 +19,7 @@ use xdg::BaseDirectories;
 
 pub struct App {
     pub dirs: Rc<BaseDirectories>,
-    pub desktop_file_locales: Vec<String>,
-    pub browsers_configs: BrowserConfigs,
+    pub browser_configs: Rc<BrowserConfigs>,
     pub error_dialog: ErrorDialog,
     adw_application: libadwaita::Application,
     window: AppWindow,
@@ -37,14 +35,12 @@ impl App {
             let fetch = Fetch::new();
             let pages = Pages::new();
             let browsers = BrowserConfigs::new();
-            let desktop_file_locales = get_languages_from_env();
             let error_dialog = ErrorDialog::new();
             let assets = Assets::new(&app_dirs);
 
             Self {
                 dirs: app_dirs,
-                desktop_file_locales,
-                browsers_configs: browsers,
+                browser_configs: browsers,
                 error_dialog,
                 adw_application: adw_application.clone(),
                 window,
@@ -61,7 +57,7 @@ impl App {
             self.window.init(self);
             self.error_dialog.init(self);
             self.assets.init()?;
-            self.browsers_configs.init(self);
+            self.browser_configs.init(self);
             self.pages.init(self);
 
             self.navigate(&Page::Home);

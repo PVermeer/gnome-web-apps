@@ -1,5 +1,4 @@
 use anyhow::{Context, Result, bail};
-use freedesktop_desktop_entry::DesktopEntry;
 use gtk::Image;
 use log::{debug, error, info};
 use std::fmt::Write as _;
@@ -11,7 +10,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::application::App;
+use crate::{application::App, services::desktop_file::DesktopFile};
 
 #[derive(PartialEq)]
 pub enum FlatpakInstallation {
@@ -46,7 +45,7 @@ pub struct BrowserYaml {
 struct BrowserConfig {
     config: BrowserYaml,
     file_name: String,
-    desktop_file: DesktopEntry,
+    desktop_file: DesktopFile,
 }
 pub struct Browser {
     pub id: String,
@@ -55,14 +54,19 @@ pub struct Browser {
     pub can_isolate: bool,
     pub flatpak_id: Option<String>,
     pub executable: Option<String>,
-    pub desktop_file: DesktopEntry,
+    pub desktop_file: DesktopFile,
     pub desktop_file_name_prefix: String,
+    configs: Rc<BrowserConfigs>,
     icon_name: String,
 }
 impl Browser {
     const FALLBACK_IMAGE: &str = "web-browser-symbolic";
 
-    fn new(browser_config: &BrowserConfig, installation: Installation) -> Self {
+    fn new(
+        browser_config: &BrowserConfig,
+        installation: Installation,
+        browser_configs: &Rc<BrowserConfigs>,
+    ) -> Self {
         let icon_name = if let Some(icon_name) = browser_config.config.icon_name.clone() {
             icon_name
         } else {
@@ -93,6 +97,7 @@ impl Browser {
             executable,
             desktop_file,
             desktop_file_name_prefix,
+            configs: browser_configs.clone(),
             icon_name,
         }
     }
@@ -149,19 +154,23 @@ impl Browser {
 
         image
     }
+
+    pub fn get_index(&self) -> Option<usize> {
+        self.configs.get_index(self)
+    }
 }
 
 pub struct BrowserConfigs {
     all_browsers: RefCell<Vec<Rc<Browser>>>,
 }
 impl BrowserConfigs {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Rc<Self> {
+        Rc::new(Self {
             all_browsers: RefCell::new(Vec::new()),
-        }
+        })
     }
 
-    pub fn init(&self, app: &Rc<App>) {
+    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
         self.set_browsers_from_files(app);
     }
 
@@ -195,7 +204,14 @@ impl BrowserConfigs {
             .cloned()
     }
 
-    fn set_browsers_from_files(&self, app: &Rc<App>) {
+    pub fn get_index(&self, browser: &Browser) -> Option<usize> {
+        self.all_browsers
+            .borrow()
+            .iter()
+            .position(|browser_iter| browser_iter.id == browser.id)
+    }
+
+    fn set_browsers_from_files(self: &Rc<Self>, app: &Rc<App>) {
         let browser_configs = Self::get_browsers_from_files(app);
         let mut all_browser_borrow = self.all_browsers.borrow_mut();
 
@@ -210,6 +226,7 @@ impl BrowserConfigs {
                     let browser = Rc::new(Browser::new(
                         &browser_config,
                         Installation::Flatpak(installation),
+                        self,
                     ));
 
                     all_browser_borrow.push(browser);
@@ -228,7 +245,8 @@ impl BrowserConfigs {
                         browser_config.file_name
                     );
 
-                    let browser = Rc::new(Browser::new(&browser_config, Installation::System));
+                    let browser =
+                        Rc::new(Browser::new(&browser_config, Installation::System, self));
 
                     all_browser_borrow.push(browser);
                 } else {
@@ -339,7 +357,7 @@ impl BrowserConfigs {
                 }
             };
 
-            let desktop_file = match (|| -> Result<DesktopEntry> {
+            let desktop_file = match (|| -> Result<DesktopFile> {
                 let desktop_file_path = file_path
                     .parent()
                     .context("No parent")?
@@ -352,8 +370,7 @@ impl BrowserConfigs {
                             .context("Could not get the file stem")?,
                     )
                     .with_extension("desktop");
-                let desktop_file =
-                    DesktopEntry::from_path(desktop_file_path, Some(&app.desktop_file_locales))?;
+                let desktop_file = DesktopFile::from_path(&desktop_file_path, app)?;
                 Ok(desktop_file)
             })() {
                 Ok(result) => result,

@@ -56,8 +56,8 @@ impl Browsers {
     }
 
     fn build_browser_sections(app: &Rc<App>) -> Vec<PreferencesGroup> {
-        let flatpak_browsers = app.browsers_configs.get_flatpak_browsers();
-        let system_browsers = app.browsers_configs.get_system_browsers();
+        let flatpak_browsers = app.browser_configs.get_flatpak_browsers();
+        let system_browsers = app.browser_configs.get_system_browsers();
 
         if flatpak_browsers.is_empty() && system_browsers.is_empty() {
             let status_page = StatusPage::builder()

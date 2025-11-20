@@ -5,10 +5,8 @@ use crate::{
         App,
         pages::{NavPage, PrefPage},
     },
-    ext::desktop_entry::{self, DesktopEntryExt},
-    services::browsers::Browser,
+    services::{browsers::Browser, desktop_file::DesktopFile},
 };
-use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
     ListItem, SignalListItemFactory, gio,
     glib::{self, BoxedAnyObject, object::Cast},
@@ -29,8 +27,8 @@ use libadwaita::{
 };
 use log::{debug, error};
 use std::{
-    borrow::Cow,
     cell::{Cell, RefCell},
+    path::Path,
     process::Command,
     rc::Rc,
 };
@@ -42,8 +40,8 @@ pub struct WebAppView {
     nav_page: NavigationPage,
     app: Rc<App>,
     header: HeaderBar,
-    desktop_file: Rc<RefCell<DesktopEntry>>,
-    desktop_file_original: DesktopEntry,
+    desktop_file: Rc<RefCell<DesktopFile>>,
+    desktop_file_original: DesktopFile,
     prefs_page: PreferencesPage,
     pref_groups: RefCell<Vec<PreferencesGroup>>,
     toast_overlay: ToastOverlay,
@@ -72,16 +70,14 @@ impl WebAppView {
     const TOAST_RESET: &str = "Reset";
     const TOAST_UNDO_BUTTON: &str = "Undo";
 
-    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>, is_new: bool) -> Rc<Self> {
+    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>, is_new: bool) -> Rc<Self> {
         let desktop_file_borrow = desktop_file.borrow();
         let desktop_file_original = desktop_file_borrow.clone(); // Deep clone
         let title = desktop_file_borrow
-            .name(&app.desktop_file_locales)
-            .and_then(|name| if name.is_empty() { None } else { Some(name) })
-            .unwrap_or(Cow::Borrowed("New Web App"));
+            .get_name()
+            .unwrap_or("New Web App".to_string());
         let browser_can_isolate = desktop_file_borrow
-            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
-            .and_then(|browser_id| app.browsers_configs.get_by_id(browser_id))
+            .get_browser()
             .is_some_and(|browser| browser.can_isolate);
         let icon = "preferences-desktop-apps-symbolic";
         let PrefPage {
@@ -155,27 +151,17 @@ impl WebAppView {
     fn reset_desktop_file(self: &Rc<Self>) {
         debug!("Resetting desktop file");
 
-        let browsers = self.app.browsers_configs.get_all_browsers();
         let mut desktop_file_borrow = self.desktop_file.borrow_mut();
-        let save_path = desktop_file_borrow.path.clone();
+        let save_path = desktop_file_borrow.get_path();
         *desktop_file_borrow = self.desktop_file_original.clone();
-        desktop_file_borrow.path = save_path;
+        desktop_file_borrow.set_path(&save_path);
 
-        let name = desktop_file_borrow
-            .desktop_entry("Name")
-            .unwrap_or_default()
-            .to_string();
-        let url = desktop_file_borrow
-            .desktop_entry(&desktop_entry::KeysExt::Url.to_string())
-            .unwrap_or_default()
-            .to_string();
-        let is_isolated = desktop_file_borrow
-            .desktop_entry(&desktop_entry::KeysExt::Isolate.to_string())
-            .unwrap_or_default()
-            .eq("true");
+        let name = desktop_file_borrow.get_name().unwrap_or_default();
+        let url = desktop_file_borrow.get_url().unwrap_or_default();
+        let is_isolated = desktop_file_borrow.get_isolated().unwrap_or(false);
         let browser_index = desktop_file_borrow
-            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
-            .and_then(|browser_id| browsers.iter().position(|browser| browser.id == browser_id))
+            .get_browser()
+            .and_then(|browser| browser.get_index())
             .and_then(|index| index.try_into().ok())
             .unwrap_or(0);
 
@@ -212,14 +198,14 @@ impl WebAppView {
         let pref_group = PreferencesGroup::builder().build();
         let content_box = gtk::Box::new(Orientation::Vertical, 6);
         let app_name = desktop_file_borrow
-            .name(&self.app.desktop_file_locales)
-            .unwrap_or(Cow::Borrowed("No name..."));
+            .get_name()
+            .unwrap_or("No name...".to_string());
         let app_label = Label::builder()
             .label(app_name)
             .css_classes(["title-1"])
             .build();
 
-        if desktop_file_borrow.exec().is_some() {
+        if desktop_file_borrow.get_exec().is_some() {
             self.run_app_button.set_sensitive(true);
         } else {
             self.run_app_button.set_sensitive(false);
@@ -232,17 +218,14 @@ impl WebAppView {
             .build();
         button_wrap_box.append(&self.run_app_button);
 
-        let app_image = desktop_file_borrow.get_image_icon();
+        let app_image = desktop_file_borrow.get_icon();
         app_image.set_css_classes(&["icon-dropshadow"]);
         app_image.set_pixel_size(96);
         app_image.set_margin_start(25);
         app_image.set_margin_end(25);
 
         let browser_label = Label::new(None);
-        let browser_id = desktop_file_borrow
-            .desktop_entry(&desktop_entry::KeysExt::BrowserId.to_string())
-            .unwrap_or_default();
-        if let Some(browser) = self.app.browsers_configs.get_by_id(browser_id) {
+        if let Some(browser) = desktop_file_borrow.get_browser() {
             browser_label.set_markup(&format!("<b>{}</b>", &browser.get_name_with_installation()));
         }
 
@@ -274,52 +257,34 @@ impl WebAppView {
         pref_group
     }
 
-    fn build_input_row(
-        row_title: &str,
-        purpose: InputPurpose,
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
-        desktop_file_key: &str,
-    ) -> EntryRow {
-        let desktop_file_borrow = desktop_file.borrow();
-        let name = desktop_file_borrow
-            .desktop_entry(desktop_file_key)
-            .unwrap_or_default();
+    fn build_name_row(desktop_file: &Rc<RefCell<DesktopFile>>) -> EntryRow {
+        let name = desktop_file.borrow().get_name().unwrap_or_default();
 
-        let entry_row = EntryRow::builder()
-            .title(row_title)
+        EntryRow::builder()
+            .title("Web app name")
             .text(name)
             .show_apply_button(true)
-            .input_purpose(purpose)
-            .build();
-
-        drop(desktop_file_borrow);
-
-        entry_row
+            .input_purpose(InputPurpose::Name)
+            .build()
     }
 
-    fn build_name_row(desktop_file: &Rc<RefCell<DesktopEntry>>) -> EntryRow {
-        Self::build_input_row("Web app name", InputPurpose::Name, desktop_file, "Name")
-    }
+    fn build_url_row(desktop_file: &Rc<RefCell<DesktopFile>>) -> EntryRow {
+        let url = desktop_file.borrow().get_url().unwrap_or_default();
 
-    fn build_url_row(desktop_file: &Rc<RefCell<DesktopEntry>>) -> EntryRow {
-        Self::build_input_row(
-            "Website URL",
-            InputPurpose::Url,
-            desktop_file,
-            &desktop_entry::KeysExt::Url.to_string(),
-        )
+        EntryRow::builder()
+            .title("Website URL")
+            .text(url)
+            .show_apply_button(true)
+            .input_purpose(InputPurpose::Url)
+            .build()
     }
 
     fn build_isolate_row(
-        desktop_file: &Rc<RefCell<DesktopEntry>>,
+        desktop_file: &Rc<RefCell<DesktopFile>>,
         browser_can_isolate: bool,
     ) -> SwitchRow {
-        let desktop_file_key = desktop_entry::KeysExt::Isolate.to_string();
         let mut desktop_file_borrow = desktop_file.borrow_mut();
-
-        let is_isolated = desktop_file_borrow
-            .desktop_entry(&desktop_file_key)
-            .is_some_and(|is_isolated| is_isolated == "true");
+        let is_isolated = desktop_file_borrow.get_isolated().is_some();
 
         let switch_row = SwitchRow::builder()
             .title("Isolate")
@@ -331,19 +296,16 @@ impl WebAppView {
         if !browser_can_isolate && is_isolated {
             debug!("Found desktop file with isolate on a browser that is incapable");
             switch_row.set_active(false);
-            desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), false.to_string());
         }
 
-        // SwitchRow has already a setting on load, so save this.
-        desktop_file_borrow
-            .add_desktop_entry(desktop_file_key.clone(), switch_row.is_active().to_string());
+        // SwitchRow has already a setting on load, so sync this.
+        desktop_file_borrow.set_isolated(switch_row.is_active());
 
         switch_row
     }
 
-    fn build_browser_row(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>) -> ComboRow {
-        let all_browsers = app.browsers_configs.get_all_browsers();
-        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
+    fn build_browser_row(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>) -> ComboRow {
+        let all_browsers = app.browser_configs.get_all_browsers();
 
         // Some weird factory setup where the list calls factory methods...
         // First create all data structures, then set data from ListStore.
@@ -377,19 +339,15 @@ impl WebAppView {
             .factory(&factory)
             .build();
 
-        if let Some(browser_id) = desktop_file.borrow().desktop_entry(&desktop_file_key) {
-            let browser_id = browser_id.to_string();
-            let index = all_browsers
-                .iter()
-                .position(|browser| browser.id == browser_id);
-            if let Some(index) = index {
-                combo_row.set_selected(index.try_into().unwrap());
-            }
-        // ComboRow has already a selected item on load, so save this if empty.
+        if let Some(browser_index) = desktop_file
+            .borrow()
+            .get_browser()
+            .and_then(|browser| browser.get_index())
+        {
+            combo_row.set_selected(browser_index.try_into().unwrap());
         } else if let Some(browser) = all_browsers.first() {
-            desktop_file
-                .borrow_mut()
-                .add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
+            // ComboRow has already a selected item on load, so sync this if empty.
+            desktop_file.borrow_mut().set_browser(browser);
         }
 
         combo_row
@@ -461,7 +419,11 @@ impl WebAppView {
         let self_clone = self.clone();
         self.change_icon_button.connect_clicked(move |_| {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
-            let undo_icon_path = desktop_file_borrow.icon().unwrap_or_default().to_string();
+            let undo_icon_path = desktop_file_borrow
+                .get_icon_path()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
             let undo_icon_path_success = undo_icon_path.clone();
             let undo_icon_path_fail = undo_icon_path.clone();
 
@@ -481,8 +443,7 @@ impl WebAppView {
 
                     toast.connect_button_clicked(move |_| {
                         let mut desktop_file_borrow = self_clone_undo.desktop_file.borrow_mut();
-                        desktop_file_borrow
-                            .add_desktop_entry("Icon".to_string(), undo_icon_path.clone());
+                        desktop_file_borrow.set_icon_path(Path::new(&undo_icon_path));
 
                         drop(desktop_file_borrow);
                         self_clone_undo.on_desktop_file_change();
@@ -498,7 +459,7 @@ impl WebAppView {
                     self_clone_fail
                         .desktop_file
                         .borrow_mut()
-                        .add_desktop_entry("Icon".to_string(), undo_icon_path);
+                        .set_icon_path(Path::new(&undo_icon_path));
 
                     self_clone_fail.on_desktop_file_change();
                     self_clone_fail.toast_overlay.add_toast(toast);
@@ -512,8 +473,7 @@ impl WebAppView {
 
         self.run_app_button.connect_clicked(move |_| {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
-            if let Some(exec) = desktop_file_borrow.exec() {
-                let executable = exec.to_string();
+            if let Some(executable) = desktop_file_borrow.get_exec() {
                 debug!("Running web app: '{executable}'");
 
                 #[allow(clippy::zombie_processes)]
@@ -534,66 +494,43 @@ impl WebAppView {
         });
     }
 
-    fn connect_input_row(self: &Rc<Self>, entry_row: &EntryRow, desktop_file_key: &str) {
+    fn connect_name_row(self: &Rc<Self>) {
         let self_clone = self.clone();
-        let desktop_file_key_clone = desktop_file_key.to_string();
 
-        entry_row.connect_apply(move |entry_row| {
+        self.name_row.connect_apply(move |entry_row| {
             let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
-            let undo_text = desktop_file_borrow
-                .desktop_entry(&desktop_file_key_clone)
-                .unwrap_or_default()
-                .to_string();
 
-            desktop_file_borrow
-                .add_desktop_entry(desktop_file_key_clone.clone(), entry_row.text().to_string());
+            let undo_text = desktop_file_borrow.get_name().unwrap_or_default();
+            desktop_file_borrow.set_name(&entry_row.text());
+
             drop(desktop_file_borrow);
 
             let saved_toast = Self::build_saved_toast();
             let desktop_file_clone = self_clone.desktop_file.clone();
             let self_clone_undo = self_clone.clone();
             let entry_row_clone = entry_row.clone();
-            let desktop_file_key_undo_clone = desktop_file_key_clone.clone();
 
             saved_toast.connect_button_clicked(move |_| {
                 entry_row_clone.set_text(&undo_text);
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
-                desktop_file_borrow.add_desktop_entry(
-                    desktop_file_key_undo_clone.clone(),
-                    entry_row_clone.text().to_string(),
-                );
-                drop(desktop_file_borrow);
+                desktop_file_clone
+                    .borrow_mut()
+                    .set_name(&entry_row_clone.text());
+
                 self_clone_undo.on_desktop_file_change();
             });
+
             self_clone.toast_overlay.add_toast(saved_toast);
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key_clone,
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(&desktop_file_key_clone)
-                    .unwrap_or_default()
-            );
-
             self_clone.on_desktop_file_change();
         });
 
-        if desktop_file_key == "Name" {
-            let self_clone = self.clone();
-            entry_row.connect_apply(move |entry_row| {
-                let title = entry_row.text();
-                if title.is_empty() {
-                    return;
-                }
-                self_clone.nav_page.set_title(&title);
-            });
-        }
-    }
-
-    fn connect_name_row(self: &Rc<Self>) {
-        self.connect_input_row(&self.name_row, "Name");
+        let self_clone = self.clone();
+        self.name_row.connect_apply(move |entry_row| {
+            let title = entry_row.text();
+            if title.is_empty() {
+                return;
+            }
+            self_clone.nav_page.set_title(&title);
+        });
     }
 
     fn connect_url_row(self: &Rc<Self>) {
@@ -636,14 +573,39 @@ impl WebAppView {
                     self_clone
                         .desktop_file
                         .borrow_mut()
-                        .add_desktop_entry("Icon".to_string(), String::new());
+                        .set_icon_path(Path::new(""));
                     error!("{error:?}");
                 }
                 self_clone.on_desktop_file_change();
             });
         });
 
-        self.connect_input_row(&self.url_row, &desktop_entry::KeysExt::Url.to_string());
+        let self_clone = self.clone();
+
+        self.url_row.connect_apply(move |entry_row| {
+            let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
+            let undo_text = desktop_file_borrow.get_url().unwrap_or_default();
+
+            desktop_file_borrow.set_url(&entry_row.text());
+
+            drop(desktop_file_borrow);
+
+            let saved_toast = Self::build_saved_toast();
+            let desktop_file_clone = self_clone.desktop_file.clone();
+            let self_clone_undo = self_clone.clone();
+            let entry_row_clone = entry_row.clone();
+
+            saved_toast.connect_button_clicked(move |_| {
+                entry_row_clone.set_text(&undo_text);
+                desktop_file_clone
+                    .borrow_mut()
+                    .set_url(&entry_row_clone.text());
+                self_clone_undo.on_desktop_file_change();
+            });
+
+            self_clone.toast_overlay.add_toast(saved_toast);
+            self_clone.on_desktop_file_change();
+        });
     }
 
     fn connect_isolate_row(self: &Rc<Self>) {
@@ -654,60 +616,40 @@ impl WebAppView {
             if is_blocked.get() {
                 return;
             }
-            let desktop_file_key = desktop_entry::KeysExt::Isolate.to_string();
-            let is_on = switch_row.is_active();
             let mut desktop_file_borrow = self_clone.desktop_file.borrow_mut();
-            let undo_state = desktop_file_borrow
-                .desktop_entry(&desktop_file_key)
-                .is_some_and(|is_isolated| is_isolated == "true");
 
-            desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), is_on.to_string());
+            let undo_state = desktop_file_borrow.get_isolated().unwrap_or(false);
+            desktop_file_borrow.set_isolated(switch_row.is_active());
+
             drop(desktop_file_borrow);
 
             let saved_toast = Self::build_saved_toast();
             let desktop_file_clone = self_clone.desktop_file.clone();
             let self_clone_undo = self_clone.clone();
             let switch_row_clone = switch_row.clone();
-            let desktop_file_key_undo_clone = desktop_file_key.clone();
             let is_blocked_clone = is_blocked.clone();
 
             saved_toast.connect_button_clicked(move |_| {
                 is_blocked_clone.set(true);
                 switch_row_clone.set_active(undo_state);
-                let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
 
-                desktop_file_borrow.add_desktop_entry(
-                    desktop_file_key_undo_clone.clone(),
-                    switch_row_clone.is_active().to_string(),
-                );
-                drop(desktop_file_borrow);
+                desktop_file_clone
+                    .borrow_mut()
+                    .set_isolated(switch_row_clone.is_active());
 
                 self_clone_undo.on_desktop_file_change();
                 is_blocked_clone.set(false);
             });
+
             self_clone.toast_overlay.add_toast(saved_toast);
-
-            let desktop_file_clone = self_clone.desktop_file.clone();
-            debug!(
-                "Set a new '{}' on `desktop file`: {}",
-                desktop_file_key,
-                &desktop_file_clone
-                    .borrow()
-                    .desktop_entry(&desktop_file_key)
-                    .unwrap_or_default()
-            );
-
             self_clone.on_desktop_file_change();
         });
     }
 
     fn connect_browser_row(self: &Rc<Self>) {
-        let all_browsers = self.app.browsers_configs.get_all_browsers();
-        let desktop_file_key = desktop_entry::KeysExt::BrowserId.to_string();
         let desktop_file_clone = self.desktop_file.clone();
         let toast_overlay_clone = self.toast_overlay.clone();
         let self_clone = self.clone();
-        let all_browsers_clone = all_browsers.clone();
         let is_blocked = Rc::new(Cell::new(false)); // ComboRow recurses on undo.
 
         self.browser_row
@@ -722,17 +664,14 @@ impl WebAppView {
                 };
                 let browser_item_boxed = selected_item.downcast::<BoxedAnyObject>().unwrap();
                 let browser = browser_item_boxed.borrow::<Rc<Browser>>();
+
                 let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
 
-                let undo_browser_id = desktop_file_borrow
-                    .desktop_entry(&desktop_file_key)
-                    .unwrap_or_default()
-                    .to_string();
-                let undo_state = all_browsers_clone
-                    .iter()
-                    .position(|browser| browser.id == undo_browser_id);
+                let undo_browser = desktop_file_borrow.get_browser();
+                let undo_state = undo_browser.clone().and_then(|browser| browser.get_index());
 
-                desktop_file_borrow.add_desktop_entry(desktop_file_key.clone(), browser.id.clone());
+                desktop_file_borrow.set_browser(&browser);
+
                 drop(desktop_file_borrow);
 
                 *self_clone.browser_can_isolate.borrow_mut() = browser.can_isolate;
@@ -740,39 +679,24 @@ impl WebAppView {
                 let saved_toast = Self::build_saved_toast();
                 let combo_row_clone = combo_row.clone();
                 let desktop_file_clone = self_clone.desktop_file.clone();
-                let desktop_file_key_undo_clone = desktop_file_key.clone();
                 let self_clone_undo = self_clone.clone();
                 let is_blocked_clone = is_blocked.clone();
 
                 saved_toast.connect_button_clicked(move |_| {
                     is_blocked_clone.set(true);
-                    let Some(undo_state) = undo_state else {
+                    let (Some(undo_state), Some(undo_browser)) = (undo_state, undo_browser.clone())
+                    else {
                         return;
                     };
-                    combo_row_clone.set_selected(undo_state.try_into().unwrap());
-                    let mut desktop_file_borrow = desktop_file_clone.borrow_mut();
 
-                    desktop_file_borrow.add_desktop_entry(
-                        desktop_file_key_undo_clone.clone(),
-                        undo_browser_id.clone(),
-                    );
-                    drop(desktop_file_borrow);
+                    combo_row_clone.set_selected(undo_state.try_into().unwrap());
+                    desktop_file_clone.borrow_mut().set_browser(&undo_browser);
 
                     self_clone_undo.on_desktop_file_change();
                     is_blocked_clone.set(false);
                 });
+
                 toast_overlay_clone.add_toast(saved_toast);
-
-                let desktop_file_clone = self_clone.desktop_file.clone();
-                debug!(
-                    "Set a new '{}' on `desktop file`: {}",
-                    desktop_file_key,
-                    &desktop_file_clone
-                        .borrow()
-                        .desktop_entry(&desktop_file_key)
-                        .unwrap_or_default()
-                );
-
                 self_clone.on_desktop_file_change();
             });
     }

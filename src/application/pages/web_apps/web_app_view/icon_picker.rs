@@ -1,9 +1,8 @@
 use crate::{
     application::App,
-    ext::desktop_entry::{self, DesktopEntryExt, Icon},
+    services::desktop_file::{DesktopFile, Icon},
 };
 use anyhow::{Context, Result, bail};
-use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{
     self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, FlowBoxChild, Label,
     Orientation, Picture, SelectionMode,
@@ -27,7 +26,7 @@ pub struct IconPicker {
     init: RefCell<bool>,
     prefs_page: PreferencesPage,
     app: Rc<App>,
-    desktop_file: Rc<RefCell<DesktopEntry>>,
+    desktop_file: Rc<RefCell<DesktopFile>>,
     icons: Rc<RefCell<HashMap<String, Rc<Icon>>>>,
     pref_row_icons: PreferencesRow,
     pref_row_icons_fail: PreferencesRow,
@@ -41,7 +40,7 @@ impl IconPicker {
     pub const DIALOG_SAVE: &str = "save";
     pub const DIALOG_CANCEL: &str = "cancel";
 
-    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopEntry>>) -> Rc<Self> {
+    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
         let spinner = Self::build_spinner();
@@ -171,14 +170,11 @@ impl IconPicker {
 
     fn load_icons(self: &Rc<Self>) {
         let self_clone = self.clone();
-        let url: String;
-        {
-            let desktop_file_borrow = self_clone.desktop_file.borrow();
-            url = desktop_file_borrow
-                .desktop_entry(&desktop_entry::KeysExt::Url.to_string())
-                .unwrap_or_default()
-                .to_string();
-        }
+        let url = self_clone
+            .desktop_file
+            .borrow()
+            .get_url()
+            .unwrap_or_default();
 
         glib::spawn_future_local(async move {
             self_clone.prefs_page.set_visible(false);
