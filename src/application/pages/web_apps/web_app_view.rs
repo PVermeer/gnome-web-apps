@@ -26,10 +26,10 @@ use libadwaita::{
     },
 };
 use log::{debug, error};
+use std::fmt::Write as _;
 use std::{
     cell::{Cell, RefCell},
     path::Path,
-    process::Command,
     rc::Rc,
 };
 use validator::ValidateUrl;
@@ -476,15 +476,18 @@ impl WebAppView {
 
         self.run_app_button.connect_clicked(move |_| {
             let desktop_file_borrow = self_clone.desktop_file.borrow();
-            if let Some(executable) = desktop_file_borrow.get_exec() {
-                debug!("Running web app: '{executable}'");
+            let Some(mut executable) = desktop_file_borrow.get_exec() else {
+                return;
+            };
+            debug!("Running web app: '{executable}'");
 
-                #[allow(clippy::zombie_processes)]
-                let result = Command::new("sh").arg("-c").arg(executable.clone()).spawn();
+            if std::env::var("RUN_IN_VSCODE_DEVCONTAINER").is_ok() {
+                let _ = write!(executable, " --no-sandbox");
+                debug!("Running in dev-container: '{executable}'");
+            }
 
-                if let Err(error) = result {
-                    error!("Failed to run app '{executable}': {error:?}");
-                }
+            if let Err(error) = glib::spawn_command_line_async(executable.clone()) {
+                error!("Failed to run app '{executable}': {error:?}");
             }
         });
     }
