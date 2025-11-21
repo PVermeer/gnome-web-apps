@@ -29,6 +29,7 @@ impl std::fmt::Display for FlatpakInstallation {
 pub enum Installation {
     Flatpak(FlatpakInstallation),
     System,
+    None,
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -47,6 +48,7 @@ struct BrowserConfig {
     file_name: String,
     desktop_file: DesktopFile,
 }
+
 pub struct Browser {
     pub id: String,
     pub name: String,
@@ -121,6 +123,7 @@ impl Browser {
             Installation::System => {
                 let _ = write!(txt, " (System)");
             }
+            Installation::None => {}
         }
 
         txt
@@ -143,6 +146,7 @@ impl Browser {
                 };
                 Ok(executable.clone())
             }
+            Installation::None => bail!("Browser is not installed"),
         }
     }
 
@@ -171,6 +175,9 @@ impl BrowserConfigs {
     }
 
     pub fn init(self: &Rc<Self>, app: &Rc<App>) {
+        let no_browser = self.get_no_browser(app);
+        self.all_browsers.borrow_mut().push(Rc::new(no_browser));
+
         self.set_browsers_from_files(app);
     }
 
@@ -209,6 +216,21 @@ impl BrowserConfigs {
             .borrow()
             .iter()
             .position(|browser_iter| browser_iter.id == browser.id)
+    }
+
+    fn get_no_browser(self: &Rc<Self>, app: &Rc<App>) -> Browser {
+        Browser {
+            id: String::default(),
+            name: "No browser".to_string(),
+            installation: Installation::None,
+            can_isolate: false,
+            flatpak_id: None,
+            executable: None,
+            desktop_file: DesktopFile::new(app),
+            desktop_file_name_prefix: String::default(),
+            configs: self.clone(),
+            icon_name: "dialog-warning-symbolic".to_string(),
+        }
     }
 
     fn set_browsers_from_files(self: &Rc<Self>, app: &Rc<App>) {
