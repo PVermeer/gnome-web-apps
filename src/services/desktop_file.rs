@@ -370,8 +370,8 @@ impl DesktopFile {
         );
     }
 
-    pub fn validate(&self, app: &Rc<App>) -> Result<()> {
-        match self.to_new_from_browser(app) {
+    pub fn validate(&self) -> Result<()> {
+        match self.to_new_from_browser() {
             Err(error) => {
                 debug!("Validate error: {error}");
                 Err(error)
@@ -380,9 +380,9 @@ impl DesktopFile {
         }
     }
 
-    pub fn save(&mut self, app: &Rc<App>) -> Result<()> {
+    pub fn save(&mut self) -> Result<()> {
         if let Err(error) = (|| -> Result<()> {
-            let new_desktop_file = self.to_new_from_browser(app)?;
+            let new_desktop_file = self.to_new_from_browser()?;
 
             let old_profile_path = self.get_profile_path();
             let new_profile_path = new_desktop_file.get_profile_path();
@@ -528,7 +528,7 @@ impl DesktopFile {
         Ok(desktop_file_path)
     }
 
-    fn to_new_from_browser(&self, app: &Rc<App>) -> Result<DesktopFile> {
+    fn to_new_from_browser(&self) -> Result<DesktopFile> {
         let entries = self.get_entries()?;
         let save_path = self.get_save_path(&entries)?;
 
@@ -557,7 +557,7 @@ impl DesktopFile {
             d_str = re.replace_all(&d_str, replacement).to_string();
         }
 
-        let mut new_desktop_file = Self::from_string(&save_path, &d_str, app)?;
+        let mut new_desktop_file = Self::from_string(&save_path, &d_str, &self.app)?;
 
         new_desktop_file.set_is_owned_app();
         new_desktop_file.set_url(&entries.url);

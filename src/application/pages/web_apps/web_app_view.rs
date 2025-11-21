@@ -769,13 +769,13 @@ impl WebAppView {
 
         let is_new = *self.is_new.borrow();
 
-        if is_new && self.desktop_file.borrow().validate(&self.app).is_ok() {
+        if is_new && self.desktop_file.borrow().validate().is_ok() {
             self.save_button.set_sensitive(true);
         } else {
             self.save_button.set_sensitive(false);
         }
 
-        if !is_new && self.desktop_file.borrow_mut().save(&self.app).is_err() {
+        if !is_new && self.desktop_file.borrow_mut().save().is_err() {
             let toast = Self::build_error_toast("Failed to save app");
             self.toast_overlay.add_toast(toast);
         }
@@ -786,7 +786,7 @@ impl WebAppView {
     }
 
     fn on_new_desktop_file_save(self: &Rc<Self>) {
-        if let Err(error) = self.desktop_file.borrow().validate(&self.app) {
+        if let Err(error) = self.desktop_file.borrow().validate() {
             error!("Invalid desktop file to save: '{error:?}'");
             let toast = Self::build_error_toast("Failed to save app");
             self.toast_overlay.add_toast(toast);
