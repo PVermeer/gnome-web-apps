@@ -5,7 +5,10 @@ use crate::{
         App,
         pages::{NavPage, PrefPage},
     },
-    services::{browsers::Browser, desktop_file::DesktopFile},
+    services::{
+        browsers::{Base, Browser},
+        desktop_file::DesktopFile,
+    },
 };
 use gtk::{
     ListItem, SignalListItemFactory, gio,
@@ -144,7 +147,7 @@ impl WebAppView {
         drop(pref_groups);
 
         self.connect_change_icon_button();
-        self.connect_run_button();
+        self.connect_run_app_button();
         self.connect_save_button();
     }
 
@@ -473,7 +476,7 @@ impl WebAppView {
         });
     }
 
-    fn connect_run_button(self: &Rc<Self>) {
+    fn connect_run_app_button(self: &Rc<Self>) {
         let self_clone = self.clone();
 
         self.run_app_button.connect_clicked(move |_| {
@@ -484,7 +487,12 @@ impl WebAppView {
             debug!("Running web app: '{executable}'");
 
             if std::env::var("RUN_IN_VSCODE_DEVCONTAINER").is_ok() {
-                let _ = write!(executable, " --no-sandbox");
+                if desktop_file_borrow
+                    .get_browser()
+                    .is_some_and(|browser| browser.base == Base::Chromium)
+                {
+                    let _ = write!(executable, " --no-sandbox");
+                }
                 debug!("Running in dev-container: '{executable}'");
             }
 

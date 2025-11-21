@@ -4,3 +4,4 @@ flatpak: com.brave.Browser
 system_bin: brave-browser
 can_isolate: true
 desktop_file_name_prefix: com.brave.Browser.brave
+base: chromium

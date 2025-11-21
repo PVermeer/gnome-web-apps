@@ -4,3 +4,4 @@ flatpak: org.chromium.Chromium
 system_bin: chromium-browser
 can_isolate: true
 desktop_file_name_prefix: org.chromium.Chromium.chrome
+base: chromium

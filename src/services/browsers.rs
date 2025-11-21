@@ -32,6 +32,22 @@ pub enum Installation {
     None,
 }
 
+#[derive(PartialEq)]
+pub enum Base {
+    Chromium,
+    Firefox,
+    None,
+}
+impl Base {
+    fn from_string(string: &str) -> Self {
+        match string {
+            "chromium" => Self::Chromium,
+            "firefox" => Self::Firefox,
+            _ => Self::None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BrowserYaml {
     name: String,
@@ -41,6 +57,7 @@ pub struct BrowserYaml {
     #[serde(default)]
     can_isolate: bool,
     desktop_file_name_prefix: String,
+    base: String,
 }
 
 struct BrowserConfig {
@@ -58,6 +75,7 @@ pub struct Browser {
     pub executable: Option<String>,
     pub desktop_file: DesktopFile,
     pub desktop_file_name_prefix: String,
+    pub base: Base,
     configs: Rc<BrowserConfigs>,
     icon_name: String,
 }
@@ -81,6 +99,7 @@ impl Browser {
         let executable = browser_config.config.system_bin.clone();
         let desktop_file = browser_config.desktop_file.clone();
         let desktop_file_name_prefix = browser_config.config.desktop_file_name_prefix.clone();
+        let base = Base::from_string(&browser_config.config.base);
 
         let id = if matches!(installation, Installation::Flatpak(_)) {
             flatpak_id.clone().unwrap()
@@ -101,6 +120,7 @@ impl Browser {
             desktop_file_name_prefix,
             configs: browser_configs.clone(),
             icon_name,
+            base,
         }
     }
 
@@ -230,6 +250,7 @@ impl BrowserConfigs {
             desktop_file_name_prefix: String::default(),
             configs: self.clone(),
             icon_name: "dialog-warning-symbolic".to_string(),
+            base: Base::None,
         }
     }
 
