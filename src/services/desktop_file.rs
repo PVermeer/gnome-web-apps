@@ -270,7 +270,7 @@ impl DesktopFile {
         }
     }
 
-    pub fn set_icon(&mut self, app: &Rc<App>, icon: &Rc<Icon>) -> Result<()> {
+    pub fn set_icon(&mut self, icon: &Rc<Icon>) -> Result<()> {
         let app_id = self
             .desktop_entry
             .desktop_entry(&Keys::Id.to_string())
@@ -287,12 +287,13 @@ impl DesktopFile {
             None => format!("{}.png", icon.filename),
         };
 
-        let icon_dir = app.get_icons_dir()?;
+        let icon_dir = self.app.get_icons_dir()?;
         let icon_name = sanitize_filename::sanitize(format!("{app_id}-{filename}"));
         let save_path = icon_dir.join(&icon_name);
 
         debug!("Saving {} to fs: {}", &icon_name, save_path.display());
-        app.dirs
+        self.app
+            .dirs
             .place_data_file(&save_path)
             .context("Failed to create paths")?;
         icon.pixbuf

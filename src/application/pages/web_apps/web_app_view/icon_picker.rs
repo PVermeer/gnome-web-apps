@@ -139,7 +139,7 @@ impl IconPicker {
             bail!("No icons found")
         };
 
-        desktop_file_borrow.set_icon(&self.app, icon)?;
+        desktop_file_borrow.set_icon(icon)?;
 
         Ok(())
     }
@@ -365,7 +365,7 @@ impl IconPicker {
         };
 
         let mut desktop_file_borrow = self.desktop_file.borrow_mut();
-        let result = desktop_file_borrow.set_icon(&self.app, &icon);
+        let result = desktop_file_borrow.set_icon(&icon);
         drop(desktop_file_borrow);
 
         if let Err(error) = result {
