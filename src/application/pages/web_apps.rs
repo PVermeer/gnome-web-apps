@@ -149,7 +149,7 @@ impl WebAppsPage {
 
         let applications_path = match app.get_applications_dir() {
             Err(error) => {
-                error!("{error}");
+                error!("{error:?}");
                 return owned_desktop_files;
             }
             Ok(path) => path,

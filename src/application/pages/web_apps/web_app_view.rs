@@ -773,13 +773,13 @@ impl WebAppView {
         }
 
         self.reset_reset_button();
-        self.reset_app_header();
         self.reset_browser_isolation();
+        self.reset_app_header();
     }
 
     fn on_new_desktop_file_save(self: &Rc<Self>) {
         if let Err(error) = self.desktop_file.borrow().validate(&self.app) {
-            error!("Invalid desktop file to save: '{error}'");
+            error!("Invalid desktop file to save: '{error:?}'");
             let toast = Self::build_error_toast("Failed to save app");
             self.toast_overlay.add_toast(toast);
             return;

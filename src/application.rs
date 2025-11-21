@@ -111,7 +111,7 @@ impl App {
     }
 
     pub fn show_error(self: &Rc<Self>, error: &Error) {
-        error!("{error}");
+        error!("{error:?}");
         self.error_dialog.show(self, error);
     }
 
