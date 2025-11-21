@@ -1,4 +1,8 @@
-use crate::{application::App, config, services::browsers::Browser};
+use crate::{
+    application::App,
+    config,
+    services::browsers::{Browser, Installation},
+};
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{Image, gdk_pixbuf::Pixbuf};
@@ -25,6 +29,7 @@ pub struct DesktopFileEntries {
     domain: String,
     isolate: bool,
     icon: String,
+    profile_path: PathBuf,
 }
 
 #[allow(unused)]
@@ -34,6 +39,7 @@ enum Keys {
     Id,
     BrowserId,
     Isolate,
+    ProfileDir,
     Name,
     Exec,
     Icon,
@@ -41,12 +47,15 @@ enum Keys {
 }
 impl std::fmt::Display for Keys {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let identifier = config::APP_NAME_SHORT.to_uppercase();
+
         match self {
-            Self::Gwa => write!(f, "X-GWA"),
-            Self::Id => write!(f, "X-GWA-ID"),
-            Self::Url => write!(f, "X-GWA-URL"),
-            Self::BrowserId => write!(f, "X-GWA-BROWSER-ID"),
-            Self::Isolate => write!(f, "X-GWA-ISOLATE"),
+            Self::Gwa => write!(f, "X-{}", &identifier),
+            Self::Id => write!(f, "X-{}-ID", &identifier),
+            Self::Url => write!(f, "X-{}-URL", &identifier),
+            Self::BrowserId => write!(f, "X-{}-BROWSER-ID", &identifier),
+            Self::Isolate => write!(f, "X-{}-ISOLATE", &identifier),
+            Self::ProfileDir => write!(f, "X-{}-PROFILE-DIR", &identifier),
             Self::Name => write!(f, "Name"),
             Self::Exec => write!(f, "Exec"),
             Self::Icon => write!(f, "Icon"),
@@ -339,6 +348,28 @@ impl DesktopFile {
         );
     }
 
+    pub fn get_profile_path(&self) -> Option<PathBuf> {
+        self.desktop_entry
+            .desktop_entry(&Keys::ProfileDir.to_string())
+            .and_then(map_to_path_option)
+    }
+
+    pub fn set_profile_path(&mut self, path: &Path) {
+        self.desktop_entry.add_desktop_entry(
+            Keys::ProfileDir.to_string(),
+            path.to_string_lossy().to_string(),
+        );
+
+        debug!(
+            "Set '{}' on desktop file: {}",
+            &Keys::ProfileDir.to_string(),
+            &self
+                .desktop_entry
+                .desktop_entry(&Keys::ProfileDir.to_string())
+                .unwrap_or_default()
+        );
+    }
+
     pub fn validate(&self, app: &Rc<App>) -> Result<()> {
         match self.to_new_from_browser(app) {
             Err(error) => {
@@ -353,11 +384,20 @@ impl DesktopFile {
         if let Err(error) = (|| -> Result<()> {
             let new_desktop_file = self.to_new_from_browser(app)?;
 
+            let old_profile_path = self.get_profile_path();
+            let new_profile_path = new_desktop_file.get_profile_path();
+
+            if old_profile_path != new_profile_path
+                && let Some(old_profile_path) = old_profile_path
+            {
+                let _ = fs::remove_dir_all(old_profile_path);
+            }
+
             if self.desktop_entry.path.is_file() {
                 match fs::remove_file(&self.desktop_entry.path) {
                     Ok(()) => {}
                     Err(error) => {
-                        error!("Failed to remove desktop file before saving new: {error}");
+                        error!("Failed to remove desktop file before saving new: {error:?}");
                     }
                 }
             }
@@ -370,10 +410,61 @@ impl DesktopFile {
 
             Ok(())
         })() {
-            error!("{error}");
+            error!("{error:?}");
             bail!(error)
         }
         Ok(())
+    }
+
+    fn build_profile_path(&self, is_isolated: bool) -> Result<PathBuf> {
+        let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
+
+        if !is_isolated {
+            bail!("Isolate is not set")
+        }
+        if !browser.can_isolate {
+            bail!("Browser cannot isolate")
+        }
+
+        let home = std::env::home_dir().context("Home_dir not found")?;
+        let own_data_home = self
+            .app
+            .dirs
+            .get_data_home()
+            .context("Own data home not found")?;
+        let id = self.get_id().context("No id on 'DesktopFile'")?;
+
+        let profile_path = match browser.installation {
+            Installation::Flatpak(_) => home
+                .join(".var")
+                .join("app")
+                .join(&browser.id)
+                .join("data")
+                .join("profiles")
+                .join(&id),
+
+            Installation::System => own_data_home.join("profiles").join(&browser.id).join(&id),
+
+            Installation::None => bail!("No installation type on 'DesktopFile'"),
+        };
+
+        if cfg!(debug_assertions) {
+            debug!("Dev-only: creating symlink in repo");
+            let save_dir = Path::new("dev-data").join("profiles").join(&browser.id);
+            let save_path = save_dir.join(&id);
+            if save_path.is_symlink() {
+                let _ = fs::remove_file(&save_path)
+                    .context("Dev-only: Could not remove profile symlink");
+            }
+            fs::create_dir_all(save_dir).context("Dev-only: failed mkdir -p")?;
+
+            std::os::unix::fs::symlink(&profile_path, &save_path)
+                .context("Dev-only: Could not create profile symlink")?;
+        }
+
+        debug!("Using profile path: {}", &profile_path.display());
+
+        Ok(profile_path)
     }
 
     fn get_entries(&self) -> Result<DesktopFileEntries> {
@@ -403,6 +494,8 @@ impl DesktopFile {
                 .and_then(map_to_string_option)
                 .context("Missing 'Icon'")?;
 
+            let profile_path = self.build_profile_path(isolate).unwrap_or_default();
+
             Ok(DesktopFileEntries {
                 name,
                 id,
@@ -411,6 +504,7 @@ impl DesktopFile {
                 domain,
                 isolate,
                 icon,
+                profile_path,
             })
         })() {
             Ok(result) => Ok(result),
@@ -420,15 +514,11 @@ impl DesktopFile {
         }
     }
 
-    fn get_save_path(
-        app: &Rc<App>,
-        desktop_files_entries: &DesktopFileEntries,
-        browser: &Browser,
-    ) -> Result<PathBuf> {
-        let applications_dir = app.get_applications_dir()?;
+    fn get_save_path(&self, desktop_files_entries: &DesktopFileEntries) -> Result<PathBuf> {
+        let applications_dir = self.app.get_applications_dir()?;
         let file_name = format!(
             "{}-{}{}",
-            browser.desktop_file_name_prefix,
+            desktop_files_entries.browser.desktop_file_name_prefix,
             config::APP_NAME_SHORT,
             desktop_files_entries.id
         );
@@ -438,18 +528,12 @@ impl DesktopFile {
         Ok(desktop_file_path)
     }
 
-    fn get_profile_path(app: &Rc<App>, app_id: &str) -> Result<PathBuf> {
-        let profiles_path = app.dirs.create_data_directory("profiles")?;
-        let path = profiles_path.join(app_id);
-        Ok(path)
-    }
-
     fn to_new_from_browser(&self, app: &Rc<App>) -> Result<DesktopFile> {
         let entries = self.get_entries()?;
-        let browser = self.get_browser().context("Failed to get browser")?;
+        let save_path = self.get_save_path(&entries)?;
 
-        let mut d_str = browser.desktop_file.clone().to_string();
-        d_str = d_str.replace("%{command}", &browser.get_command()?);
+        let mut d_str = entries.browser.desktop_file.clone().to_string();
+        d_str = d_str.replace("%{command}", &entries.browser.get_command()?);
         d_str = d_str.replace("%{name}", &entries.name);
         d_str = d_str.replace("%{url}", &entries.url);
         d_str = d_str.replace("%{domain}", &entries.domain);
@@ -462,11 +546,10 @@ impl DesktopFile {
             .and_then(|caps| caps.get(1).map(|value| value.as_str().to_string()));
 
         if let Some(value) = optional_isolated_value {
-            let path = Self::get_profile_path(app, &entries.id)?;
             let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
 
             let replacement = if entries.isolate {
-                format!("{value}={}", path.to_string_lossy())
+                format!("{value}={}", entries.profile_path.to_string_lossy())
             } else {
                 String::new()
             };
@@ -474,7 +557,6 @@ impl DesktopFile {
             d_str = re.replace_all(&d_str, replacement).to_string();
         }
 
-        let save_path = Self::get_save_path(app, &entries, &browser)?;
         let mut new_desktop_file = Self::from_string(&save_path, &d_str, app)?;
 
         new_desktop_file.set_is_owned_app();
@@ -482,6 +564,7 @@ impl DesktopFile {
         new_desktop_file.set_id(&entries.id);
         new_desktop_file.set_browser(&entries.browser);
         new_desktop_file.set_isolated(entries.isolate);
+        new_desktop_file.set_profile_path(&entries.profile_path);
 
         Ok(new_desktop_file)
     }
