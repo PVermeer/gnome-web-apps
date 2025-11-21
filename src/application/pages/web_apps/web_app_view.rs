@@ -219,6 +219,14 @@ impl WebAppView {
             .margin_top(12)
             .margin_bottom(12)
             .build();
+
+        // For some reason the button still has a parent sometimes...
+        if let Some(parent) = self.run_app_button.parent()
+            && let Some(wrap_box) = parent.downcast_ref::<WrapBox>()
+        {
+            wrap_box.remove(&self.run_app_button);
+        }
+
         button_wrap_box.append(&self.run_app_button);
 
         let app_image = desktop_file_borrow.get_icon();
