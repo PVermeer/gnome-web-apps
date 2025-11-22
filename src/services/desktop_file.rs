@@ -17,7 +17,6 @@ use std::{
 use url::Url;
 
 pub struct Icon {
-    pub filename: String,
     pub pixbuf: Pixbuf,
 }
 
@@ -277,55 +276,6 @@ impl DesktopFile {
         } else {
             Image::from_icon_name(fallback_icon)
         }
-    }
-
-    pub fn set_icon(&mut self, icon: &Rc<Icon>) -> Result<()> {
-        let app_id = self
-            .desktop_entry
-            .desktop_entry(&Keys::Id.to_string())
-            .context("No app id on desktop file!")?;
-
-        let filename = match Path::new(&icon.filename).extension() {
-            Some(extension) => {
-                if extension == "png" {
-                    icon.filename.clone()
-                } else {
-                    format!("{}.png", icon.filename)
-                }
-            }
-            None => format!("{}.png", icon.filename),
-        };
-
-        let icon_dir = self.app.get_icons_dir()?;
-        let icon_name = sanitize_filename::sanitize(format!("{app_id}-{filename}"));
-        let save_path = icon_dir.join(&icon_name);
-
-        debug!("Saving {} to fs: {}", &icon_name, save_path.display());
-        self.app
-            .dirs
-            .place_data_file(&save_path)
-            .context("Failed to create paths")?;
-        icon.pixbuf
-            .savev(save_path.clone(), "png", &[])
-            .context("Failed to save icon to fs")?;
-
-        self.desktop_entry.add_desktop_entry(
-            Keys::Icon.to_string(),
-            save_path
-                .to_str()
-                .context("Cannot convert icon path to string")?
-                .to_string(),
-        );
-
-        debug!(
-            "Set '{}' on desktop file: {}",
-            &Keys::Icon.to_string(),
-            &self
-                .desktop_entry
-                .desktop_entry(&Keys::Icon.to_string())
-                .unwrap_or_default()
-        );
-        Ok(())
     }
 
     pub fn get_icon_path(&self) -> Option<PathBuf> {

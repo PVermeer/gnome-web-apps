@@ -155,6 +155,10 @@ impl WebAppView {
         self.connect_run_app_button();
     }
 
+    pub fn get_is_new(self: &Rc<Self>) -> bool {
+        *self.is_new.borrow()
+    }
+
     fn reset_desktop_file(self: &Rc<Self>) {
         debug!("Resetting desktop file");
 

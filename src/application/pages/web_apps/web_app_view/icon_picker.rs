@@ -20,7 +20,7 @@ use libadwaita::{
 };
 use log::{debug, error, info};
 use scraper::{Html, Selector};
-use std::{cell::RefCell, cmp::Reverse, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, cmp::Reverse, collections::HashMap, fs, rc::Rc};
 
 pub struct IconPicker {
     init: RefCell<bool>,
@@ -119,9 +119,26 @@ impl IconPicker {
         dialog.set_close_response(Self::DIALOG_CANCEL);
 
         let self_clone = self.clone();
-        dialog.connect_response(Some(Self::DIALOG_SAVE), move |_, _| {
-            self_clone.save(success_cb.as_ref(), fail_cb.as_ref());
-        });
+        dialog.connect_response(
+            Some(Self::DIALOG_SAVE),
+            move |_, _| match (|| -> Result<()> {
+                let icon = self_clone.get_selected_icon()?;
+                self_clone.save(&icon)?;
+                Ok(())
+            })() {
+                Ok(()) => {
+                    if let Some(success_cb) = &success_cb {
+                        success_cb();
+                    }
+                }
+                Err(error) => {
+                    error!("Error saving icon: {error:?}");
+                    if let Some(fail_cb) = &fail_cb {
+                        fail_cb();
+                    }
+                }
+            },
+        );
 
         dialog.present(Some(&self.app.window.adw_window));
         dialog
@@ -133,14 +150,11 @@ impl IconPicker {
         let mut icons: Vec<(&String, &Rc<Icon>)> = icons_borrow.iter().collect();
         icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
 
-        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
-
         let Some((_url, icon)) = icons.first() else {
             bail!("No icons found")
         };
 
-        desktop_file_borrow.set_icon(icon)?;
-
+        self.save(icon)?;
         Ok(())
     }
 
@@ -266,10 +280,6 @@ impl IconPicker {
 
         for handle in handles {
             let (handle, url) = handle;
-            let Some(filename) = url.split('/').next_back() else {
-                error!("Failed to parse url for filename: '{url}'");
-                continue;
-            };
             let Ok(Ok(image_bytes)) = handle.await else {
                 error!("Failed to fetch image: '{url}'");
                 continue;
@@ -280,10 +290,7 @@ impl IconPicker {
                 error!("Failed to convert image: '{url}'");
                 continue;
             };
-            let icon = Icon {
-                filename: filename.to_string(),
-                pixbuf,
-            };
+            let icon = Icon { pixbuf };
             self.icons.borrow_mut().insert(url, Rc::new(icon));
         }
 
@@ -334,10 +341,7 @@ impl IconPicker {
                     Ok(pixbuf) => pixbuf,
                 };
 
-                let icon = Icon {
-                    filename: filename.clone(),
-                    pixbuf,
-                };
+                let icon = Icon { pixbuf };
                 self_clone
                     .icons
                     .borrow_mut()
@@ -348,37 +352,39 @@ impl IconPicker {
         );
     }
 
-    fn save<Success, Fail>(self: &Rc<Self>, success_cb: Option<&Success>, fail_cb: Option<&Fail>)
-    where
-        Success: Fn() + 'static,
-        Fail: Fn() + 'static,
-    {
-        let icon = match self.get_selected_icon() {
-            Ok(icon) => icon,
-            Err(error) => {
-                error!("{error:?}");
-                if let Some(fail_cb) = &fail_cb {
-                    fail_cb();
-                }
-                return;
-            }
-        };
-
+    fn save(self: &Rc<Self>, icon: &Rc<Icon>) -> Result<()> {
         let mut desktop_file_borrow = self.desktop_file.borrow_mut();
-        let result = desktop_file_borrow.set_icon(&icon);
+        if let Some(old_icon_path) = desktop_file_borrow.get_icon_path()
+            && old_icon_path.is_file()
+        {
+            fs::remove_file(old_icon_path).context("Failed to remove old icon")?;
+        }
+
+        let app_id = desktop_file_borrow
+            .get_id()
+            .context("No file id on DesktopFile")?;
+
+        let icon_dir = self.app.get_icons_dir()?;
+        let file_name = sanitize_filename::sanitize(format!("{app_id}.png"));
+        let save_path = icon_dir.join(&file_name);
+
+        debug!(
+            "Saving icon '{}' to fs: {}",
+            &file_name,
+            save_path.display()
+        );
+        self.app
+            .dirs
+            .place_data_file(&save_path)
+            .context("Failed to create paths")?;
+        icon.pixbuf
+            .savev(save_path.clone(), "png", &[])
+            .context("Failed to save icon to fs")?;
+
+        desktop_file_borrow.set_icon_path(&save_path);
         drop(desktop_file_borrow);
 
-        if let Err(error) = result {
-            error!("{error:?}");
-            if let Some(fail_cb) = &fail_cb {
-                fail_cb();
-            }
-            return;
-        }
-
-        if let Some(success_cb) = &success_cb {
-            success_cb();
-        }
+        Ok(())
     }
 
     fn build_spinner() -> Spinner {

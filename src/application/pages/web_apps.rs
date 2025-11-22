@@ -5,7 +5,10 @@ use crate::{
     application::{App, pages::PrefNavPage},
     services::desktop_file::DesktopFile,
 };
-use gtk::{Button, Image, prelude::ButtonExt};
+use gtk::{
+    Button, Image,
+    prelude::{ButtonExt, WidgetExt},
+};
 use libadwaita::{
     ActionRow, ButtonContent, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
     StatusPage,
@@ -78,12 +81,21 @@ impl WebAppsPage {
 
         let self_clone = self.clone();
         let app_clone = app.clone();
+
         new_app_button.connect_clicked(move |_| {
             let desktop_file = Rc::new(RefCell::new(DesktopFile::new(&app_clone)));
             let app_page = WebAppView::new(&app_clone, &self_clone.nav_view, &desktop_file, true);
             app_page.init();
 
-            self_clone.nav_view.push(app_page.get_navpage());
+            let nav_page = app_page.get_navpage();
+            let app_page_clone = app_page.clone();
+            nav_page.connect_unrealize(move |_| {
+                if app_page_clone.get_is_new() {
+                    let _ = desktop_file.borrow().delete();
+                }
+            });
+
+            self_clone.nav_view.push(nav_page);
         });
 
         let pref_group = PreferencesGroup::builder()
