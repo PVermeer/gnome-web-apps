@@ -28,7 +28,7 @@ pub struct DesktopFileEntries {
     url: String,
     domain: String,
     isolate: bool,
-    icon: String,
+    icon: PathBuf,
     profile_path: PathBuf,
 }
 
@@ -80,11 +80,11 @@ fn map_to_bool_option(value: &str) -> Option<bool> {
     }
 }
 
-fn map_to_path_option(value: &str) -> Option<PathBuf> {
-    if value.is_empty() {
+fn map_to_path_option(value: PathBuf) -> Option<PathBuf> {
+    if value.as_os_str().is_empty() {
         None
     } else {
-        Some(Path::new(value).to_path_buf())
+        Some(value)
     }
 }
 
@@ -331,6 +331,7 @@ impl DesktopFile {
     pub fn get_icon_path(&self) -> Option<PathBuf> {
         self.desktop_entry
             .desktop_entry(&Keys::Icon.to_string())
+            .map(|str| Path::new(str).to_path_buf())
             .and_then(map_to_path_option)
     }
 
@@ -351,6 +352,7 @@ impl DesktopFile {
     pub fn get_profile_path(&self) -> Option<PathBuf> {
         self.desktop_entry
             .desktop_entry(&Keys::ProfileDir.to_string())
+            .map(|str| Path::new(str).to_path_buf())
             .and_then(map_to_path_option)
     }
 
@@ -384,15 +386,6 @@ impl DesktopFile {
         if let Err(error) = (|| -> Result<()> {
             let new_desktop_file = self.to_new_from_browser()?;
 
-            let old_profile_path = self.get_profile_path();
-            let new_profile_path = new_desktop_file.get_profile_path();
-
-            if old_profile_path != new_profile_path
-                && let Some(old_profile_path) = old_profile_path
-            {
-                let _ = fs::remove_dir_all(old_profile_path);
-            }
-
             if self.desktop_entry.path.is_file() {
                 match fs::remove_file(&self.desktop_entry.path) {
                     Ok(()) => {}
@@ -416,8 +409,9 @@ impl DesktopFile {
         Ok(())
     }
 
-    fn build_profile_path(&self, is_isolated: bool) -> Result<PathBuf> {
+    pub fn build_profile_path(&self) -> Result<PathBuf> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
+        let is_isolated = self.get_isolated().unwrap_or(false);
 
         if !is_isolated {
             bail!("Isolate is not set")
@@ -489,12 +483,20 @@ impl DesktopFile {
                 .context(format!("Missing '{}'", Keys::Isolate))?;
 
             let icon = self
-                .desktop_entry
-                .icon()
-                .and_then(map_to_string_option)
+                .get_icon_path()
+                .and_then(map_to_path_option)
                 .context("Missing 'Icon'")?;
 
-            let profile_path = self.build_profile_path(isolate).unwrap_or_default();
+            let profile_path = self
+                .get_profile_path()
+                .or_else(|| {
+                    if isolate {
+                        None
+                    } else {
+                        Some(PathBuf::default())
+                    }
+                })
+                .context(format!("Missing '{}'", Keys::ProfileDir))?;
 
             Ok(DesktopFileEntries {
                 name,
@@ -537,7 +539,7 @@ impl DesktopFile {
         d_str = d_str.replace("%{name}", &entries.name);
         d_str = d_str.replace("%{url}", &entries.url);
         d_str = d_str.replace("%{domain}", &entries.domain);
-        d_str = d_str.replace("%{icon}", &entries.icon);
+        d_str = d_str.replace("%{icon}", &entries.icon.to_string_lossy());
 
         let isolate_key = "is_isolated";
         let optional_isolated_value = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*([^}}]+)"))

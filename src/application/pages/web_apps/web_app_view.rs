@@ -29,17 +29,16 @@ use libadwaita::{
     },
 };
 use log::{debug, error};
-use std::fmt::Write as _;
 use std::{
     cell::{Cell, RefCell},
     path::Path,
     rc::Rc,
 };
+use std::{fmt::Write as _, fs};
 use validator::ValidateUrl;
 
 pub struct WebAppView {
     is_new: RefCell<bool>,
-    browser_can_isolate: RefCell<bool>,
     nav_page: NavigationPage,
     app: Rc<App>,
     header: HeaderBar,
@@ -103,7 +102,6 @@ impl WebAppView {
 
         Rc::new(Self {
             is_new: RefCell::new(is_new),
-            browser_can_isolate: RefCell::new(browser_can_isolate),
             nav_page,
             app: app.clone(),
             header,
@@ -665,8 +663,9 @@ impl WebAppView {
                 is_blocked_clone.set(false);
             });
 
-            self_clone.toast_overlay.add_toast(saved_toast);
+            self_clone.on_isolation_change();
             self_clone.on_desktop_file_change();
+            self_clone.toast_overlay.add_toast(saved_toast);
         });
     }
 
@@ -698,7 +697,7 @@ impl WebAppView {
 
                 drop(desktop_file_borrow);
 
-                *self_clone.browser_can_isolate.borrow_mut() = browser.can_isolate;
+                self_clone.on_isolation_change();
 
                 let saved_toast = Self::build_saved_toast();
                 let combo_row_clone = combo_row.clone();
@@ -757,7 +756,11 @@ impl WebAppView {
     }
 
     fn reset_browser_isolation(self: &Rc<Self>) {
-        let browser_can_isolate = *self.browser_can_isolate.borrow();
+        let browser_can_isolate = self
+            .desktop_file
+            .borrow()
+            .get_browser()
+            .is_some_and(|browser| browser.can_isolate);
         self.isolate_row.set_sensitive(browser_can_isolate);
         if !browser_can_isolate {
             self.isolate_row.set_active(false);
@@ -796,5 +799,18 @@ impl WebAppView {
         self.run_app_button.set_visible(true);
         self.save_button.set_visible(false);
         self.on_desktop_file_change();
+    }
+
+    fn on_isolation_change(self: &Rc<Self>) {
+        let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+
+        let old_profile_path = desktop_file_borrow.get_profile_path().unwrap_or_default();
+        let new_profile_path = desktop_file_borrow.build_profile_path().unwrap_or_default();
+
+        if old_profile_path != new_profile_path && old_profile_path.is_dir() {
+            let _ = fs::remove_dir_all(old_profile_path);
+        }
+
+        desktop_file_borrow.set_profile_path(&new_profile_path);
     }
 }
