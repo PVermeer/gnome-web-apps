@@ -18,7 +18,7 @@ use web_app_view::WebAppView;
 pub struct WebAppsPage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
-    nav_view: NavigationView,
+    nav_view: Rc<NavigationView>,
     prefs_page: PreferencesPage,
     app_section: RefCell<PreferencesGroup>,
 }
@@ -48,7 +48,7 @@ impl WebAppsPage {
         Rc::new(Self {
             nav_page,
             nav_row,
-            nav_view,
+            nav_view: Rc::new(nav_view),
             prefs_page,
             app_section,
         })
@@ -80,7 +80,7 @@ impl WebAppsPage {
         let app_clone = app.clone();
         new_app_button.connect_clicked(move |_| {
             let desktop_file = Rc::new(RefCell::new(DesktopFile::new(&app_clone)));
-            let app_page = WebAppView::new(&app_clone, &desktop_file, true);
+            let app_page = WebAppView::new(&app_clone, &self_clone.nav_view, &desktop_file, true);
             app_page.init();
 
             self_clone.nav_view.push(app_page.get_navpage());
@@ -132,9 +132,11 @@ impl WebAppsPage {
 
         drop(desktop_file_borrow);
         let app_clone = app.clone();
+        let nav_view_clone = self.nav_view.clone();
 
         app_row.connect_activated(move |_| {
-            let app_page = WebAppView::new(&app_clone, &desktop_file.clone(), false);
+            let app_page =
+                WebAppView::new(&app_clone, &nav_view_clone, &desktop_file.clone(), false);
             app_page.init();
             self.nav_view.push(app_page.get_navpage());
         });

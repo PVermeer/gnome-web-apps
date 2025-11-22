@@ -11,14 +11,14 @@ use crate::{
     },
 };
 use gtk::{
-    ListItem, SignalListItemFactory, gio,
+    Align, EventControllerMotion, ListItem, SignalListItemFactory, gio,
     glib::{self, BoxedAnyObject, object::Cast},
     prelude::ListItemExt,
 };
 use icon_picker::IconPicker;
 use libadwaita::{
-    ActionRow, ButtonContent, ComboRow, EntryRow, HeaderBar, NavigationPage, PreferencesGroup,
-    PreferencesPage, SwitchRow, Toast, ToastOverlay, WrapBox,
+    ActionRow, ButtonContent, ComboRow, EntryRow, HeaderBar, NavigationPage, NavigationView,
+    PreferencesGroup, PreferencesPage, SwitchRow, Toast, ToastOverlay, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -40,6 +40,7 @@ use validator::ValidateUrl;
 pub struct WebAppView {
     is_new: RefCell<bool>,
     nav_page: NavigationPage,
+    nav_view: Rc<NavigationView>,
     app: Rc<App>,
     header: HeaderBar,
     desktop_file: Rc<RefCell<DesktopFile>>,
@@ -51,6 +52,7 @@ pub struct WebAppView {
     change_icon_button: Button,
     run_app_button: Button,
     save_button: Button,
+    delete_button: Button,
     name_row: EntryRow,
     url_row: EntryRow,
     isolate_row: SwitchRow,
@@ -72,7 +74,12 @@ impl WebAppView {
     const TOAST_RESET: &str = "Reset";
     const TOAST_UNDO_BUTTON: &str = "Undo";
 
-    pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>, is_new: bool) -> Rc<Self> {
+    pub fn new(
+        app: &Rc<App>,
+        nav_view: &Rc<NavigationView>,
+        desktop_file: &Rc<RefCell<DesktopFile>>,
+        is_new: bool,
+    ) -> Rc<Self> {
         let desktop_file_borrow = desktop_file.borrow();
         let desktop_file_original = desktop_file_borrow.clone(); // Deep clone
         let title = desktop_file_borrow
@@ -93,8 +100,9 @@ impl WebAppView {
 
         let reset_button = Self::build_header_reset_button();
         let change_icon_button = Self::build_change_icon_button();
-        let run_app_button = Self::build_run_app_button();
-        let save_button = Self::build_save_button();
+        let run_app_button = Self::build_run_app_button(is_new);
+        let save_button = Self::build_save_button(is_new);
+        let delete_button = Self::build_delete_button();
         let name_row = Self::build_name_row(desktop_file);
         let url_row = Self::build_url_row(desktop_file);
         let isolate_row = Self::build_isolate_row(desktop_file, browser_can_isolate);
@@ -103,6 +111,7 @@ impl WebAppView {
         Rc::new(Self {
             is_new: RefCell::new(is_new),
             nav_page,
+            nav_view: nav_view.clone(),
             app: app.clone(),
             header,
             desktop_file: desktop_file.clone(),
@@ -114,6 +123,7 @@ impl WebAppView {
             change_icon_button,
             run_app_button,
             save_button,
+            delete_button,
             name_row,
             url_row,
             isolate_row,
@@ -129,24 +139,20 @@ impl WebAppView {
             .connect_clicked(move |_| self_clone.reset_desktop_file());
         let web_app_header = self.build_app_header();
         let general_pref_group = self.build_general_pref_group();
-        let save_footer = self.build_save_footer();
+        let button_footer = self.build_button_footer();
 
-        let mut pref_groups = self.pref_groups.borrow_mut();
-        pref_groups.push(web_app_header);
-        pref_groups.push(general_pref_group);
-        if *self.is_new.borrow() {
-            self.run_app_button.set_visible(false);
-            pref_groups.push(save_footer);
-        }
+        let mut pref_groups_borrow = self.pref_groups.borrow_mut();
+        pref_groups_borrow.push(web_app_header);
+        pref_groups_borrow.push(general_pref_group);
+        pref_groups_borrow.push(button_footer);
 
-        for pref_group in pref_groups.iter() {
+        for pref_group in pref_groups_borrow.iter() {
             self.prefs_page.add(pref_group);
         }
-        drop(pref_groups);
+        drop(pref_groups_borrow);
 
         self.connect_change_icon_button();
         self.connect_run_app_button();
-        self.connect_save_button();
     }
 
     fn reset_desktop_file(self: &Rc<Self>) {
@@ -184,13 +190,6 @@ impl WebAppView {
         reset_button.set_sensitive(false);
 
         reset_button
-    }
-
-    fn build_run_app_button() -> Button {
-        Button::builder()
-            .label("Open")
-            .css_classes(["suggested-action", "pill"])
-            .build()
     }
 
     fn build_app_header(&self) -> PreferencesGroup {
@@ -367,31 +366,31 @@ impl WebAppView {
         combo_row
     }
 
-    fn build_change_icon_button() -> Button {
-        let button_content = ButtonContent::builder()
-            .label("Change icon")
-            .icon_name("software-update-available-symbolic")
-            .build();
+    fn build_button_footer(self: &Rc<Self>) -> PreferencesGroup {
+        fn button_wrap_box(button: &Button) -> WrapBox {
+            let wrapbox = WrapBox::builder()
+                .align(0.5)
+                .margin_start(12)
+                .margin_end(12)
+                .build();
+            wrapbox.append(button);
+            wrapbox
+        }
 
-        Button::builder().child(&button_content).build()
-    }
-
-    fn build_save_footer(self: &Rc<Self>) -> PreferencesGroup {
-        let pref_group = PreferencesGroup::builder().build();
-        let content_box = gtk::Box::new(Orientation::Vertical, 6);
-        let save_button = &self.save_button;
-        save_button.set_sensitive(false);
-
-        let button_wrap_box = WrapBox::builder()
-            .align(0.5)
+        let pref_group = PreferencesGroup::new();
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Horizontal)
+            .halign(Align::Center)
             .margin_top(12)
             .margin_bottom(12)
             .build();
-        button_wrap_box.append(save_button);
 
-        content_box.append(&button_wrap_box);
-
+        content_box.append(&button_wrap_box(&self.save_button));
+        content_box.append(&button_wrap_box(&self.delete_button));
         pref_group.add(&content_box);
+
+        self.connect_save_button();
+        self.connect_delete_button();
 
         pref_group
     }
@@ -418,11 +417,50 @@ impl WebAppView {
         toast
     }
 
-    fn build_save_button() -> Button {
+    fn build_change_icon_button() -> Button {
+        let button_content = ButtonContent::builder()
+            .label("Change icon")
+            .icon_name("software-update-available-symbolic")
+            .build();
+
+        Button::builder().child(&button_content).build()
+    }
+
+    fn build_run_app_button(is_new: bool) -> Button {
+        Button::builder()
+            .label("Open")
+            .css_classes(["suggested-action", "pill"])
+            .visible(!is_new)
+            .build()
+    }
+
+    fn build_save_button(is_new: bool) -> Button {
         Button::builder()
             .label("Save")
             .css_classes(["suggested-action", "pill"])
+            .visible(is_new)
             .build()
+    }
+
+    fn build_delete_button() -> Button {
+        let button = Button::builder()
+            .label("Delete")
+            .css_classes(["destructive-action", "pill", "dimmed"])
+            .build();
+
+        let controller = EventControllerMotion::new();
+        let button_clone = button.clone();
+        controller.connect_enter(move |_, _, _| {
+            button_clone.remove_css_class("dimmed");
+        });
+        let button_clone = button.clone();
+        controller.connect_leave(move |_| {
+            button_clone.add_css_class("dimmed");
+        });
+
+        button.add_controller(controller);
+
+        button
     }
 
     fn connect_change_icon_button(self: &Rc<Self>) {
@@ -513,6 +551,28 @@ impl WebAppView {
 
         self.save_button.connect_clicked(move |_| {
             self_clone.on_new_desktop_file_save();
+        });
+    }
+
+    fn connect_delete_button(self: &Rc<Self>) {
+        let self_clone = self.clone();
+
+        self.delete_button.connect_clicked(move |_| {
+            debug!(
+                "Deleting web app: {}",
+                self_clone
+                    .desktop_file
+                    .borrow()
+                    .get_name()
+                    .unwrap_or_default()
+            );
+
+            if !*self_clone.is_new.borrow() && self_clone.desktop_file.borrow().delete().is_err() {
+                let error_toast = Self::build_error_toast("Failed to delete all files");
+                self_clone.toast_overlay.add_toast(error_toast);
+            }
+
+            self_clone.nav_view.pop();
         });
     }
 

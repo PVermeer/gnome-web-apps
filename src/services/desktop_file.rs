@@ -6,7 +6,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{Image, gdk_pixbuf::Pixbuf};
-use log::{debug, error};
+use log::{debug, error, info};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
 use std::{
@@ -372,43 +372,6 @@ impl DesktopFile {
         );
     }
 
-    pub fn validate(&self) -> Result<()> {
-        match self.to_new_from_browser() {
-            Err(error) => {
-                debug!("Validate error: {error}");
-                Err(error)
-            }
-            Ok(_) => Ok(()),
-        }
-    }
-
-    pub fn save(&mut self) -> Result<()> {
-        if let Err(error) = (|| -> Result<()> {
-            let new_desktop_file = self.to_new_from_browser()?;
-
-            if self.desktop_entry.path.is_file() {
-                match fs::remove_file(&self.desktop_entry.path) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        error!("Failed to remove desktop file before saving new: {error:?}");
-                    }
-                }
-            }
-
-            let save_path = new_desktop_file.desktop_entry.path.clone();
-
-            debug!("Saving desktop file to: {}", save_path.display());
-            fs::write(&save_path, new_desktop_file.desktop_entry.to_string())?;
-            self.desktop_entry = new_desktop_file.desktop_entry;
-
-            Ok(())
-        })() {
-            error!("{error:?}");
-            bail!(error)
-        }
-        Ok(())
-    }
-
     pub fn build_profile_path(&self) -> Result<PathBuf> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
         let is_isolated = self.get_isolated().unwrap_or(false);
@@ -459,6 +422,91 @@ impl DesktopFile {
         debug!("Using profile path: {}", &profile_path.display());
 
         Ok(profile_path)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self.to_new_from_browser() {
+            Err(error) => {
+                debug!("Validate error: {error}");
+                Err(error)
+            }
+            Ok(_) => Ok(()),
+        }
+    }
+
+    pub fn save(&mut self) -> Result<()> {
+        if let Err(error) = (|| -> Result<()> {
+            let new_desktop_file = self.to_new_from_browser()?;
+
+            if self.desktop_entry.path.is_file() {
+                match fs::remove_file(&self.desktop_entry.path) {
+                    Ok(()) => {}
+                    Err(error) => {
+                        error!("Failed to remove desktop file before saving new: {error:?}");
+                    }
+                }
+            }
+
+            let save_path = new_desktop_file.desktop_entry.path.clone();
+
+            debug!("Saving desktop file to: {}", save_path.display());
+            fs::write(&save_path, new_desktop_file.desktop_entry.to_string())?;
+            self.desktop_entry = new_desktop_file.desktop_entry;
+
+            Ok(())
+        })() {
+            error!("{error:?}");
+            bail!(error)
+        }
+        Ok(())
+    }
+
+    pub fn delete(&self) -> Result<()> {
+        let mut is_error = false;
+
+        if self.desktop_entry.path.is_file() {
+            match fs::remove_file(&self.desktop_entry.path) {
+                Ok(()) => {}
+                Err(error) => {
+                    error!("Failed to remove desktop file: {error:?}");
+                    is_error = true;
+                }
+            }
+        }
+
+        if let Some(icon_path) = self.get_icon_path()
+            && icon_path.is_file()
+        {
+            match fs::remove_file(icon_path) {
+                Ok(()) => {}
+                Err(error) => {
+                    error!("Failed to remove icon file: {error:?}");
+                    is_error = true;
+                }
+            }
+        }
+
+        if let Some(profile_path) = self.get_profile_path()
+            && profile_path.is_file()
+        {
+            match fs::remove_file(profile_path) {
+                Ok(()) => {}
+                Err(error) => {
+                    error!("Failed to remove profile: {error:?}");
+                    is_error = true;
+                }
+            }
+        }
+
+        if is_error {
+            bail!("Some files could not be removed, check logs")
+        }
+
+        info!(
+            "Succesfully removed web app: {}",
+            self.get_name().unwrap_or_default()
+        );
+        Ok(())
     }
 
     fn get_entries(&self) -> Result<DesktopFileEntries> {
