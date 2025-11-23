@@ -617,7 +617,6 @@ dependencies = [
  "ureq",
  "url",
  "validator",
- "xdg",
 ]
 
 [[package]]

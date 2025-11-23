@@ -10,6 +10,7 @@ use log::{debug, error, info};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
 use std::{
+    fmt::Display,
     fs::{self},
     path::{Path, PathBuf},
     rc::Rc,
@@ -44,7 +45,7 @@ enum Keys {
     Icon,
     StartupWMClass,
 }
-impl std::fmt::Display for Keys {
+impl Display for Keys {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let identifier = config::APP_NAME_SHORT.to_uppercase();
 
@@ -333,24 +334,19 @@ impl DesktopFile {
             bail!("Browser cannot isolate")
         }
 
-        let home = std::env::home_dir().context("Home_dir not found")?;
-        let own_data_home = self
-            .app
-            .dirs
-            .get_data_home()
-            .context("Own data home not found")?;
         let id = self.get_id().context("No id on 'DesktopFile'")?;
 
         let profile_path = match browser.installation {
-            Installation::Flatpak(_) => home
-                .join(".var")
-                .join("app")
+            Installation::Flatpak(_) => self
+                .app
+                .dirs
+                .flatpak()
                 .join(&browser.id)
                 .join("data")
                 .join("profiles")
                 .join(&id),
 
-            Installation::System => own_data_home.join("profiles").join(&browser.id).join(&id),
+            Installation::System => self.app.dirs.profiles().join(&browser.id).join(&id),
 
             Installation::None => bail!("No installation type on 'DesktopFile'"),
         };
@@ -500,8 +496,8 @@ impl DesktopFile {
         }
     }
 
-    fn get_save_path(&self, desktop_files_entries: &DesktopFileEntries) -> Result<PathBuf> {
-        let applications_dir = self.app.get_applications_dir()?;
+    fn get_save_path(&self, desktop_files_entries: &DesktopFileEntries) -> PathBuf {
+        let applications_dir = self.app.dirs.applications();
         let file_name = format!(
             "{}-{}{}",
             desktop_files_entries.browser.desktop_file_name_prefix,
@@ -511,12 +507,12 @@ impl DesktopFile {
         let mut desktop_file_path = applications_dir.join(file_name);
         desktop_file_path.add_extension("desktop");
 
-        Ok(desktop_file_path)
+        desktop_file_path
     }
 
     fn to_new_from_browser(&self) -> Result<DesktopFile> {
         let entries = self.get_entries()?;
-        let save_path = self.get_save_path(&entries)?;
+        let save_path = self.get_save_path(&entries);
 
         let mut d_str = entries.browser.desktop_file.clone().to_string();
         d_str = d_str.replace("%{command}", &entries.browser.get_command()?);

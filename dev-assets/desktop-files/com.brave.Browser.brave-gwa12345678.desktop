@@ -1,6 +1,6 @@
 [Desktop Entry]
-Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.local/share/gnome-web-apps/profiles/12345678
-Icon=./dev-assets/icons/12345678-favicon_144x144.png
+Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
+Icon=dev-assets/icons/12345678.png
 Name=YouTube
 StartupWMClass=brave-www.youtube.com__-Default
 Terminal=false
@@ -10,6 +10,7 @@ X-GWA=true
 X-GWA-BROWSER-ID=com.brave.Browser
 X-GWA-ID=12345678
 X-GWA-ISOLATE=true
+X-GWA-PROFILE-DIR=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
 X-GWA-URL=https://www.youtube.com
 X-MultipleArgs=false
 

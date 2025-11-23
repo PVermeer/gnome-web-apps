@@ -2,13 +2,7 @@ use anyhow::{Context, Result, bail};
 use gtk::Image;
 use log::{debug, error, info};
 use std::fmt::Write as _;
-use std::{
-    cell::RefCell,
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-    rc::Rc,
-};
+use std::{cell::RefCell, fs, process::Command, rc::Rc};
 
 use crate::{
     application::App,
@@ -357,29 +351,14 @@ impl BrowserConfigs {
     fn get_browsers_from_files(app: &Rc<App>) -> Vec<Rc<BrowserConfig>> {
         debug!("Loading browsers config files");
 
-        let browsers_dir_name = Path::new("browsers");
-        let mut browser_files: Vec<PathBuf> = app.dirs.find_data_files(browsers_dir_name).collect();
-        let desktop_files_dir_name = Path::new("desktop-files");
         let mut browser_configs = Vec::new();
+        let browser_config_files =
+            utils::files::get_entries_in_dir(&app.dirs.browser_configs()).unwrap_or_default();
 
-        if cfg!(debug_assertions) {
-            let dev_browser_dir = Path::new("./assets/").join(browsers_dir_name);
-            debug!(
-                "Loading dev browser files from: '{}'",
-                dev_browser_dir.to_string_lossy()
-            );
+        for file in &browser_config_files {
+            let file_name = file.file_name().to_string_lossy().to_string();
+            let file_path = file.path();
 
-            let Ok(dev_browser_files) = utils::files::get_entries_in_dir(&dev_browser_dir) else {
-                return browser_configs;
-            };
-
-            for file in dev_browser_files {
-                browser_files.push(file.path());
-            }
-        }
-
-        for file_path in browser_files {
-            let file_name = file_path.file_name().unwrap_or_default().to_string_lossy();
             let extension = file_path.extension().unwrap_or_default().to_string_lossy();
             debug!("Loading browser config: '{file_name}'");
 
@@ -401,12 +380,9 @@ impl BrowserConfigs {
             };
 
             let desktop_file = match (|| -> Result<DesktopFile> {
-                let desktop_file_path = file_path
-                    .parent()
-                    .context("No parent")?
-                    .parent()
-                    .context("No parent")?
-                    .join(desktop_files_dir_name)
+                let desktop_file_path = app
+                    .dirs
+                    .browser_desktop_files()
                     .join(
                         file_path
                             .file_stem()
@@ -426,7 +402,7 @@ impl BrowserConfigs {
             let browser_config = BrowserConfig {
                 config: browser,
                 desktop_file,
-                file_name: file_name.to_string(),
+                file_name,
             };
             browser_configs.push(Rc::new(browser_config));
         }

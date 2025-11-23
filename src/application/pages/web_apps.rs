@@ -14,7 +14,7 @@ use libadwaita::{
     StatusPage,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use log::{debug, error};
+use log::debug;
 use std::{cell::RefCell, rc::Rc};
 use web_app_view::WebAppView;
 
@@ -160,14 +160,7 @@ impl WebAppsPage {
         debug!("Reading user desktop files");
 
         let mut owned_desktop_files = Vec::new();
-
-        let applications_path = match app.get_applications_dir() {
-            Err(error) => {
-                error!("{error:?}");
-                return owned_desktop_files;
-            }
-            Ok(path) => path,
-        };
+        let applications_path = app.dirs.applications();
 
         for file in utils::files::get_entries_in_dir(&applications_path).unwrap_or_default() {
             let Ok(desktop_file) = DesktopFile::from_path(&file.path(), app) else {

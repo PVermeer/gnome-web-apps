@@ -364,7 +364,7 @@ impl IconPicker {
             .get_id()
             .context("No file id on DesktopFile")?;
 
-        let icon_dir = self.app.get_icons_dir()?;
+        let icon_dir = self.app.dirs.icons();
         let file_name = sanitize_filename::sanitize(format!("{app_id}.png"));
         let save_path = icon_dir.join(&file_name);
 
@@ -373,10 +373,7 @@ impl IconPicker {
             &file_name,
             save_path.display()
         );
-        self.app
-            .dirs
-            .place_data_file(&save_path)
-            .context("Failed to create paths")?;
+
         icon.pixbuf
             .savev(save_path.clone(), "png", &[])
             .context("Failed to save icon to fs")?;
