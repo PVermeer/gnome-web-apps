@@ -3,7 +3,7 @@ mod web_app_view;
 use super::NavPage;
 use crate::{
     application::{App, pages::PrefNavPage},
-    services::desktop_file::DesktopFile,
+    services::{desktop_file::DesktopFile, utils},
 };
 use gtk::{
     Button, Image,
@@ -169,7 +169,7 @@ impl WebAppsPage {
             Ok(path) => path,
         };
 
-        for file in applications_path.read_dir().unwrap().flatten() {
+        for file in utils::files::get_entries_in_dir(&applications_path).unwrap_or_default() {
             let Ok(desktop_file) = DesktopFile::from_path(&file.path(), app) else {
                 continue;
             };

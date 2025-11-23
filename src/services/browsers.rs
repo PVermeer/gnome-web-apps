@@ -10,7 +10,10 @@ use std::{
     rc::Rc,
 };
 
-use crate::{application::App, services::desktop_file::DesktopFile};
+use crate::{
+    application::App,
+    services::{desktop_file::DesktopFile, utils},
+};
 
 #[derive(PartialEq)]
 pub enum FlatpakInstallation {
@@ -366,15 +369,12 @@ impl BrowserConfigs {
                 dev_browser_dir.to_string_lossy()
             );
 
-            let Ok(dev_browser_files) = fs::read_dir(&dev_browser_dir) else {
+            let Ok(dev_browser_files) = utils::files::get_entries_in_dir(&dev_browser_dir) else {
                 return browser_configs;
             };
 
             for file in dev_browser_files {
-                let Ok(dir_entry) = file else {
-                    continue;
-                };
-                browser_files.push(dir_entry.path());
+                browser_files.push(file.path());
             }
         }
 
