@@ -10,7 +10,7 @@ use log::{debug, error, info};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
 use std::{
-    fs,
+    fs::{self},
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -354,20 +354,6 @@ impl DesktopFile {
 
             Installation::None => bail!("No installation type on 'DesktopFile'"),
         };
-
-        if cfg!(debug_assertions) {
-            debug!("Dev-only: creating symlink in repo");
-            let save_dir = Path::new("dev-data").join("profiles").join(&browser.id);
-            let save_path = save_dir.join(&id);
-            if save_path.is_symlink() {
-                let _ = fs::remove_file(&save_path)
-                    .context("Dev-only: Could not remove profile symlink");
-            }
-            fs::create_dir_all(save_dir).context("Dev-only: failed mkdir -p")?;
-
-            std::os::unix::fs::symlink(&profile_path, &save_path)
-                .context("Dev-only: Could not create profile symlink")?;
-        }
 
         debug!("Using profile path: {}", &profile_path.display());
 

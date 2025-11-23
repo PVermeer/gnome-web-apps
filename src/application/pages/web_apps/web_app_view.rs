@@ -8,8 +8,10 @@ use crate::{
     services::{
         browsers::{Base, Browser},
         desktop_file::DesktopFile,
+        utils,
     },
 };
+use anyhow::Context;
 use gtk::{
     Align, EventControllerMotion, ListItem, SignalListItemFactory, gio,
     glib::{self, BoxedAnyObject, object::Cast},
@@ -873,6 +875,39 @@ impl WebAppView {
 
         if old_profile_path != new_profile_path && old_profile_path.is_dir() {
             let _ = fs::remove_dir_all(old_profile_path);
+        }
+
+        if cfg!(debug_assertions) {
+            debug!("Dev-only: creating symlink in repo");
+
+            if let (Some(id), Some(browser)) = (
+                desktop_file_borrow.get_id(),
+                desktop_file_borrow.get_browser(),
+            ) {
+                let save_dir = Path::new("dev-data").join("profiles");
+                let save_path = save_dir.join(format!("{id}-{}", &browser.id));
+                if save_path.is_symlink() {
+                    let _ = fs::remove_file(&save_path)
+                        .context("Dev-only: Could not remove profile symlink");
+                }
+
+                for entry in utils::files::get_entries_in_dir(&save_dir).unwrap_or_default() {
+                    let path = entry.path();
+                    if path.is_symlink() && entry.file_name().to_string_lossy().starts_with(&id) {
+                        let _ = fs::remove_file(path);
+                    }
+                }
+
+                if let Err(error) = fs::create_dir_all(save_dir) {
+                    debug!("Dev-only: failed mkdir -p: {error:?}");
+                }
+
+                if let Err(error) = std::os::unix::fs::symlink(&new_profile_path, &save_path) {
+                    debug!("Dev-only: Could not create profile symlink: {error:?}");
+                }
+            } else {
+                debug!("Dev-only: could not create symlinks");
+            }
         }
 
         desktop_file_borrow.set_profile_path(&new_profile_path);
