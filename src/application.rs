@@ -4,13 +4,14 @@ mod window;
 
 use crate::{
     config,
-    services::{assets::Assets, browsers::BrowserConfigs, fetch::Fetch},
+    services::{assets::Assets, browsers::BrowserConfigs, fetch::Fetch, utils},
 };
-use anyhow::{Error, Result, bail};
+use anyhow::{Context, Error, Result, bail};
 use error_dialog::ErrorDialog;
 use log::{debug, error};
 use pages::{Page, Pages};
 use std::{
+    os,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -73,24 +74,35 @@ impl App {
     }
 
     pub fn get_applications_dir(&self) -> Result<PathBuf> {
+        let data_home_path = self
+            .dirs
+            .get_data_home()
+            .context("Could not get data home path")?;
+        let mut system_applications_path = utils::files::get_user_applications_dir()?;
+        let mut app_applications_path = data_home_path.join("applications");
+
         if cfg!(debug_assertions) {
-            let path = Path::new("./dev-assets/desktop-files").to_path_buf();
-            debug!("Using dev applications path: {}", path.display());
-            return Ok(path);
+            system_applications_path = std::path::absolute(Path::new("./dev-assets/desktop-files"))
+                .context("Dev-only: system_applications path to absolute failed")?;
+            app_applications_path = std::path::absolute(Path::new("./dev-data/applications"))
+                .context("Dev-only: app_applications path to absolute failed")?;
         }
 
-        let Some(data_home_path) = self.dirs.get_data_home() else {
-            bail!("Could not get data home path")
-        };
+        debug!(
+            "Using system applications path: {}",
+            system_applications_path.display()
+        );
+        debug!(
+            "Using app applications path: {}",
+            app_applications_path.display()
+        );
 
-        let path = data_home_path.join("applications");
-        debug!("Using applications path: {}", path.display());
-
-        if !path.is_dir() {
-            bail!("Could not get applications path");
+        if !app_applications_path.is_symlink() {
+            os::unix::fs::symlink(&system_applications_path, &app_applications_path)
+                .context("Could not symlink system applications dir to data dir")?;
         }
 
-        Ok(path)
+        Ok(app_applications_path)
     }
 
     pub fn get_icons_dir(&self) -> Result<PathBuf> {
