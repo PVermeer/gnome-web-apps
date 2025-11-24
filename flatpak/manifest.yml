@@ -1,0 +1,43 @@
+id: org.pvermeer.GnomeWebApps
+version: "0.0.1"
+runtime: org.gnome.Platform
+runtime-version: "49"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+command: gnome-web-apps
+
+finish-args:
+  - --socket=wayland
+  - --socket=x11
+  - --share=ipc
+  - --device=dri
+  - --share=network
+
+modules:
+  - name: gnome-web-apps
+    buildsystem: simple
+
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        - CARGO_HOME=flatpak
+        - FLATPAK_BUILDER_DIR=target/flatpak
+
+      build-args:
+        - --bind-mount=/run/build/gnome-web-apps/target=target
+
+    build-commands:
+      - cargo build --release --frozen
+      - install -D target/release/gnome-web-apps /app/bin/gnome-web-apps
+
+    sources:
+      - type: dir
+        path: ..
+
+    cleanup:
+      - /share/doc
+      - /share/man
+      - /usr/include
+      - /lib/pkgconfig

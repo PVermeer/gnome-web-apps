@@ -23,7 +23,7 @@
 		"RUN_IN_VSCODE_DEVCONTAINER": "true"
 	},
 	"mounts": [],
-	"postCreateCommand": "sudo dbus-daemon --system || true && sudo dnf install -y chromium firefox && flatpak --user install -y com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox",
+	"postCreateCommand": "sudo dbus-daemon --system || true && sudo dnf install -y chromium firefox && flatpak --user install -y com.github.tchx84.Flatseal com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox",
 	"postStartCommand": "sudo dbus-daemon --system || true && sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && flatpak --user update -y",
 	"initializeCommand": "xhost +local:docker", // Allow x11 from docker
 	"remoteUser": "vscode",
@@ -33,7 +33,9 @@
 				"rust-lang.rust-analyzer",
 				"vadimcn.vscode-lldb",
 				"tamasfe.even-better-toml",
-				"redhat.vscode-yaml"
+				"redhat.vscode-yaml",
+				"foxundermoon.shell-format",
+				"timonwong.shellcheck"
 			]
 		}
 	}

@@ -40,9 +40,7 @@ fn main() {
         .finish();
     logger.init();
 
-    let adw_application = libadwaita::Application::builder()
-        .application_id(config::APP_ID)
-        .build();
+    let adw_application = libadwaita::Application::default();
 
     adw_application.connect_activate(|adw_application| {
         App::new(adw_application).init();
