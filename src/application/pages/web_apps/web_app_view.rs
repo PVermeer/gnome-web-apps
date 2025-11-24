@@ -30,13 +30,13 @@ use libadwaita::{
         PreferencesRowExt,
     },
 };
-use log::{debug, error};
 use std::{
     cell::{Cell, RefCell},
     path::Path,
     rc::Rc,
 };
 use std::{fmt::Write as _, fs};
+use tracing::{debug, error};
 use validator::ValidateUrl;
 
 pub struct WebAppView {

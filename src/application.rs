@@ -5,9 +5,9 @@ mod window;
 use crate::services::{app_dirs::AppDirs, assets::Assets, browsers::BrowserConfigs, fetch::Fetch};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
-use log::error;
 use pages::{Page, Pages};
 use std::rc::Rc;
+use tracing::error;
 use window::AppWindow;
 
 pub struct App {

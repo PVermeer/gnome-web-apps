@@ -1,13 +1,12 @@
-use anyhow::{Context, Result, bail};
-use gtk::Image;
-use log::{debug, error, info};
-use std::fmt::Write as _;
-use std::{cell::RefCell, fs, process::Command, rc::Rc};
-
 use crate::{
     application::App,
     services::{desktop_file::DesktopFile, utils},
 };
+use anyhow::{Context, Result, bail};
+use gtk::Image;
+use std::fmt::Write as _;
+use std::{cell::RefCell, fs, process::Command, rc::Rc};
+use tracing::{debug, error, info};
 
 #[derive(PartialEq)]
 pub enum FlatpakInstallation {

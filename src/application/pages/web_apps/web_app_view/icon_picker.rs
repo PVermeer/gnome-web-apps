@@ -18,9 +18,9 @@ use libadwaita::{
     glib,
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use log::{debug, error, info};
 use scraper::{Html, Selector};
 use std::{cell::RefCell, cmp::Reverse, collections::HashMap, fs, rc::Rc};
+use tracing::{debug, error, info};
 
 pub struct IconPicker {
     init: RefCell<bool>,

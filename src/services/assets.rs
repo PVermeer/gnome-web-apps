@@ -1,14 +1,13 @@
+use crate::services::app_dirs::AppDirs;
 use anyhow::Result;
 use include_dir::{Dir, include_dir};
-use log::info;
 use std::{
     cell::RefCell,
     fs,
     path::{Path, PathBuf},
     rc::Rc,
 };
-
-use crate::services::app_dirs::AppDirs;
+use tracing::info;
 
 static ASSETS: Dir = include_dir!("$CARGO_MANIFEST_DIR/assets");
 

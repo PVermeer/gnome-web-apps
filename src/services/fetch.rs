@@ -1,8 +1,7 @@
 use anyhow::{Result, bail};
 use gtk::gio::{self};
-use log::debug;
-use log::error;
 use std::time::Duration;
+use tracing::{debug, error};
 use ureq::Agent;
 
 pub struct Fetch {

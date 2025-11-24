@@ -1,13 +1,13 @@
 use crate::services::config;
 use anyhow::{Context, Result};
 use gtk::glib;
-use log::debug;
 use std::{
     cell::OnceCell,
     fs, os,
     path::{Path, PathBuf},
     rc::Rc,
 };
+use tracing::debug;
 
 #[derive(Default)]
 pub struct AppDirs {

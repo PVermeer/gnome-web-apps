@@ -6,7 +6,6 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{Image, gdk_pixbuf::Pixbuf};
-use log::{debug, error, info};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
 use std::{
@@ -15,6 +14,7 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+use tracing::{debug, error, info};
 use url::Url;
 
 pub struct Icon {

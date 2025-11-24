@@ -14,8 +14,8 @@ use libadwaita::{
     StatusPage,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use log::debug;
 use std::{cell::RefCell, rc::Rc};
+use tracing::debug;
 use web_app_view::WebAppView;
 
 pub struct WebAppsPage {
