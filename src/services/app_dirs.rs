@@ -14,6 +14,8 @@ pub struct AppDirs {
     home: OnceCell<PathBuf>,
     data: OnceCell<PathBuf>,
     config: OnceCell<PathBuf>,
+    system_data: OnceCell<Vec<PathBuf>>,
+    system_icons: OnceCell<Vec<PathBuf>>,
     user_applications: OnceCell<PathBuf>,
     profiles: OnceCell<PathBuf>,
     icons: OnceCell<PathBuf>,
@@ -30,11 +32,14 @@ impl AppDirs {
         let home = glib::home_dir();
         let user_data = glib::user_data_dir().join(config::APP_NAME_PATH);
         let user_config = glib::user_config_dir().join(config::APP_NAME_PATH);
+        let system_data = glib::system_data_dirs();
 
         let _ = self.home.set(home);
         let _ = self.data.set(user_data);
         let _ = self.config.set(user_config);
+        let _ = self.system_data.set(system_data);
 
+        let system_icons = self.build_system_icon_paths();
         let applications = self.build_applications_path()?;
         let profiles = self.build_profiles_path()?;
         let icons = self.build_icons_path()?;
@@ -42,6 +47,7 @@ impl AppDirs {
         let browser_desktop_files = self.build_browser_desktop_files_path()?;
         let flatpak = self.build_flatpak_path();
 
+        let _ = self.system_icons.set(system_icons);
         let _ = self.user_applications.set(applications);
         let _ = self.profiles.set(profiles);
         let _ = self.icons.set(icons);
@@ -56,12 +62,20 @@ impl AppDirs {
         self.home.get().unwrap().clone()
     }
 
+    pub fn data(&self) -> PathBuf {
+        self.data.get().unwrap().clone()
+    }
+
     pub fn config(&self) -> PathBuf {
         self.config.get().unwrap().clone()
     }
 
-    pub fn data(&self) -> PathBuf {
-        self.data.get().unwrap().clone()
+    pub fn system_data(&self) -> Vec<PathBuf> {
+        self.system_data.get().unwrap().clone()
+    }
+
+    pub fn system_icons(&self) -> Vec<PathBuf> {
+        self.system_icons.get().unwrap().clone()
     }
 
     pub fn applications(&self) -> PathBuf {
@@ -86,6 +100,15 @@ impl AppDirs {
 
     pub fn flatpak(&self) -> PathBuf {
         self.flatpak.get().unwrap().clone()
+    }
+
+    fn build_system_icon_paths(&self) -> Vec<PathBuf> {
+        let icons_dir_name = "icons";
+        self.system_data()
+            .iter()
+            .map(|path| path.join(icons_dir_name))
+            .filter(|path| path.is_dir())
+            .collect()
     }
 
     fn build_applications_path(&self) -> Result<PathBuf> {

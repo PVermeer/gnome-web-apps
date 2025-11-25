@@ -1,5 +1,4 @@
 name: Brave
-icon_name: com.brave.Browser
 flatpak: com.brave.Browser
 system_bin: brave-browser
 can_isolate: true

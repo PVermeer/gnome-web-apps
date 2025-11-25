@@ -2,13 +2,15 @@ mod error_dialog;
 mod pages;
 mod window;
 
-use crate::services::{app_dirs::AppDirs, assets::Assets, browsers::BrowserConfigs, fetch::Fetch};
+use crate::services::{
+    app_dirs::AppDirs, assets::Assets, browsers::BrowserConfigs, fetch::Fetch, utils,
+};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, gdk};
 use pages::{Page, Pages};
 use std::{path::Path, rc::Rc};
-use tracing::error;
+use tracing::{debug, error};
 use window::AppWindow;
 
 pub struct App {
@@ -55,8 +57,10 @@ impl App {
             // Order matters!
             self.window.init(self);
             self.error_dialog.init(self);
+
             self.dirs.init()?;
             self.assets.init()?;
+            self.add_system_icon_paths();
             self.browser_configs.init(self);
             self.pages.init(self);
 
@@ -69,7 +73,17 @@ impl App {
     }
 
     pub fn add_icon_search_path(self: &Rc<Self>, path: &Path) {
+        if !path.is_dir() {
+            debug!("Not a valid icon path: {}", path.display());
+            return;
+        }
+
+        debug!("Adding icon path to icon theme: {}", path.display());
         self.icon_theme.add_search_path(path);
+    }
+
+    pub fn has_icon(self: &Rc<Self>, icon: &str) -> bool {
+        self.icon_theme.has_icon(icon)
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {
@@ -90,5 +104,13 @@ impl App {
         let new_self = Self::new(&self.adw_application);
         self = new_self;
         self.init();
+    }
+
+    fn add_system_icon_paths(self: &Rc<Self>) {
+        if utils::env::is_flatpak_container() {
+            for path in self.dirs.system_icons() {
+                self.add_icon_search_path(&path);
+            }
+        }
     }
 }

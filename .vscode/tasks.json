@@ -57,6 +57,18 @@
 		},
 		{
 			"type": "shell",
+			"command": "RUST_LOG=trace flatpak --user run --command=bash org.pvermeer.GnomeWebApps",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "none",
+				"isDefault": false
+			},
+			"label": "Run flatpak container",
+		},
+		{
+			"type": "shell",
 			"problemMatcher": [
 				"$rustc",
 			],

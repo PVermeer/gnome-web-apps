@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::{Context, Result, bail};
 use gtk::Image;
-use std::{cell::RefCell, fs, path::Path, process::Command, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, fs, path::Path, process::Command, rc::Rc};
 use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
 
@@ -47,7 +47,6 @@ impl Base {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BrowserYaml {
     name: String,
-    icon_name: Option<String>,
     flatpak: Option<String>,
     system_bin: Option<String>,
     #[serde(default)]
@@ -73,7 +72,8 @@ pub struct Browser {
     pub desktop_file_name_prefix: String,
     pub base: Base,
     configs: Rc<BrowserConfigs>,
-    icon_name: String,
+    icon_names: HashSet<String>,
+    app: Rc<App>,
 }
 impl Browser {
     const FALLBACK_IMAGE: &str = "web-browser-symbolic";
@@ -82,13 +82,9 @@ impl Browser {
         browser_config: &BrowserConfig,
         installation: Installation,
         browser_configs: &Rc<BrowserConfigs>,
+        app: Rc<App>,
     ) -> Self {
-        let icon_name = if let Some(icon_name) = browser_config.config.icon_name.clone() {
-            icon_name
-        } else {
-            Self::FALLBACK_IMAGE.to_string()
-        };
-
+        let icon_names = Self::get_icon_names_from_config(browser_config);
         let name = browser_config.config.name.clone();
         let can_isolate = browser_config.config.can_isolate;
         let flatpak_id = browser_config.config.flatpak.clone();
@@ -115,8 +111,9 @@ impl Browser {
             desktop_file,
             desktop_file_name_prefix,
             configs: browser_configs.clone(),
-            icon_name,
+            icon_names,
             base,
+            app,
         }
     }
 
@@ -167,16 +164,38 @@ impl Browser {
     }
 
     pub fn get_icon(&self) -> Image {
-        let mut image = Image::from_icon_name(&self.icon_name);
-        if image.uses_fallback() {
-            image = Image::from_icon_name(Self::FALLBACK_IMAGE);
+        for icon in &self.icon_names {
+            if !self.app.has_icon(icon) {
+                continue;
+            }
+            let image = Image::from_icon_name(icon);
+            if image.uses_fallback() {
+                continue;
+            }
+            return image;
         }
 
-        image
+        Image::from_icon_name(Self::FALLBACK_IMAGE)
     }
 
     pub fn get_index(&self) -> Option<usize> {
         self.configs.get_index(self)
+    }
+
+    fn get_icon_names_from_config(browser_config: &BrowserConfig) -> HashSet<String> {
+        let mut icon_names = HashSet::new();
+
+        if let Some(flatpak) = &browser_config.config.flatpak {
+            icon_names.insert(flatpak.trim().to_string());
+        }
+
+        if let Some(bin) = &browser_config.config.system_bin {
+            icon_names.insert(bin.trim().to_string());
+        }
+
+        icon_names.insert(browser_config.config.name.trim().to_string());
+
+        icon_names
     }
 }
 
@@ -245,8 +264,9 @@ impl BrowserConfigs {
             desktop_file: DesktopFile::new(app),
             desktop_file_name_prefix: String::default(),
             configs: self.clone(),
-            icon_name: "dialog-warning-symbolic".to_string(),
+            icon_names: HashSet::from(["dialog-warning-symbolic".to_string()]),
             base: Base::None,
+            app: app.clone(),
         }
     }
 
@@ -266,6 +286,7 @@ impl BrowserConfigs {
                         &browser_config,
                         Installation::Flatpak(installation),
                         self,
+                        app.clone(),
                     ));
 
                     if utils::env::is_flatpak_container()
@@ -290,8 +311,12 @@ impl BrowserConfigs {
                         browser_config.file_name
                     );
 
-                    let browser =
-                        Rc::new(Browser::new(&browser_config, Installation::System, self));
+                    let browser = Rc::new(Browser::new(
+                        &browser_config,
+                        Installation::System,
+                        self,
+                        app.clone(),
+                    ));
 
                     all_browser_borrow.push(browser);
                 } else {
