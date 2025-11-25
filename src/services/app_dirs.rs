@@ -1,4 +1,4 @@
-use crate::services::config;
+use crate::services::{config, utils};
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{
@@ -109,7 +109,7 @@ impl AppDirs {
             app_applications_path.display()
         );
 
-        if !app_applications_path.is_symlink() {
+        if !utils::env::is_flatpak_container() && !app_applications_path.is_symlink() {
             os::unix::fs::symlink(&system_applications_path, &app_applications_path)
                 .context("Could not symlink system applications dir to data dir")?;
         }

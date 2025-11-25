@@ -18,9 +18,9 @@
 		},
 		{
 			"type": "shell",
-			"command": "RUST_LOG=TRACE ./target/release/gnome-web-apps",
+			"command": "RUST_LOG=debug ./target/release/gnome-web-apps",
 			"problemMatcher": [
-				"$rustc"
+				"$rustc",
 			],
 			"group": {
 				"kind": "build",
@@ -34,11 +34,42 @@
 		{
 			"type": "shell",
 			"command": "./flatpak/build.sh",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"label": "Build flatpak"
+		},
+		{
+			"type": "shell",
+			"command": "RUST_LOG=trace flatpak --user run org.pvermeer.GnomeWebApps",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "none",
+				"isDefault": false
+			},
+			"label": "Run flatpak",
+		},
+		{
+			"type": "shell",
+			"problemMatcher": [
+				"$rustc",
+			],
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
-			"label": "Build flatpak"
+			"label": "Build and run flatpak",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"Build flatpak",
+				"Run flatpak"
+			]
 		},
 	]
 }

@@ -5,8 +5,9 @@ mod window;
 use crate::services::{app_dirs::AppDirs, assets::Assets, browsers::BrowserConfigs, fetch::Fetch};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
+use gtk::{IconTheme, gdk};
 use pages::{Page, Pages};
-use std::rc::Rc;
+use std::{path::Path, rc::Rc};
 use tracing::error;
 use window::AppWindow;
 
@@ -15,6 +16,7 @@ pub struct App {
     pub browser_configs: Rc<BrowserConfigs>,
     pub error_dialog: ErrorDialog,
     adw_application: libadwaita::Application,
+    icon_theme: IconTheme,
     window: AppWindow,
     fetch: Fetch,
     pages: Pages,
@@ -23,6 +25,9 @@ pub struct App {
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
         Rc::new({
+            let icon_theme = gtk::IconTheme::for_display(
+                &gdk::Display::default().expect("Could not connect to display"),
+            );
             let app_dirs = AppDirs::new();
             let window = AppWindow::new(adw_application);
             let fetch = Fetch::new();
@@ -36,6 +41,7 @@ impl App {
                 browser_configs: browsers,
                 error_dialog,
                 adw_application: adw_application.clone(),
+                icon_theme,
                 window,
                 fetch,
                 pages,
@@ -60,6 +66,10 @@ impl App {
         })() {
             self.show_error(&error);
         }
+    }
+
+    pub fn add_icon_search_path(self: &Rc<Self>, path: &Path) {
+        self.icon_theme.add_search_path(path);
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {

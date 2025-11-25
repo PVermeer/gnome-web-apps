@@ -9,7 +9,7 @@
       "request": "launch",
       "name": "Debug",
       "env": {
-        "RUST_LOG": "trace",
+        "RUST_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
@@ -31,7 +31,7 @@
       "request": "launch",
       "name": "Debug unit tests",
       "env": {
-        "RUST_LOG": "trace",
+        "RUST_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {

@@ -4,8 +4,8 @@ use crate::{
 };
 use anyhow::{Context, Result, bail};
 use gtk::Image;
-use std::fmt::Write as _;
-use std::{cell::RefCell, fs, process::Command, rc::Rc};
+use std::{cell::RefCell, fs, path::Path, process::Command, rc::Rc};
+use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
 
 #[derive(PartialEq)]
@@ -268,6 +268,12 @@ impl BrowserConfigs {
                         self,
                     ));
 
+                    if utils::env::is_flatpak_container()
+                        && let Some(icon_search_path) = Self::get_icon_search_path_flatpak(flatpak)
+                    {
+                        app.add_icon_search_path(&icon_search_path);
+                    }
+
                     all_browser_borrow.push(browser);
                 } else {
                     debug!(
@@ -299,14 +305,21 @@ impl BrowserConfigs {
     }
 
     fn is_installed_flatpak(flatpak: &str) -> Option<FlatpakInstallation> {
-        let command = "flatpak";
-        let arguments = &["info", flatpak];
-
-        let output = Command::new(command).args(arguments).output();
+        let (command, arguments, output) = if utils::env::is_flatpak_container() {
+            let command = "flatpak-spawn";
+            let arguments = Vec::from(["--host", "flatpak", "info", flatpak]);
+            let output = Command::new(command).args(&arguments).output();
+            (command, arguments, output)
+        } else {
+            let command = "flatpak";
+            let arguments = Vec::from(["info", flatpak]);
+            let output = Command::new(command).args(&arguments).output();
+            (command, arguments, output)
+        };
 
         match output {
             Err(error) => {
-                error!("Could not run command '{command} {arguments:?}'. Error: {error}");
+                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
                 None
             }
             Ok(response) => {
@@ -333,17 +346,62 @@ impl BrowserConfigs {
     }
 
     fn is_installed_system(system_bin: &str) -> bool {
-        let command = "which";
-        let arguments = &[system_bin];
+        let (command, arguments, output) = if utils::env::is_flatpak_container() {
+            let command = "flatpak-spawn";
+            let arguments = Vec::from(["--host", "which", system_bin]);
+            let output = Command::new(command).args(&arguments).output();
+            (command, arguments, output)
+        } else {
+            let command = "which";
+            let arguments = Vec::from([system_bin]);
 
+            let output = Command::new(command).args(&arguments).output();
+            (command, arguments, output)
+        };
+
+        match output {
+            Err(error) => {
+                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
+                false
+            }
+            Ok(response) => response.status.success(),
+        }
+    }
+
+    fn get_icon_search_path_flatpak(flatpak: &str) -> Option<PathBuf> {
+        if !utils::env::is_flatpak_container() {
+            error!("Don't need to get icon search path when not in flatpak container");
+            return None;
+        }
+
+        let command = "flatpak-spawn";
+        let arguments = &["--host", "flatpak", "info", "--show-location", flatpak];
         let output = Command::new(command).args(arguments).output();
 
         match output {
             Err(error) => {
-                error!("Could not run command '{command} {arguments:?}'. Error: {error}");
-                false
+                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
+                None
             }
-            Ok(response) => response.status.success(),
+            Ok(response) => {
+                if !response.status.success() {
+                    error!("Could not get icon search path for: {flatpak}");
+                    return None;
+                }
+                let output_txt = String::from_utf8_lossy(&response.stdout).trim().to_string();
+
+                let path = Path::new(&output_txt)
+                    .join("export")
+                    .join("share")
+                    .join("icons");
+
+                if !path.is_dir() {
+                    error!("Invalid icon path for '{flatpak}': {}", path.display());
+                    return None;
+                }
+
+                Some(path)
+            }
         }
     }
 
@@ -373,7 +431,7 @@ impl BrowserConfigs {
             let browser: BrowserYaml = match serde_yaml::from_str(&file_string) {
                 Ok(result) => result,
                 Err(error) => {
-                    error!("Failed to parse yml: '{file_name}'. Error: '{error}'");
+                    error!("Failed to parse yml: '{file_name}'. Error: '{error:?}'");
                     continue;
                 }
             };
@@ -393,7 +451,7 @@ impl BrowserConfigs {
             })() {
                 Ok(result) => result,
                 Err(error) => {
-                    error!("Failed to parse .desktop file for: '{file_name}'. Error: '{error}'");
+                    error!("Failed to parse .desktop file for: '{file_name}'. Error: '{error:?}'");
                     continue;
                 }
             };
