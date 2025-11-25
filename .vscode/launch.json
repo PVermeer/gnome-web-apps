@@ -27,6 +27,41 @@
       "cwd": "${workspaceFolder}"
     },
     {
+      "type": "node",
+      "request": "launch",
+      "name": "Flatpak run",
+      "env": {
+        "RUST_LOG": "debug",
+        "GSETTINGS_BACKEND": "memory"
+      },
+      "runtimeExecutable": "flatpak",
+      "runtimeArgs": [
+        "--user",
+        "run",
+        "org.pvermeer.GnomeWebApps"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Flatpak build and run",
+      "env": {
+        "RUST_LOG": "debug",
+        "GSETTINGS_BACKEND": "memory"
+      },
+      "runtimeExecutable": "flatpak",
+      "runtimeArgs": [
+        "--user",
+        "run",
+        "org.pvermeer.GnomeWebApps"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build flatpak"
+    },
+    {
       "type": "lldb",
       "request": "launch",
       "name": "Debug unit tests",

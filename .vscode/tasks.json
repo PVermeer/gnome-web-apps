@@ -43,45 +43,5 @@
 			},
 			"label": "Build flatpak"
 		},
-		{
-			"type": "shell",
-			"command": "RUST_LOG=trace flatpak --user run org.pvermeer.GnomeWebApps",
-			"problemMatcher": [
-				"$rustc",
-			],
-			"group": {
-				"kind": "none",
-				"isDefault": false
-			},
-			"label": "Run flatpak",
-		},
-		{
-			"type": "shell",
-			"command": "RUST_LOG=trace flatpak --user run --command=bash org.pvermeer.GnomeWebApps",
-			"problemMatcher": [
-				"$rustc",
-			],
-			"group": {
-				"kind": "none",
-				"isDefault": false
-			},
-			"label": "Run flatpak container",
-		},
-		{
-			"type": "shell",
-			"problemMatcher": [
-				"$rustc",
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"label": "Build and run flatpak",
-			"dependsOrder": "sequence",
-			"dependsOn": [
-				"Build flatpak",
-				"Run flatpak"
-			]
-		},
 	]
 }
