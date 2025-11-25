@@ -39,7 +39,7 @@
 			],
 			"group": {
 				"kind": "build",
-				"isDefault": false
+				"isDefault": true
 			},
 			"label": "Build flatpak"
 		},

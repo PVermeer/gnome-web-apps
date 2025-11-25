@@ -61,6 +61,24 @@
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build flatpak"
     },
+        {
+      "type": "node",
+      "request": "launch",
+      "name": "Flatpak container",
+      "env": {
+        "RUST_LOG": "debug",
+        "GSETTINGS_BACKEND": "memory"
+      },
+      "runtimeExecutable": "flatpak",
+      "runtimeArgs": [
+        "--user",
+        "run",
+        "--command=bash",
+        "org.pvermeer.GnomeWebApps"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
     {
       "type": "lldb",
       "request": "launch",
