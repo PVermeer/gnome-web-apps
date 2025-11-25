@@ -38,6 +38,7 @@
       "runtimeArgs": [
         "--user",
         "run",
+        "--filesystem=/workspaces",
         "org.pvermeer.GnomeWebApps"
       ],
       "console": "integratedTerminal",
@@ -55,13 +56,14 @@
       "runtimeArgs": [
         "--user",
         "run",
+        "--filesystem=/workspaces",
         "org.pvermeer.GnomeWebApps"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "Build flatpak"
     },
-        {
+    {
       "type": "node",
       "request": "launch",
       "name": "Flatpak container",

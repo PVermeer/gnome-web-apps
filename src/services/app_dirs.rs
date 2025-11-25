@@ -1,9 +1,9 @@
-use crate::services::config;
+use crate::services::{config, utils};
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{
     cell::OnceCell,
-    fs, os,
+    fs,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -40,7 +40,7 @@ impl AppDirs {
         let _ = self.system_data.set(system_data);
 
         let system_icons = self.build_system_icon_paths();
-        let applications = self.build_applications_path()?;
+        let applications = Self::build_applications_path()?;
         let profiles = self.build_profiles_path()?;
         let icons = self.build_icons_path()?;
         let browser_configs = self.build_browser_configs_path()?;
@@ -54,6 +54,25 @@ impl AppDirs {
         let _ = self.browser_configs.set(browser_configs);
         let _ = self.browser_desktop_files.set(browser_desktop_files);
         let _ = self.flatpak.set(flatpak);
+
+        if cfg!(debug_assertions) {
+            utils::files::create_symlink(Path::new("dev-config"), &self.config());
+            utils::files::create_symlink(Path::new("dev-data"), &self.data());
+            utils::files::create_symlink(
+                &Path::new("dev-data").join("applications"),
+                &self.applications(),
+            );
+
+            for file in
+                utils::files::get_entries_in_dir(&Path::new("dev-assets").join("desktop-files"))
+                    .unwrap_or_default()
+            {
+                utils::files::create_symlink(
+                    &self.applications().join(file.file_name()),
+                    &file.path(),
+                );
+            }
+        }
 
         Ok(())
     }
@@ -111,65 +130,27 @@ impl AppDirs {
             .collect()
     }
 
-    fn build_applications_path(&self) -> Result<PathBuf> {
-        let applications_dir_name = "applications";
-        let mut system_applications_path = glib::user_data_dir().join("applications");
-        let mut app_applications_path = self.data().join(applications_dir_name);
-
-        if cfg!(debug_assertions) {
-            system_applications_path = std::path::absolute(Path::new("./dev-assets/desktop-files"))
-                .context("Dev-only: system_applications path to absolute failed")?;
-            app_applications_path = std::path::absolute(Path::new("./dev-data/applications"))
-                .context("Dev-only: app_applications path to absolute failed")?;
-        }
+    fn build_applications_path() -> Result<PathBuf> {
+        let user_applications_path = glib::user_data_dir().join("applications");
 
         debug!(
             "Using system applications path: {}",
-            system_applications_path.display()
-        );
-        debug!(
-            "Using app applications path: {}",
-            app_applications_path.display()
+            user_applications_path.display()
         );
 
-        if !system_applications_path.is_dir() {
-            fs::create_dir_all(&system_applications_path).context(format!(
-                "Could not create system applications dir: {}",
-                system_applications_path.display()
+        if !user_applications_path.is_dir() {
+            fs::create_dir_all(&user_applications_path).context(format!(
+                "Could not create user applications dir: {}",
+                user_applications_path.display()
             ))?;
         }
 
-        if !app_applications_path.is_symlink() {
-            let parent_path = app_applications_path.parent().context(format!(
-                "Could not get parent of dir: {}",
-                app_applications_path.display()
-            ))?;
-
-            if !parent_path.is_dir() {
-                fs::create_dir_all(parent_path).context(format!(
-                    "Could not create app applications parent dir: {}",
-                    app_applications_path.display()
-                ))?;
-            }
-
-            os::unix::fs::symlink(&system_applications_path, &app_applications_path).context(
-                format!(
-                    "Could not symlink system applications dir to data dir: {}",
-                    system_applications_path.display()
-                ),
-            )?;
-        }
-
-        Ok(app_applications_path)
+        Ok(user_applications_path)
     }
 
     fn build_profiles_path(&self) -> Result<PathBuf> {
         let profiles_dir_name = "profiles";
-        let mut profiles_path = self.data().join(profiles_dir_name);
-
-        if cfg!(debug_assertions) {
-            profiles_path = Path::new("dev-data").join(profiles_dir_name);
-        }
+        let profiles_path = self.data().join(profiles_dir_name);
 
         debug!("Using profile path: {}", profiles_path.display());
 
@@ -185,11 +166,7 @@ impl AppDirs {
 
     fn build_icons_path(&self) -> Result<PathBuf> {
         let icons_dir_name = "icons";
-        let mut icons_path = self.data().join(icons_dir_name);
-
-        if cfg!(debug_assertions) {
-            icons_path = Path::new("dev-data").join(icons_dir_name);
-        }
+        let icons_path = self.data().join(icons_dir_name);
 
         debug!("Using icons path: {}", icons_path.display());
 
@@ -205,11 +182,7 @@ impl AppDirs {
 
     fn build_browser_configs_path(&self) -> Result<PathBuf> {
         let browsers_dir_name = "browsers";
-        let mut browser_configs_path = self.config().join(browsers_dir_name);
-
-        if cfg!(debug_assertions) {
-            browser_configs_path = Path::new("assets").join(browsers_dir_name);
-        }
+        let browser_configs_path = self.config().join(browsers_dir_name);
 
         debug!("Using browsers path: {}", browser_configs_path.display());
 
@@ -225,11 +198,7 @@ impl AppDirs {
 
     fn build_browser_desktop_files_path(&self) -> Result<PathBuf> {
         let browsers_desktop_files_dir_name = "desktop-files";
-        let mut browser_desktop_files_path = self.config().join(browsers_desktop_files_dir_name);
-
-        if cfg!(debug_assertions) {
-            browser_desktop_files_path = Path::new("assets").join(browsers_desktop_files_dir_name);
-        }
+        let browser_desktop_files_path = self.config().join(browsers_desktop_files_dir_name);
 
         debug!(
             "Using browser desktop-files path: {}",
