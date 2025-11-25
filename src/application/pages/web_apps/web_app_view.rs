@@ -534,17 +534,28 @@ impl WebAppView {
             let Some(mut executable) = desktop_file_borrow.get_exec() else {
                 return;
             };
-            debug!("Running web app: '{executable}'");
 
-            if std::env::var("RUN_IN_VSCODE_DEVCONTAINER").is_ok() {
+            if utils::env::is_devcontainer() {
                 if desktop_file_borrow
                     .get_browser()
                     .is_some_and(|browser| browser.base == Base::Chromium)
                 {
                     let _ = write!(executable, " --no-sandbox");
                 }
-                debug!("Running in dev-container: '{executable}'");
+                debug!("Running in dev-container");
             }
+
+            if utils::env::is_flatpak_container() {
+                if utils::env::is_devcontainer() {
+                    executable = format!("flatpak-spawn --host --env=DISPLAY=:0 {executable}");
+                } else {
+                    executable = format!("flatpak-spawn --host {executable}");
+                }
+
+                debug!("Running in flatpak container");
+            }
+
+            debug!("Running web app: '{executable}'");
 
             if let Err(error) = glib::spawn_command_line_async(executable.clone()) {
                 error!("Failed to run app '{executable}': {error:?}");

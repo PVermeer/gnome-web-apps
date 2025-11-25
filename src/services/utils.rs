@@ -85,6 +85,10 @@ pub mod env {
             .ok()
     }
 
+    pub fn is_devcontainer() -> bool {
+        env::var("RUN_IN_VSCODE_DEVCONTAINER").is_ok()
+    }
+
     pub fn is_flatpak_container() -> bool {
         env::var("container").is_ok_and(|value| value == "flatpak")
     }
