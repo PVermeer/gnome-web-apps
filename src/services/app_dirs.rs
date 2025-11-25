@@ -1,4 +1,4 @@
-use crate::services::{config, utils};
+use crate::services::config;
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{
@@ -132,9 +132,32 @@ impl AppDirs {
             app_applications_path.display()
         );
 
-        if !utils::env::is_flatpak_container() && !app_applications_path.is_symlink() {
-            os::unix::fs::symlink(&system_applications_path, &app_applications_path)
-                .context("Could not symlink system applications dir to data dir")?;
+        if !system_applications_path.is_dir() {
+            fs::create_dir_all(&system_applications_path).context(format!(
+                "Could not create system applications dir: {}",
+                system_applications_path.display()
+            ))?;
+        }
+
+        if !app_applications_path.is_symlink() {
+            let parent_path = app_applications_path.parent().context(format!(
+                "Could not get parent of dir: {}",
+                app_applications_path.display()
+            ))?;
+
+            if !parent_path.is_dir() {
+                fs::create_dir_all(parent_path).context(format!(
+                    "Could not create app applications parent dir: {}",
+                    app_applications_path.display()
+                ))?;
+            }
+
+            os::unix::fs::symlink(&system_applications_path, &app_applications_path).context(
+                format!(
+                    "Could not symlink system applications dir to data dir: {}",
+                    system_applications_path.display()
+                ),
+            )?;
         }
 
         Ok(app_applications_path)
@@ -151,7 +174,10 @@ impl AppDirs {
         debug!("Using profile path: {}", profiles_path.display());
 
         if !profiles_path.is_dir() {
-            fs::create_dir_all(&profiles_path).context("Could not create profiles dir")?;
+            fs::create_dir_all(&profiles_path).context(format!(
+                "Could not create profiles dir: {}",
+                profiles_path.display()
+            ))?;
         }
 
         Ok(profiles_path)
@@ -168,7 +194,10 @@ impl AppDirs {
         debug!("Using icons path: {}", icons_path.display());
 
         if !icons_path.is_dir() {
-            fs::create_dir_all(&icons_path).context("Could not create icons dir")?;
+            fs::create_dir_all(&icons_path).context(format!(
+                "Could not create icons dir: {}",
+                icons_path.display()
+            ))?;
         }
 
         Ok(icons_path)
@@ -185,7 +214,10 @@ impl AppDirs {
         debug!("Using browsers path: {}", browser_configs_path.display());
 
         if !browser_configs_path.is_dir() {
-            fs::create_dir_all(&browser_configs_path).context("Could not create browsers dir")?;
+            fs::create_dir_all(&browser_configs_path).context(format!(
+                "Could not create browsers dir: {}",
+                browser_configs_path.display()
+            ))?;
         }
 
         Ok(browser_configs_path)
@@ -205,8 +237,10 @@ impl AppDirs {
         );
 
         if !browser_desktop_files_path.is_dir() {
-            fs::create_dir_all(&browser_desktop_files_path)
-                .context("Could not create browser desktop-files dir")?;
+            fs::create_dir_all(&browser_desktop_files_path).context(format!(
+                "Could not create browser desktop-files dir: {}",
+                browser_desktop_files_path.display()
+            ))?;
         }
 
         Ok(browser_desktop_files_path)
