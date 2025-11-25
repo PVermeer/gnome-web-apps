@@ -17,7 +17,8 @@ RUN sudo dnf install -y flatpak-builder rustup make git clang python3-pip gtk4-d
 # Add DBus user session startup for all login shells
 RUN echo 'if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then \
     eval $(dbus-launch --sh-syntax); \
-fi' > /etc/profile.d/dbus.sh
+fi; \
+sudo rm /run/dbus/pid || true && sudo dbus-daemon --system || true;' > /etc/profile.d/dbus.sh
 RUN chmod +x /etc/profile.d/dbus.sh
 
 # Create the user
