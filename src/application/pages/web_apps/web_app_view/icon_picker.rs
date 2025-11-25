@@ -335,7 +335,7 @@ impl IconPicker {
 
                 let pixbuf = match Pixbuf::from_file(&path) {
                     Err(error) => {
-                        error!("Could not load image into a Pixbuf: '{error}'");
+                        error!("Could not load image into a Pixbuf: '{error:?}'");
                         return;
                     }
                     Ok(pixbuf) => pixbuf,

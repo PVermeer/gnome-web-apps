@@ -359,7 +359,7 @@ impl DesktopFile {
     pub fn validate(&self) -> Result<()> {
         match self.to_new_from_browser() {
             Err(error) => {
-                debug!("Validate error: {error}");
+                debug!("Validate error: {error:?}");
                 Err(error)
             }
             Ok(_) => Ok(()),
@@ -491,7 +491,7 @@ impl DesktopFile {
         })() {
             Ok(result) => Ok(result),
             Err(error) => {
-                bail!("Failed to get all entries on desktop file: '{error}'")
+                bail!("Failed to get all entries on desktop file: '{error:?}'")
             }
         }
     }

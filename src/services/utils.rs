@@ -17,6 +17,27 @@ pub mod files {
 pub mod env {
     use std::{env, str::FromStr};
 
+    use anyhow::Context;
+    use tracing::Level;
+
+    pub fn get_log_level() -> Option<Level> {
+        std::env::var("RUST_LOG")
+            .with_context(|| {
+                let info = "No LOG environment variable set";
+                println!("{info}");
+                info
+            })
+            .and_then(|level_str| {
+                Level::from_str(&level_str).with_context(|| {
+                    let error =
+                        format!("Invalid LOG environment variable set, using '{level_str}'");
+                    eprintln!("{error:?}");
+                    error
+                })
+            })
+            .ok()
+    }
+
     pub fn is_flatpak_container() -> bool {
         env::var("container").is_ok_and(|value| value == "flatpak")
     }
