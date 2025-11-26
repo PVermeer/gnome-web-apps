@@ -13,6 +13,7 @@ impl Fetch {
     pub fn new() -> Self {
         let agent: Agent = Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(Self::FETCH_TIMEOUT)))
+            .user_agent("Wget/1.21.3")
             .build()
             .into();
 
@@ -66,7 +67,7 @@ impl Fetch {
     // Any error logged and a anyhow::Error
     fn error_handler<R>(url: &str, error: impl std::fmt::Debug) -> Result<R> {
         let message = format!("Fetching '{url}' failed: '{error:?}'");
-        error!("{message}");
+        error!(message);
         bail!(message)
     }
 }
