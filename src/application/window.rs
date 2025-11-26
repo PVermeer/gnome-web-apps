@@ -1,6 +1,6 @@
 mod view;
 
-use crate::{application::App, config};
+use crate::{application::App, config, services::config::OnceLockExt};
 use libadwaita::{
     AboutDialog, ApplicationWindow,
     gtk::prelude::GtkWindowExt,
@@ -16,10 +16,9 @@ pub struct AppWindow {
 impl AppWindow {
     pub fn new(adw_application: &libadwaita::Application) -> Self {
         let view = View::new();
-        let title = config::APP_NAME.to_string();
         let window = ApplicationWindow::builder()
             .application(adw_application)
-            .title(&title)
+            .title(config::APP_NAME.get_value())
             .default_height(700)
             .default_width(850)
             .content(&view.nav_split)
@@ -40,13 +39,12 @@ impl AppWindow {
 
     pub fn show_about(&self) {
         let about = AboutDialog::builder()
-            .name(config::APP_NAME)
-            .version(config::VERSION)
-            .developer_name(config::DEVELOPER)
-            .license_type(config::LICENSE)
+            .application_name(config::APP_NAME.get_value())
+            .version(config::VERSION.get_value())
+            .developer_name(config::DEVELOPER.get_value())
+            .license_type(*config::LICENSE.get_value())
+            .issue_url(config::ISSUES_URL.get_value())
             .build();
-        about.add_credit_section(Some("Code by"), config::CREDITS);
-        about.add_acknowledgement_section(None, config::ACKNOWLEDGEMENT);
 
         about.present(Some(&self.adw_window));
     }

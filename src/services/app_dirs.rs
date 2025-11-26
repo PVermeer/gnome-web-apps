@@ -1,4 +1,7 @@
-use crate::services::{config, utils};
+use crate::services::{
+    config::{self, OnceLockExt},
+    utils,
+};
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{
@@ -30,8 +33,8 @@ impl AppDirs {
 
     pub fn init(&self) -> Result<()> {
         let home = glib::home_dir();
-        let user_data = glib::user_data_dir().join(config::APP_NAME_PATH);
-        let user_config = glib::user_config_dir().join(config::APP_NAME_PATH);
+        let user_data = glib::user_data_dir().join(config::APP_NAME_HYPHEN.get_value());
+        let user_config = glib::user_config_dir().join(config::APP_NAME_HYPHEN.get_value());
         let system_data = glib::system_data_dirs();
 
         let _ = self.home.set(home);

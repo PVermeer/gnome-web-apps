@@ -1,4 +1,7 @@
-use crate::{application::App, services::config};
+use crate::{
+    application::App,
+    services::config::{self, OnceLockExt},
+};
 use libadwaita::{
     AlertDialog, ResponseAppearance,
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
@@ -73,7 +76,7 @@ impl AppMenu {
                 let dialog_cancel = "cancel";
 
                 let dialog = AlertDialog::builder()
-                    .heading(format!("Reset {}?", config::APP_NAME))
+                    .heading(format!("Reset {}?", config::APP_NAME.get_value()))
                     .body(
                         "This will reset the config files (e.g.: browser configs).\n\n\
                         It will not remove your create web apps.",
@@ -98,6 +101,7 @@ impl AppMenu {
             }),
         )
     }
+
     fn build_menu_item(
         &self,
         label: &str,

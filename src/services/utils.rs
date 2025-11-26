@@ -93,3 +93,23 @@ pub mod env {
         env::var("container").is_ok_and(|value| value == "flatpak")
     }
 }
+
+pub mod strings {
+    pub fn capitalize(string: &str) -> String {
+        let mut chars = string.chars();
+        chars
+            .next()
+            .unwrap_or_default()
+            .to_uppercase()
+            .collect::<String>()
+            + chars.as_str()
+    }
+
+    pub fn capitalize_all_words(string: &str) -> String {
+        string
+            .split(' ')
+            .map(capitalize)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}

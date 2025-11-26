@@ -4,6 +4,7 @@ use super::NavPage;
 use crate::{
     application::{App, pages::Page},
     config,
+    services::config::OnceLockExt,
 };
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, ToolbarView,
@@ -28,7 +29,6 @@ impl NavPage for SidebarPage {
 }
 impl SidebarPage {
     pub fn new() -> Self {
-        let title = config::APP_NAME.to_string();
         let list = ListBox::builder()
             .selection_mode(SelectionMode::Single)
             .css_classes(["navigation-sidebar"])
@@ -39,7 +39,7 @@ impl SidebarPage {
         toolbar.set_content(Some(&list));
 
         let nav_page = NavigationPage::builder()
-            .title(&title)
+            .title(config::APP_NAME.get_value().clone())
             .tag("sidebar")
             .child(&toolbar)
             .build();

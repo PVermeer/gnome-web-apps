@@ -1,7 +1,10 @@
 use crate::{
     application::App,
     config,
-    services::browsers::{Browser, Installation},
+    services::{
+        browsers::{Browser, Installation},
+        config::OnceLockExt,
+    },
 };
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
@@ -47,7 +50,7 @@ enum Keys {
 }
 impl Display for Keys {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let identifier = config::APP_NAME_SHORT.to_uppercase();
+        let identifier = config::APP_NAME_SHORT.get_value().to_uppercase();
 
         match self {
             Self::Gwa => write!(f, "X-{}", &identifier),
@@ -501,7 +504,7 @@ impl DesktopFile {
         let file_name = format!(
             "{}-{}{}",
             desktop_files_entries.browser.desktop_file_name_prefix,
-            config::APP_NAME_SHORT,
+            config::APP_NAME_SHORT.get_value(),
             desktop_files_entries.id
         );
         let mut desktop_file_path = applications_dir.join(file_name);
