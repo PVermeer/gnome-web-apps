@@ -9,7 +9,7 @@
       "request": "launch",
       "name": "Debug",
       "env": {
-        "RUST_BACKTRACE": "1",
+        // "RUST_BACKTRACE": "1",
         "RUST_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },

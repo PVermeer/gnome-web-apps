@@ -1,6 +1,9 @@
 use crate::{
     application::App,
-    services::config::{self, OnceLockExt},
+    services::{
+        assets,
+        config::{self, OnceLockExt},
+    },
 };
 use libadwaita::{
     AlertDialog, ResponseAppearance,
@@ -91,7 +94,7 @@ impl AppMenu {
 
                 let app_clone_response = app_clone.clone();
                 dialog.connect_response(Some(dialog_ok), move |_, _| {
-                    if let Err(error) = app_clone_response.assets.reset_config_files() {
+                    if let Err(error) = assets::reset_config_files(&app_clone_response) {
                         app_clone_response.show_error(&error);
                     }
                     app_clone_response.clone().restart();

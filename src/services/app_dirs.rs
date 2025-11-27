@@ -18,6 +18,8 @@ pub struct AppDirs {
     data: OnceCell<PathBuf>,
     config: OnceCell<PathBuf>,
     system_data: OnceCell<Vec<PathBuf>>,
+    user_data: OnceCell<PathBuf>,
+    user_config: OnceCell<PathBuf>,
     system_icons: OnceCell<Vec<PathBuf>>,
     user_applications: OnceCell<PathBuf>,
     profiles: OnceCell<PathBuf>,
@@ -33,14 +35,18 @@ impl AppDirs {
 
     pub fn init(&self) -> Result<()> {
         let home = glib::home_dir();
-        let user_data = glib::user_data_dir().join(config::APP_NAME_HYPHEN.get_value());
-        let user_config = glib::user_config_dir().join(config::APP_NAME_HYPHEN.get_value());
+        let user_data = glib::user_data_dir();
+        let app_data = user_data.join(config::APP_NAME_HYPHEN.get_value());
+        let user_config = glib::user_config_dir();
+        let app_config = user_config.join(config::APP_NAME_HYPHEN.get_value());
         let system_data = glib::system_data_dirs();
 
         let _ = self.home.set(home);
-        let _ = self.data.set(user_data);
-        let _ = self.config.set(user_config);
+        let _ = self.data.set(app_data);
+        let _ = self.config.set(app_config);
         let _ = self.system_data.set(system_data);
+        let _ = self.user_data.set(user_data);
+        let _ = self.user_config.set(user_config);
 
         let system_icons = self.build_system_icon_paths();
         let applications = Self::build_applications_path()?;
@@ -94,6 +100,10 @@ impl AppDirs {
 
     pub fn system_data(&self) -> Vec<PathBuf> {
         self.system_data.get().unwrap().clone()
+    }
+
+    pub fn user_data(&self) -> PathBuf {
+        self.user_data.get().unwrap().clone()
     }
 
     pub fn system_icons(&self) -> Vec<PathBuf> {

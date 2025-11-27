@@ -39,6 +39,7 @@ impl AppWindow {
 
     pub fn show_about(&self) {
         let about = AboutDialog::builder()
+            .application_icon(config::APP_ID.get_value())
             .application_name(config::APP_NAME.get_value())
             .version(config::VERSION.get_value())
             .developer_name(config::DEVELOPER.get_value())

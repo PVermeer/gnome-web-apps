@@ -2,9 +2,7 @@ mod error_dialog;
 mod pages;
 mod window;
 
-use crate::services::{
-    app_dirs::AppDirs, assets::Assets, browsers::BrowserConfigs, fetch::Fetch, utils,
-};
+use crate::services::{app_dirs::AppDirs, assets, browsers::BrowserConfigs, fetch::Fetch, utils};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, gdk};
@@ -22,7 +20,6 @@ pub struct App {
     window: AppWindow,
     fetch: Fetch,
     pages: Pages,
-    assets: Assets,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -36,7 +33,6 @@ impl App {
             let pages = Pages::new();
             let browsers = BrowserConfigs::new();
             let error_dialog = ErrorDialog::new();
-            let assets = Assets::new(&app_dirs);
 
             Self {
                 dirs: app_dirs,
@@ -47,7 +43,6 @@ impl App {
                 window,
                 fetch,
                 pages,
-                assets,
             }
         })
     }
@@ -59,7 +54,7 @@ impl App {
             self.error_dialog.init(self);
 
             self.dirs.init()?;
-            self.assets.init()?;
+            assets::init(self)?;
             self.add_system_icon_paths();
             self.browser_configs.init(self);
             self.pages.init(self);
