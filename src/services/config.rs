@@ -61,6 +61,7 @@ pub fn init() {
     let id = format!("org.pvermeer.{name_dense}");
     let license = match license.as_str() {
         "GPL-3.0" => License::Gpl30,
+        "GPL-3.0-only" => License::Gpl30Only,
         _ => panic!("Could not convert license"),
     };
     let developer = authors

@@ -1,0 +1,5 @@
+{
+    "yaml.schemas": {
+        "https://raw.githubusercontent.com/flatpak/flatpak-builder/master/data/flatpak-manifest.schema.json": "file:///workspaces/gnome-web-apps/flatpak/manifest.yml"
+    }
+}

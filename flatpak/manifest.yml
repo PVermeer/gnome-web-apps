@@ -1,5 +1,4 @@
 id: org.pvermeer.GnomeWebApps
-version: "0.0.1"
 runtime: org.gnome.Platform
 runtime-version: "49"
 sdk: org.gnome.Sdk
@@ -25,8 +24,8 @@ modules:
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin
       env:
-        - CARGO_HOME=flatpak
-        - FLATPAK_BUILDER_DIR=target/flatpak
+        CARGO_HOME: flatpak
+        FLATPAK_BUILDER_DIR: target/flatpak
       build-args:
         - --bind-mount=/run/build/gnome-web-apps/target=target
     build-commands:

@@ -2,8 +2,7 @@
 name = "gnome-web-apps"
 version = "0.0.1"
 edition = "2024"
-license = "GPL-3.0"
-license-file = "LICENSE"
+license = "GPL-3.0-only"
 authors = ["PVermeer"]
 repository = "https://github.com/PVermeer/gnome-web-apps"
 homepage = "https://github.com/PVermeer/gnome-web-apps"
