@@ -26,8 +26,6 @@ modules:
       env:
         CARGO_HOME: flatpak
         FLATPAK_BUILDER_DIR: target/flatpak
-      build-args:
-        - --bind-mount=/run/build/gnome-web-apps/target=target
     build-commands:
       - cargo build --release --frozen
       - install -D target/release/gnome-web-apps /app/bin/gnome-web-apps

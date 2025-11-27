@@ -14,7 +14,7 @@
 				"kind": "build",
 				"isDefault": false
 			},
-			"label": "rust: cargo build release"
+			"label": "Build release"
 		},
 		{
 			"type": "shell",
@@ -28,7 +28,7 @@
 			},
 			"label": "Build and run release app",
 			"dependsOn": [
-				"rust: cargo build release"
+				"Build release"
 			]
 		},
 		{

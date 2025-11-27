@@ -9,6 +9,10 @@ use tracing::Level;
 use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
 
 fn main() {
+    if cfg!(debug_assertions) {
+        println!("======== Running debug build ========");
+    }
+
     config::init();
 
     /* Logging */

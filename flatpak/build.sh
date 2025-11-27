@@ -2,7 +2,9 @@
 
 set -e
 
-cargo vendor target/flatpak/vendor/
+echo -e "\n==== Updating cargo vendors ====\n"
+
+cargo vendor target/flatpak/vendor/ --locked
 
 echo -e "\n==== Building Flatpak ====\n"
 

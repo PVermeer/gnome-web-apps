@@ -70,12 +70,15 @@
       "name": "Flatpak container",
       "env": {
         "RUST_LOG": "debug",
-        "GSETTINGS_BACKEND": "memory"
+        "RUST_BACKTRACE": "1",
+        "GSETTINGS_BACKEND": "memory",
       },
       "runtimeExecutable": "flatpak",
       "runtimeArgs": [
         "--user",
         "run",
+        "--devel",
+        "--filesystem=/workspaces",
         "--command=bash",
         "org.pvermeer.GnomeWebApps"
       ],
