@@ -65,9 +65,9 @@ impl AppDirs {
         let _ = self.flatpak.set(flatpak);
 
         if cfg!(debug_assertions) {
-            utils::files::create_symlink(Path::new("dev-config"), &self.config());
-            utils::files::create_symlink(Path::new("dev-data"), &self.data());
-            utils::files::create_symlink(
+            let _ = utils::files::create_symlink(Path::new("dev-config"), &self.config());
+            let _ = utils::files::create_symlink(Path::new("dev-data"), &self.data());
+            let _ = utils::files::create_symlink(
                 &Path::new("dev-data").join("applications"),
                 &self.applications(),
             );
@@ -76,7 +76,7 @@ impl AppDirs {
                 utils::files::get_entries_in_dir(&Path::new("dev-assets").join("desktop-files"))
                     .unwrap_or_default()
             {
-                utils::files::create_symlink(
+                let _ = utils::files::create_symlink(
                     &self.applications().join(file.file_name()),
                     &file.path(),
                 );
