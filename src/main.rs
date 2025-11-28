@@ -33,7 +33,9 @@ fn main() {
 
     config::log_all_values_debug();
 
-    let adw_application = libadwaita::Application::default();
+    let adw_application = libadwaita::Application::builder()
+        .application_id(config::APP_ID.get_value())
+        .build();
 
     adw_application.connect_activate(|adw_application| {
         App::new(adw_application).init();

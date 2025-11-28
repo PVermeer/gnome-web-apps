@@ -5,7 +5,7 @@ mod window;
 use crate::services::{app_dirs::AppDirs, assets, browsers::BrowserConfigs, fetch::Fetch, utils};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
-use gtk::{IconTheme, gdk};
+use gtk::{IconLookupFlags, IconPaintable, IconTheme, gdk};
 use pages::{Page, Pages};
 use std::{path::Path, rc::Rc};
 use tracing::{debug, error};
@@ -79,6 +79,17 @@ impl App {
 
     pub fn has_icon(self: &Rc<Self>, icon: &str) -> bool {
         self.icon_theme.has_icon(icon)
+    }
+
+    pub fn get_icon(self: &Rc<Self>, icon: &str, size: i32) -> IconPaintable {
+        self.icon_theme.lookup_icon(
+            icon,
+            &[],
+            size,
+            1,
+            gtk::TextDirection::None,
+            IconLookupFlags::empty(),
+        )
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {
