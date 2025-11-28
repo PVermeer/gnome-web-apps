@@ -1,7 +1,7 @@
 [Desktop Entry]
 Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
 Icon=dev-assets/icons/12345678.png
-Name=YouTube
+Name=Dev Test App
 StartupWMClass=brave-www.youtube.com__-Default
 Terminal=false
 Type=Application

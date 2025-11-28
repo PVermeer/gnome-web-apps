@@ -373,7 +373,7 @@ impl DesktopFile {
         if let Err(error) = (|| -> Result<()> {
             let new_desktop_file = self.to_new_from_browser()?;
 
-            if self.desktop_entry.path.is_file() {
+            if self.desktop_entry.path.is_file() && !self.desktop_entry.path.is_symlink() {
                 match fs::remove_file(&self.desktop_entry.path) {
                     Ok(()) => {}
                     Err(error) => {
