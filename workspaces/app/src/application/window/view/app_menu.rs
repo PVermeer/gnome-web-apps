@@ -1,13 +1,13 @@
 use crate::application::App;
+use common::{
+    assets,
+    config::{self, OnceLockExt},
+};
 use libadwaita::{
     AlertDialog, ResponseAppearance,
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
     gtk::{MenuButton, prelude::WidgetExt},
     prelude::{AdwDialogExt, AlertDialogExt},
-};
-use common::{
-    assets,
-    config::{self, OnceLockExt},
 };
 use std::rc::Rc;
 

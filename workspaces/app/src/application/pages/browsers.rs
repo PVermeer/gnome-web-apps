@@ -1,7 +1,6 @@
 use super::NavPage;
-use crate::{
-    application::{App, pages::PrefPage},
-};
+use crate::application::{App, pages::PrefPage};
+use common::browsers::{Browser, Installation};
 use gtk::{
     Align, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
@@ -10,7 +9,6 @@ use libadwaita::{
     ActionRow, ExpanderRow, NavigationPage, PreferencesGroup, PreferencesPage, StatusPage,
     prelude::{ExpanderRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use common::browsers::{Browser, Installation};
 use std::fmt::Write as _;
 use std::rc::Rc;
 

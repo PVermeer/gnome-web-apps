@@ -5,6 +5,11 @@ use crate::application::{
     pages::{NavPage, PrefPage},
 };
 use anyhow::Context;
+use common::{
+    browsers::{Base, Browser},
+    desktop_file::DesktopFile,
+    utils,
+};
 use gtk::{
     Align, EventControllerMotion, ListItem, SignalListItemFactory, gio,
     glib::{self, BoxedAnyObject, object::Cast},
@@ -22,11 +27,6 @@ use libadwaita::{
         ComboRowExt, EntryRowExt, NavigationPageExt, PreferencesGroupExt, PreferencesPageExt,
         PreferencesRowExt,
     },
-};
-use common::{
-    browsers::{Base, Browser},
-    desktop_file::DesktopFile,
-    utils,
 };
 use std::{
     cell::{Cell, RefCell},

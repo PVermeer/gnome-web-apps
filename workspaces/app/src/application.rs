@@ -3,9 +3,6 @@ mod pages;
 mod window;
 
 use anyhow::{Error, Result};
-use error_dialog::ErrorDialog;
-use gtk::{IconTheme, Image, gdk};
-use pages::{Page, Pages};
 use common::{
     app_dirs::AppDirs,
     assets,
@@ -14,6 +11,9 @@ use common::{
     fetch::Fetch,
     utils,
 };
+use error_dialog::ErrorDialog;
+use gtk::{IconTheme, Image, gdk};
+use pages::{Page, Pages};
 use std::{cell::RefCell, path::Path, rc::Rc};
 use tracing::{debug, error};
 use window::AppWindow;
@@ -63,7 +63,7 @@ impl App {
             self.error_dialog.init(self);
 
             self.dirs.init()?;
-            assets::init(&self.dirs)?;
+            assets::init(&self.dirs, &self.icon_theme)?;
             self.add_system_icon_paths();
             self.browser_configs.init();
 

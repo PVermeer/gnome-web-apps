@@ -2,6 +2,7 @@ mod web_app_view;
 
 use super::NavPage;
 use crate::application::{App, pages::PrefNavPage};
+use common::{desktop_file::DesktopFile, utils};
 use gtk::{
     Button, Image,
     prelude::{ButtonExt, WidgetExt},
@@ -11,7 +12,6 @@ use libadwaita::{
     StatusPage,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use common::{desktop_file::DesktopFile, utils};
 use std::{cell::RefCell, rc::Rc};
 use tracing::debug;
 use web_app_view::WebAppView;

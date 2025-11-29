@@ -350,7 +350,8 @@ impl DesktopFile {
         let id = self.get_id().context("No id on 'DesktopFile'")?;
 
         let profile_path = match browser.installation {
-            Installation::Flatpak(_) => self.app_dirs
+            Installation::Flatpak(_) => self
+                .app_dirs
                 .flatpak()
                 .join(&browser.id)
                 .join("data")

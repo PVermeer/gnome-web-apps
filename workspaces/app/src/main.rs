@@ -1,7 +1,10 @@
 mod application;
 
 use application::App;
-use common::{config::{self, OnceLockExt}, utils};
+use common::{
+    config::{self, OnceLockExt},
+    utils,
+};
 use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
 use tracing::Level;
 use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};

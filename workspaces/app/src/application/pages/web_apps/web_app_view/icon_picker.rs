@@ -1,5 +1,6 @@
 use crate::application::App;
 use anyhow::{Context, Result, bail};
+use common::desktop_file::{DesktopFile, Icon};
 use gtk::{
     self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, FlowBoxChild, Label,
     Orientation, Picture, SelectionMode,
@@ -16,7 +17,6 @@ use libadwaita::{
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use scraper::{Html, Selector};
-use common::desktop_file::{DesktopFile, Icon};
 use std::{cell::RefCell, cmp::Reverse, collections::HashMap, fs, rc::Rc};
 use tracing::{debug, error, info};
 
