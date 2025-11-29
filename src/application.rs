@@ -14,7 +14,7 @@ use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
 use gtk::{IconLookupFlags, IconPaintable, IconTheme, Image, gdk};
 use pages::{Page, Pages};
-use std::{path::Path, rc::Rc};
+use std::{cell::RefCell, path::Path, rc::Rc};
 use tracing::{debug, error};
 use window::AppWindow;
 
@@ -27,6 +27,7 @@ pub struct App {
     window: AppWindow,
     fetch: Fetch,
     pages: Pages,
+    has_created_apps: RefCell<bool>,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -50,6 +51,7 @@ impl App {
                 window,
                 fetch,
                 pages,
+                has_created_apps: RefCell::new(false),
             }
         })
     }
@@ -66,7 +68,11 @@ impl App {
             self.browser_configs.init(self);
             self.pages.init(self);
 
-            self.navigate(&Page::Home);
+            if *self.has_created_apps.borrow() {
+                self.navigate(&Page::WebApps);
+            } else {
+                self.navigate(&Page::Home);
+            }
 
             Ok(())
         })() {

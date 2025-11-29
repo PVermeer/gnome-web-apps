@@ -176,6 +176,8 @@ impl WebAppsPage {
             owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }
 
+        *app.has_created_apps.borrow_mut() = !owned_desktop_files.is_empty();
+
         owned_desktop_files
     }
 
