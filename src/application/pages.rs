@@ -37,6 +37,7 @@ impl Pages {
     }
 
     pub fn init(&self, app: &Rc<App>) {
+        self.home.init(app);
         self.web_apps.init(app);
         self.browsers.init(app);
 

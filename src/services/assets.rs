@@ -61,7 +61,7 @@ fn install_app_icon(app: &Rc<App>) -> Result<()> {
     // && !cfg!(debug_assertions)
     {
         let (current_icon_bytes, _) = app
-            .get_icon(app_id, 256)
+            .lookup_icon(app_id, 256)
             .file()
             .context("Failed to get current app icon as file")?
             .load_bytes(Cancellable::NONE)

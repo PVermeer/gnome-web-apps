@@ -1,17 +1,22 @@
-use super::NavPage;
-use crate::application::pages::ContentPage;
+use super::{NavPage, Page};
+use crate::{
+    application::{App, pages::ContentPage},
+    services::config::{self, OnceLockExt},
+};
+use gtk::{
+    Align, Button, Orientation,
+    prelude::{ButtonExt, WidgetExt},
+};
 use libadwaita::{
     ActionRow, NavigationPage,
-    gtk::{
-        self, Button, Label,
-        prelude::{BoxExt, ButtonExt},
-    },
+    gtk::{self, Label, prelude::BoxExt},
 };
 use std::rc::Rc;
 
 pub struct HomePage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
+    content_box: gtk::Box,
 }
 impl NavPage for HomePage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -34,29 +39,99 @@ impl HomePage {
             ..
         } = Self::build_nav_page(title, icon).with_content_box();
 
-        let top_label = Label::builder()
-            .label(concat!(
-                "<b>Placeholder home page</b>\n",
-                "<span>With some standard widgets</span>\n",
-            ))
+        Rc::new(Self {
+            nav_page,
+            nav_row,
+            content_box,
+        })
+    }
+
+    pub fn init(&self, app: &Rc<App>) {
+        self.content_box.set_spacing(24);
+
+        let header = Self::build_header(app);
+        let text = Self::build_text();
+        let action_button = Self::build_action_button(app);
+
+        self.content_box.append(&header);
+        self.content_box.append(&text);
+        self.content_box.append(&action_button);
+    }
+
+    fn build_header(app: &Rc<App>) -> gtk::Box {
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .halign(Align::Center)
+            .valign(Align::Fill)
+            .build();
+
+        let icon = app.get_icon();
+        icon.set_pixel_size(96);
+        icon.set_css_classes(&["icon-dropshadow"]);
+        icon.set_margin_start(25);
+        icon.set_margin_end(25);
+
+        let label = Label::builder()
+            .label(config::APP_NAME.get_value())
+            .css_classes(["title-1"])
             .wrap(true)
-            .use_markup(true)
-            .halign(gtk::Align::Start)
+            .build();
+
+        content_box.append(&icon);
+        content_box.append(&label);
+
+        content_box
+    }
+
+    fn build_text() -> gtk::Box {
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .halign(Align::Center)
+            .spacing(12)
+            .build();
+
+        let text = Label::builder()
+            .label("To get started you may create your first web app.")
+            .wrap(true)
+            .justify(gtk::Justification::Center)
+            .build();
+
+        let text2 = Label::builder()
+            .label("The browser tab show the supported and installed browsers")
+            .wrap(true)
+            .justify(gtk::Justification::Center)
+            .build();
+
+        content_box.append(&text);
+        content_box.append(&text2);
+
+        content_box
+    }
+
+    fn build_action_button(app: &Rc<App>) -> gtk::Box {
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .halign(Align::Center)
+            .valign(Align::Center)
+            .vexpand(true)
+            .height_request(200)
             .build();
 
         let button = Button::builder()
-            .margin_top(12)
-            .margin_bottom(12)
-            .margin_start(12)
-            .margin_end(12)
-            .label("Open file")
+            .label("Go to Web Apps")
+            .css_classes(["suggested-action", "pill"])
+            .valign(Align::Center)
+            .halign(Align::Center)
             .build();
 
-        button.connect_clicked(|_| println!("TODO"));
+        let app_clone = app.clone();
+        button.connect_clicked(move |_| {
+            app_clone.navigate(&Page::WebApps);
+        });
 
-        content_box.append(&top_label);
         content_box.append(&button);
 
-        Rc::new(Self { nav_page, nav_row })
+        content_box
     }
 }

@@ -2,10 +2,17 @@ mod error_dialog;
 mod pages;
 mod window;
 
-use crate::services::{app_dirs::AppDirs, assets, browsers::BrowserConfigs, fetch::Fetch, utils};
+use crate::services::{
+    app_dirs::AppDirs,
+    assets,
+    browsers::BrowserConfigs,
+    config::{self, OnceLockExt},
+    fetch::Fetch,
+    utils,
+};
 use anyhow::{Error, Result};
 use error_dialog::ErrorDialog;
-use gtk::{IconLookupFlags, IconPaintable, IconTheme, gdk};
+use gtk::{IconLookupFlags, IconPaintable, IconTheme, Image, gdk};
 use pages::{Page, Pages};
 use std::{path::Path, rc::Rc};
 use tracing::{debug, error};
@@ -81,7 +88,12 @@ impl App {
         self.icon_theme.has_icon(icon)
     }
 
-    pub fn get_icon(self: &Rc<Self>, icon: &str, size: i32) -> IconPaintable {
+    #[allow(clippy::unused_self)]
+    pub fn get_icon(self: &Rc<Self>) -> Image {
+        Image::from_icon_name(config::APP_ID.get_value())
+    }
+
+    pub fn lookup_icon(self: &Rc<Self>, icon: &str, size: i32) -> IconPaintable {
         self.icon_theme.lookup_icon(
             icon,
             &[],
