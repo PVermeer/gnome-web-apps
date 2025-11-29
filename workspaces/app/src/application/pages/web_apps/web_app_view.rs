@@ -6,6 +6,7 @@ use crate::application::{
 };
 use anyhow::Context;
 use common::{
+    app_dirs::AppDirs,
     browsers::{Base, Browser},
     desktop_file::DesktopFile,
     utils,
@@ -889,11 +890,12 @@ impl WebAppView {
         if cfg!(debug_assertions) {
             debug!("Dev-only: creating symlink in repo");
 
-            if let (Some(id), Some(browser)) = (
+            if let (Some(id), Some(browser), Ok(dev_data_path)) = (
                 desktop_file_borrow.get_id(),
                 desktop_file_borrow.get_browser(),
+                AppDirs::build_dev_data_path(),
             ) {
-                let save_dir = Path::new("dev-data").join("profiles");
+                let save_dir = dev_data_path.join("profiles");
                 let save_path = save_dir.join(format!("{id}-{}", &browser.id));
                 if save_path.is_symlink() {
                     let _ = fs::remove_file(&save_path)

@@ -1,5 +1,10 @@
+use crate::{
+    app_dirs::AppDirs,
+    config::{self, OnceLockExt},
+};
 use anyhow::{Context, Result};
 use freedesktop_desktop_entry::DesktopEntry;
+use gtk::IconTheme;
 use include_dir::{Dir, include_dir};
 use std::{
     fs::{self, File},
@@ -8,11 +13,6 @@ use std::{
 };
 use tracing::{debug, info};
 
-use crate::{
-    app_dirs::AppDirs,
-    config::{self, OnceLockExt},
-};
-
 // Calling extract on a subdir does not work and seems bugged.
 // Using indivudal imports.
 // Also need to fully recompole when the dir changes
@@ -20,10 +20,10 @@ static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
 
-pub fn init(app_dirs: &AppDirs) -> Result<()> {
+pub fn init(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     info!("Creating / overwriting assets");
     extract_config_dir(app_dirs)?;
-    install_app_icon(app_dirs)?;
+    install_app_icon(app_dirs, icon_theme)?;
     install_desktop_file(app_dirs)?;
     Ok(())
 }
@@ -43,7 +43,6 @@ pub fn reset_config_files(app_dirs: &AppDirs) -> Result<()> {
 
 pub fn create_app_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntry> {
     let app_id = config::APP_ID.get_value();
-    let app_version = config::VERSION.get_value();
     let app_name = config::APP_NAME.get_value().clone();
     let user_data_dir = app_dirs.user_data();
     let extension = "desktop";
@@ -57,11 +56,14 @@ pub fn create_app_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntry> {
         )?;
 
     base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
-    base_desktop_file.add_desktop_entry("Version".to_string(), app_version.clone());
     base_desktop_file.add_desktop_entry("Icon".to_string(), app_id.clone());
     base_desktop_file.add_desktop_entry("StartupWMClass".to_string(), app_id.clone());
 
     Ok(base_desktop_file)
+}
+
+pub fn get_icon_data() -> &'static [u8] {
+    ICON
 }
 
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
@@ -77,7 +79,7 @@ fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
 }
 
 // TODO add versioning
-fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
+fn install_app_icon(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     debug!("Installing app icon");
 
     let app_id = config::APP_ID.get_value();
@@ -105,7 +107,7 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
         .write_all(ICON)
         .context("Failed to write new icon file")?;
 
-    // app.add_icon_search_path(&icons_dir);
+    icon_theme.add_search_path(&icons_dir);
 
     debug!("Running command icon update command host");
     let result = Command::new("xdg-icon-resource").arg("forceupdate").spawn();
