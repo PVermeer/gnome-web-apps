@@ -1,14 +1,12 @@
-[package]
-name = "gnome-web-apps"
-version = "0.0.1"
-edition = "2024"
-license = "GPL-3.0-only"
-authors = ["PVermeer"]
-repository = "https://github.com/PVermeer/gnome-web-apps"
-homepage = "https://github.com/PVermeer/gnome-web-apps"
-documentation = "https://github.com/PVermeer/gnome-web-apps/README"
+[workspace]
+members = ["workspaces/app", "workspaces/common"]
+resolver = "3"
 
-[dependencies]
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+common = { path = "workspaces/common" }
 anyhow = "1"
 freedesktop-desktop-entry = "0"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }

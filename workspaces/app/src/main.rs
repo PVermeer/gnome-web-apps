@@ -1,10 +1,8 @@
 mod application;
-mod services;
 
-use crate::services::{config::OnceLockExt, utils};
 use application::App;
+use common::{config::{self, OnceLockExt}, utils};
 use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
-use services::config;
 use tracing::Level;
 use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
 
@@ -23,7 +21,10 @@ fn main() {
     };
     log_level = utils::env::get_log_level().unwrap_or(log_level);
     // Disable > info logging for external crates
-    let filter = format!("{}={}", config::APP_NAME_UNDERSCORE.get_value(), log_level);
+    let filter = format!(
+        "{}={log_level},common={log_level}",
+        config::APP_NAME_UNDERSCORE.get_value()
+    );
 
     let logger = FmtSubscriber::builder()
         .with_max_level(Level::INFO)

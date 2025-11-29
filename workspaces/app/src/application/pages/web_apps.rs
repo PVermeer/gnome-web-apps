@@ -1,10 +1,7 @@
 mod web_app_view;
 
 use super::NavPage;
-use crate::{
-    application::{App, pages::PrefNavPage},
-    services::{desktop_file::DesktopFile, utils},
-};
+use crate::application::{App, pages::PrefNavPage};
 use gtk::{
     Button, Image,
     prelude::{ButtonExt, WidgetExt},
@@ -14,6 +11,7 @@ use libadwaita::{
     StatusPage,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
+use common::{desktop_file::DesktopFile, utils};
 use std::{cell::RefCell, rc::Rc};
 use tracing::debug;
 use web_app_view::WebAppView;
@@ -83,7 +81,10 @@ impl WebAppsPage {
         let app_clone = app.clone();
 
         new_app_button.connect_clicked(move |_| {
-            let desktop_file = Rc::new(RefCell::new(DesktopFile::new(&app_clone)));
+            let desktop_file = Rc::new(RefCell::new(DesktopFile::new(
+                &app_clone.browser_configs,
+                &app_clone.dirs,
+            )));
             let app_page = WebAppView::new(&app_clone, &self_clone.nav_view, &desktop_file, true);
             app_page.init();
 
@@ -163,7 +164,9 @@ impl WebAppsPage {
         let applications_path = app.dirs.applications();
 
         for file in utils::files::get_entries_in_dir(&applications_path).unwrap_or_default() {
-            let Ok(desktop_file) = DesktopFile::from_path(&file.path(), app) else {
+            let Ok(desktop_file) =
+                DesktopFile::from_path(&file.path(), &app.browser_configs, &app.dirs)
+            else {
                 continue;
             };
 

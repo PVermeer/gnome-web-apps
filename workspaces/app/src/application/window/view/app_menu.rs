@@ -1,15 +1,13 @@
-use crate::{
-    application::App,
-    services::{
-        assets,
-        config::{self, OnceLockExt},
-    },
-};
+use crate::application::App;
 use libadwaita::{
     AlertDialog, ResponseAppearance,
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
     gtk::{MenuButton, prelude::WidgetExt},
     prelude::{AdwDialogExt, AlertDialogExt},
+};
+use common::{
+    assets,
+    config::{self, OnceLockExt},
 };
 use std::rc::Rc;
 
@@ -94,7 +92,7 @@ impl AppMenu {
 
                 let app_clone_response = app_clone.clone();
                 dialog.connect_response(Some(dialog_ok), move |_, _| {
-                    if let Err(error) = assets::reset_config_files(&app_clone_response) {
+                    if let Err(error) = assets::reset_config_files(&app_clone_response.dirs) {
                         app_clone_response.show_error(&error);
                     }
                     app_clone_response.clone().restart();

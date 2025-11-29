@@ -1,50 +1,72 @@
-use crate::{
-    application::App,
-    services::config::{self, OnceLockExt},
-};
 use anyhow::{Context, Result};
 use freedesktop_desktop_entry::DesktopEntry;
-use gtk::gio::{Cancellable, prelude::FileExt};
 use include_dir::{Dir, include_dir};
 use std::{
     fs::{self, File},
     io::Write,
     process::Command,
-    rc::Rc,
 };
 use tracing::{debug, info};
+
+use crate::{
+    app_dirs::AppDirs,
+    config::{self, OnceLockExt},
+};
 
 // Calling extract on a subdir does not work and seems bugged.
 // Using indivudal imports.
 // Also need to fully recompole when the dir changes
-static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/assets/config");
-static ICON: &[u8] = include_bytes!("../../assets/app-icon.png");
-static DESKTOP_FILE: &str = include_str!("../../assets/app.desktop");
+static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
+static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
+static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
 
-pub fn init(app: &Rc<App>) -> Result<()> {
+pub fn init(app_dirs: &AppDirs) -> Result<()> {
     info!("Creating / overwriting assets");
-    extract_config_dir(app)?;
-    install_app_icon(app)?;
-    install_desktop_file(app)?;
+    extract_config_dir(app_dirs)?;
+    install_app_icon(app_dirs)?;
+    install_desktop_file(app_dirs)?;
     Ok(())
 }
 
-pub fn reset_config_files(app: &Rc<App>) -> Result<()> {
-    let config_dir = app.dirs.config();
+pub fn reset_config_files(app_dirs: &AppDirs) -> Result<()> {
+    let config_dir = app_dirs.config();
 
     if config_dir.is_dir() {
         info!("Deleting config files");
         fs::remove_dir_all(config_dir)?;
     }
 
-    extract_config_dir(app)?;
+    extract_config_dir(app_dirs)?;
 
     Ok(())
 }
 
-fn extract_config_dir(app: &Rc<App>) -> Result<()> {
+pub fn create_app_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntry> {
+    let app_id = config::APP_ID.get_value();
+    let app_version = config::VERSION.get_value();
+    let app_name = config::APP_NAME.get_value().clone();
+    let user_data_dir = app_dirs.user_data();
+    let extension = "desktop";
+    let file_name = format!("{app_id}.{extension}");
+    let applications_dir = user_data_dir.join("applications");
+    let desktop_file_path = applications_dir.join(file_name);
+
+    let mut base_desktop_file =
+        DesktopEntry::from_str(&desktop_file_path, DESKTOP_FILE, None::<&[String]>).context(
+            format!("Failed to parse base desktop file: {DESKTOP_FILE:?}"),
+        )?;
+
+    base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
+    base_desktop_file.add_desktop_entry("Version".to_string(), app_version.clone());
+    base_desktop_file.add_desktop_entry("Icon".to_string(), app_id.clone());
+    base_desktop_file.add_desktop_entry("StartupWMClass".to_string(), app_id.clone());
+
+    Ok(base_desktop_file)
+}
+
+fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
     debug!("Extracting config dir");
-    let config_dir = app.dirs.config();
+    let config_dir = app_dirs.config();
 
     CONFIG.extract(&config_dir).context(format!(
         "Failed to extract config dir from ASSETS in: {}",
@@ -55,28 +77,11 @@ fn extract_config_dir(app: &Rc<App>) -> Result<()> {
 }
 
 // TODO add versioning
-fn install_app_icon(app: &Rc<App>) -> Result<()> {
-    let app_id = config::APP_ID.get_value();
-    if app.has_icon(app_id)
-    // && !cfg!(debug_assertions)
-    {
-        let (current_icon_bytes, _) = app
-            .lookup_icon(app_id, 256)
-            .file()
-            .context("Failed to get current app icon as file")?
-            .load_bytes(Cancellable::NONE)
-            .context("Failed to load current app icon as bytes")?;
-
-        let has_changed = current_icon_bytes != ICON;
-        debug!(icon_has_changed = has_changed, "Checking app icon");
-
-        if !has_changed {
-            return Ok(());
-        }
-    }
+fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
     debug!("Installing app icon");
 
-    let user_data_dir = app.dirs.user_data();
+    let app_id = config::APP_ID.get_value();
+    let user_data_dir = app_dirs.user_data();
     let extension = "png";
     let file_name = format!("{app_id}.{extension}");
     let icons_dir = user_data_dir.join("icons");
@@ -100,7 +105,7 @@ fn install_app_icon(app: &Rc<App>) -> Result<()> {
         .write_all(ICON)
         .context("Failed to write new icon file")?;
 
-    app.add_icon_search_path(&icons_dir);
+    // app.add_icon_search_path(&icons_dir);
 
     debug!("Running command icon update command host");
     let result = Command::new("xdg-icon-resource").arg("forceupdate").spawn();
@@ -114,10 +119,10 @@ fn install_app_icon(app: &Rc<App>) -> Result<()> {
     Ok(())
 }
 
-fn install_desktop_file(app: &Rc<App>) -> Result<()> {
+fn install_desktop_file(app_dirs: &AppDirs) -> Result<()> {
     let app_id = config::APP_ID.get_value();
     let app_version = config::VERSION.get_value();
-    let user_data_dir = app.dirs.user_data();
+    let user_data_dir = app_dirs.user_data();
     let extension = "desktop";
     let file_name = format!("{app_id}.{extension}");
     let applications_dir = user_data_dir.join("applications");
@@ -147,7 +152,7 @@ fn install_desktop_file(app: &Rc<App>) -> Result<()> {
 
     debug!("Installing desktop file");
 
-    let desktop_file = create_stand_alone_desktop_file(app)?;
+    let desktop_file = create_app_desktop_file(app_dirs)?;
 
     debug!(
         "Saving app desktop file to: {}",
@@ -159,27 +164,4 @@ fn install_desktop_file(app: &Rc<App>) -> Result<()> {
     ))?;
 
     Ok(())
-}
-
-fn create_stand_alone_desktop_file(app: &Rc<App>) -> Result<DesktopEntry> {
-    let app_id = config::APP_ID.get_value();
-    let app_version = config::VERSION.get_value();
-    let app_name = config::APP_NAME.get_value().clone();
-    let user_data_dir = app.dirs.user_data();
-    let extension = "desktop";
-    let file_name = format!("{app_id}.{extension}");
-    let applications_dir = user_data_dir.join("applications");
-    let desktop_file_path = applications_dir.join(file_name);
-
-    let mut base_desktop_file =
-        DesktopEntry::from_str(&desktop_file_path, DESKTOP_FILE, None::<&[String]>).context(
-            format!("Failed to parse base desktop file: {DESKTOP_FILE:?}"),
-        )?;
-
-    base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
-    base_desktop_file.add_desktop_entry("Version".to_string(), app_version.clone());
-    base_desktop_file.add_desktop_entry("Icon".to_string(), app_id.clone());
-    base_desktop_file.add_desktop_entry("StartupWMClass".to_string(), app_id.clone());
-
-    Ok(base_desktop_file)
 }

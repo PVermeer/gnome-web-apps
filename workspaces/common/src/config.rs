@@ -1,10 +1,7 @@
-use std::sync::OnceLock;
-
-use libadwaita::gtk::License;
+use crate::utils::strings::capitalize_all_words;
 use serde::Deserialize;
+use std::sync::OnceLock;
 use tracing::debug;
-
-use crate::services::utils::strings::capitalize_all_words;
 
 pub static APP_ID: OnceLock<String> = OnceLock::new();
 pub static VERSION: OnceLock<String> = OnceLock::new();
@@ -13,7 +10,7 @@ pub static APP_NAME_HYPHEN: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_UNDERSCORE: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_SHORT: OnceLock<String> = OnceLock::new();
 pub static DEVELOPER: OnceLock<String> = OnceLock::new();
-pub static LICENSE: OnceLock<License> = OnceLock::new();
+pub static LICENSE: OnceLock<String> = OnceLock::new();
 pub static ISSUES_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Deserialize)]
@@ -31,7 +28,7 @@ struct CargoToml {
     package: CargoPackageToml,
 }
 
-static CARGO_TOML: &str = include_str!("../../Cargo.toml");
+static CARGO_TOML: &str = include_str!("../../app/Cargo.toml");
 
 #[allow(unused)]
 pub fn init() {
@@ -59,11 +56,6 @@ pub fn init() {
         .to_lowercase();
 
     let id = format!("org.pvermeer.{name_dense}");
-    let license = match license.as_str() {
-        "GPL-3.0" => License::Gpl30,
-        "GPL-3.0-only" => License::Gpl30Only,
-        _ => panic!("Could not convert license"),
-    };
     let developer = authors
         .first()
         .expect("Could not load developer / author")

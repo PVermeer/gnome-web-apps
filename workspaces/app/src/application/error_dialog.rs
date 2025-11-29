@@ -1,13 +1,11 @@
-use crate::{
-    application::App,
-    services::config::{self, OnceLockExt},
-};
+use crate::application::App;
 use anyhow::Error;
 use gtk::Orientation;
 use libadwaita::{
     AlertDialog, ResponseAppearance,
     prelude::{AdwDialogExt, AlertDialogExt},
 };
+use common::config::{self, OnceLockExt};
 use std::rc::Rc;
 
 pub struct ErrorDialog {

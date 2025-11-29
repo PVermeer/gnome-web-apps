@@ -1,0 +1,33 @@
+[package]
+name = "gnome-web-apps"
+edition = { workspace = true }
+version = "0.0.1"
+license = "GPL-3.0-only"
+authors = ["PVermeer"]
+repository = "https://github.com/PVermeer/gnome-web-apps"
+homepage = "https://github.com/PVermeer/gnome-web-apps"
+documentation = "https://github.com/PVermeer/gnome-web-apps/README"
+
+[dependencies]
+anyhow = { workspace = true }
+common = { workspace = true }
+freedesktop-desktop-entry = { workspace = true }
+gtk = { workspace = true }
+include_dir ={ workspace = true }
+libadwaita = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+sanitize-filename ={ workspace = true }
+scraper = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+toml ={ workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ureq = { workspace = true }
+url = { workspace = true }
+validator = { workspace = true }
+
+[build-dependencies]
+common = { workspace = true }
+

@@ -1,15 +1,8 @@
 mod icon_picker;
 
-use crate::{
-    application::{
-        App,
-        pages::{NavPage, PrefPage},
-    },
-    services::{
-        browsers::{Base, Browser},
-        desktop_file::DesktopFile,
-        utils,
-    },
+use crate::application::{
+    App,
+    pages::{NavPage, PrefPage},
 };
 use anyhow::Context;
 use gtk::{
@@ -29,6 +22,11 @@ use libadwaita::{
         ComboRowExt, EntryRowExt, NavigationPageExt, PreferencesGroupExt, PreferencesPageExt,
         PreferencesRowExt,
     },
+};
+use common::{
+    browsers::{Base, Browser},
+    desktop_file::DesktopFile,
+    utils,
 };
 use std::{
     cell::{Cell, RefCell},

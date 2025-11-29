@@ -1,7 +1,6 @@
 use super::NavPage;
 use crate::{
     application::{App, pages::PrefPage},
-    services::browsers::{Browser, Installation},
 };
 use gtk::{
     Align, Label, Orientation,
@@ -11,6 +10,7 @@ use libadwaita::{
     ActionRow, ExpanderRow, NavigationPage, PreferencesGroup, PreferencesPage, StatusPage,
     prelude::{ExpanderRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
+use common::browsers::{Browser, Installation};
 use std::fmt::Write as _;
 use std::rc::Rc;
 

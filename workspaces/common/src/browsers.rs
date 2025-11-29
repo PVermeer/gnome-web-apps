@@ -1,9 +1,8 @@
-use crate::{
-    application::App,
-    services::{desktop_file::DesktopFile, utils},
-};
+use crate::app_dirs::AppDirs;
+use crate::utils;
 use anyhow::{Context, Result, bail};
-use gtk::Image;
+use freedesktop_desktop_entry::DesktopEntry;
+use gtk::{IconTheme, Image};
 use std::{cell::RefCell, collections::HashSet, fs, path::Path, process::Command, rc::Rc};
 use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
@@ -58,7 +57,7 @@ pub struct BrowserYaml {
 struct BrowserConfig {
     config: BrowserYaml,
     file_name: String,
-    desktop_file: DesktopFile,
+    desktop_file: DesktopEntry,
 }
 
 pub struct Browser {
@@ -68,12 +67,12 @@ pub struct Browser {
     pub can_isolate: bool,
     pub flatpak_id: Option<String>,
     pub executable: Option<String>,
-    pub desktop_file: DesktopFile,
+    pub desktop_file: DesktopEntry,
     pub desktop_file_name_prefix: String,
     pub base: Base,
     configs: Rc<BrowserConfigs>,
+    icon_theme: Rc<IconTheme>,
     icon_names: HashSet<String>,
-    app: Rc<App>,
 }
 impl Browser {
     const FALLBACK_IMAGE: &str = "web-browser-symbolic";
@@ -82,7 +81,7 @@ impl Browser {
         browser_config: &BrowserConfig,
         installation: Installation,
         browser_configs: &Rc<BrowserConfigs>,
-        app: Rc<App>,
+        icon_theme: &Rc<IconTheme>,
     ) -> Self {
         let icon_names = Self::get_icon_names_from_config(browser_config);
         let name = browser_config.config.name.clone();
@@ -113,7 +112,7 @@ impl Browser {
             configs: browser_configs.clone(),
             icon_names,
             base,
-            app,
+            icon_theme: icon_theme.clone(),
         }
     }
 
@@ -165,7 +164,7 @@ impl Browser {
 
     pub fn get_icon(&self) -> Image {
         for icon in &self.icon_names {
-            if !self.app.has_icon(icon) {
+            if !self.icon_theme.has_icon(icon) {
                 continue;
             }
             let image = Image::from_icon_name(icon);
@@ -201,19 +200,23 @@ impl Browser {
 
 pub struct BrowserConfigs {
     all_browsers: RefCell<Vec<Rc<Browser>>>,
+    icon_theme: Rc<IconTheme>,
+    app_dirs: Rc<AppDirs>,
 }
 impl BrowserConfigs {
-    pub fn new() -> Rc<Self> {
+    pub fn new(icon_theme: &Rc<IconTheme>, app_dirs: &Rc<AppDirs>) -> Rc<Self> {
         Rc::new(Self {
             all_browsers: RefCell::new(Vec::new()),
+            icon_theme: icon_theme.clone(),
+            app_dirs: app_dirs.clone(),
         })
     }
 
-    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
-        let no_browser = self.get_no_browser(app);
+    pub fn init(self: &Rc<Self>) {
+        let no_browser = self.get_no_browser();
         self.all_browsers.borrow_mut().push(Rc::new(no_browser));
 
-        self.set_browsers_from_files(app);
+        self.set_browsers_from_files();
     }
 
     pub fn get_all_browsers(&self) -> Vec<Rc<Browser>> {
@@ -253,7 +256,7 @@ impl BrowserConfigs {
             .position(|browser_iter| browser_iter.id == browser.id)
     }
 
-    fn get_no_browser(self: &Rc<Self>, app: &Rc<App>) -> Browser {
+    fn get_no_browser(self: &Rc<Self>) -> Browser {
         Browser {
             id: String::default(),
             name: "No browser".to_string(),
@@ -261,17 +264,17 @@ impl BrowserConfigs {
             can_isolate: false,
             flatpak_id: None,
             executable: None,
-            desktop_file: DesktopFile::new(app),
+            desktop_file: DesktopEntry::from_appid("No browser".to_string()),
             desktop_file_name_prefix: String::default(),
             configs: self.clone(),
             icon_names: HashSet::from(["dialog-warning-symbolic".to_string()]),
             base: Base::None,
-            app: app.clone(),
+            icon_theme: self.icon_theme.clone(),
         }
     }
 
-    fn set_browsers_from_files(self: &Rc<Self>, app: &Rc<App>) {
-        let browser_configs = Self::get_browsers_from_files(app);
+    fn set_browsers_from_files(self: &Rc<Self>) {
+        let browser_configs = self.get_browsers_from_files();
         let mut all_browser_borrow = self.all_browsers.borrow_mut();
 
         for browser_config in browser_configs {
@@ -286,13 +289,13 @@ impl BrowserConfigs {
                         &browser_config,
                         Installation::Flatpak(installation),
                         self,
-                        app.clone(),
+                        &self.icon_theme,
                     ));
 
                     if utils::env::is_flatpak_container()
                         && let Some(icon_search_path) = Self::get_icon_search_path_flatpak(flatpak)
                     {
-                        app.add_icon_search_path(&icon_search_path);
+                        self.add_icon_search_path(&icon_search_path);
                     }
 
                     all_browser_borrow.push(browser);
@@ -315,7 +318,7 @@ impl BrowserConfigs {
                         &browser_config,
                         Installation::System,
                         self,
-                        app.clone(),
+                        &self.icon_theme,
                     ));
 
                     all_browser_borrow.push(browser);
@@ -430,12 +433,12 @@ impl BrowserConfigs {
         }
     }
 
-    fn get_browsers_from_files(app: &Rc<App>) -> Vec<Rc<BrowserConfig>> {
+    fn get_browsers_from_files(&self) -> Vec<Rc<BrowserConfig>> {
         debug!("Loading browsers config files");
 
         let mut browser_configs = Vec::new();
         let browser_config_files =
-            utils::files::get_entries_in_dir(&app.dirs.browser_configs()).unwrap_or_default();
+            utils::files::get_entries_in_dir(&self.app_dirs.browser_configs()).unwrap_or_default();
 
         for file in &browser_config_files {
             let file_name = file.file_name().to_string_lossy().to_string();
@@ -461,9 +464,9 @@ impl BrowserConfigs {
                 }
             };
 
-            let desktop_file = match (|| -> Result<DesktopFile> {
-                let desktop_file_path = app
-                    .dirs
+            let desktop_file = match (|| -> Result<DesktopEntry> {
+                let desktop_file_path = self
+                    .app_dirs
                     .browser_desktop_files()
                     .join(
                         file_path
@@ -471,7 +474,7 @@ impl BrowserConfigs {
                             .context("Could not get the file stem")?,
                     )
                     .with_extension("desktop");
-                let desktop_file = DesktopFile::from_path(&desktop_file_path, app)?;
+                let desktop_file = DesktopEntry::from_path(&desktop_file_path, None::<&[String]>)?;
                 Ok(desktop_file)
             })() {
                 Ok(result) => result,
@@ -490,5 +493,15 @@ impl BrowserConfigs {
         }
 
         browser_configs
+    }
+
+    pub fn add_icon_search_path(self: &Rc<Self>, path: &Path) {
+        if !path.is_dir() {
+            debug!("Not a valid icon path: {}", path.display());
+            return;
+        }
+
+        debug!("Adding icon path to icon theme: {}", path.display());
+        self.icon_theme.add_search_path(path);
     }
 }

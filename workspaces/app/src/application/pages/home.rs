@@ -1,7 +1,6 @@
-use super::{NavPage, Page};
-use crate::{
-    application::{App, pages::ContentPage},
-    services::config::{self, OnceLockExt},
+use crate::application::{
+    App,
+    pages::{ContentPage, NavPage, Page},
 };
 use gtk::{
     Align, Button, Orientation,
@@ -11,6 +10,7 @@ use libadwaita::{
     ActionRow, NavigationPage,
     gtk::{self, Label, prelude::BoxExt},
 };
+use common::config::{self, OnceLockExt};
 use std::rc::Rc;
 
 pub struct HomePage {

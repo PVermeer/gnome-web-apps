@@ -1,10 +1,7 @@
 use crate::{
-    application::App,
-    config,
-    services::{
-        browsers::{Browser, Installation},
-        config::OnceLockExt,
-    },
+    app_dirs::AppDirs,
+    browsers::{Browser, BrowserConfigs, Installation},
+    config::{self, OnceLockExt},
 };
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
@@ -93,11 +90,12 @@ fn map_to_path_option(value: PathBuf) -> Option<PathBuf> {
 
 #[derive(Clone)]
 pub struct DesktopFile {
-    app: Rc<App>,
     desktop_entry: DesktopEntry,
+    browser_configs: Rc<BrowserConfigs>,
+    app_dirs: Rc<AppDirs>,
 }
 impl DesktopFile {
-    pub fn new(app: &Rc<App>) -> Self {
+    pub fn new(browser_configs: &Rc<BrowserConfigs>, app_dirs: &Rc<AppDirs>) -> Self {
         let mut desktop_entry = DesktopEntry::from_appid(String::new());
 
         let random_id: String = rand::thread_rng()
@@ -108,26 +106,38 @@ impl DesktopFile {
         desktop_entry.add_desktop_entry(Keys::Id.to_string(), random_id);
 
         Self {
-            app: app.clone(),
             desktop_entry,
+            browser_configs: browser_configs.clone(),
+            app_dirs: app_dirs.clone(),
         }
     }
 
-    pub fn from_path(path: &Path, app: &Rc<App>) -> Result<Self> {
+    pub fn from_path(
+        path: &Path,
+        browser_configs: &Rc<BrowserConfigs>,
+        app_dirs: &Rc<AppDirs>,
+    ) -> Result<Self> {
         let desktop_entry = DesktopEntry::from_path(path, None::<&[String]>)?;
 
         Ok(Self {
-            app: app.clone(),
             desktop_entry,
+            browser_configs: browser_configs.clone(),
+            app_dirs: app_dirs.clone(),
         })
     }
 
-    pub fn from_string(path: &Path, str: &str, app: &Rc<App>) -> Result<Self> {
+    pub fn from_string(
+        path: &Path,
+        str: &str,
+        browser_configs: &Rc<BrowserConfigs>,
+        app_dirs: &Rc<AppDirs>,
+    ) -> Result<Self> {
         let desktop_entry = DesktopEntry::from_str(path, str, None::<&[String]>)?;
 
         Ok(Self {
-            app: app.clone(),
             desktop_entry,
+            browser_configs: browser_configs.clone(),
+            app_dirs: app_dirs.clone(),
         })
     }
 
@@ -232,7 +242,7 @@ impl DesktopFile {
         self.desktop_entry
             .desktop_entry(&Keys::BrowserId.to_string())
             .and_then(map_to_string_option)
-            .and_then(|browser_id| self.app.browser_configs.get_by_id(&browser_id))
+            .and_then(|browser_id| self.browser_configs.get_by_id(&browser_id))
     }
 
     pub fn set_browser(&mut self, browser: &Rc<Browser>) {
@@ -340,16 +350,14 @@ impl DesktopFile {
         let id = self.get_id().context("No id on 'DesktopFile'")?;
 
         let profile_path = match browser.installation {
-            Installation::Flatpak(_) => self
-                .app
-                .dirs
+            Installation::Flatpak(_) => self.app_dirs
                 .flatpak()
                 .join(&browser.id)
                 .join("data")
                 .join("profiles")
                 .join(&id),
 
-            Installation::System => self.app.dirs.profiles().join(&browser.id).join(&id),
+            Installation::System => self.app_dirs.profiles().join(&browser.id).join(&id),
 
             Installation::None => bail!("No installation type on 'DesktopFile'"),
         };
@@ -447,29 +455,22 @@ impl DesktopFile {
     fn get_entries(&self) -> Result<DesktopFileEntries> {
         match (|| -> Result<DesktopFileEntries> {
             let name = self.get_name().context("Missing 'Name'")?;
-
             let id = self.get_id().context(format!("Missing '{}'", Keys::Id))?;
-
+            let url = self.get_url().context(format!("Missing '{}'", Keys::Url))?;
             let browser = self
                 .get_browser()
                 .context(format!("Missing '{}'", Keys::BrowserId))?;
-
-            let url = self.get_url().context(format!("Missing '{}'", Keys::Url))?;
-
             let domain = Url::parse(&url)?
                 .domain()
                 .and_then(map_to_string_option)
                 .context("Failed to get domain of url")?;
-
             let isolate = self
                 .get_isolated()
                 .context(format!("Missing '{}'", Keys::Isolate))?;
-
             let icon = self
                 .get_icon_path()
                 .and_then(map_to_path_option)
                 .context("Missing 'Icon'")?;
-
             let profile_path = self
                 .get_profile_path()
                 .or_else(|| {
@@ -499,23 +500,25 @@ impl DesktopFile {
         }
     }
 
-    fn get_save_path(&self, desktop_files_entries: &DesktopFileEntries) -> PathBuf {
-        let applications_dir = self.app.dirs.applications();
+    fn get_save_path(&self) -> Result<PathBuf> {
+        let applications_dir = self.app_dirs.applications();
         let file_name = format!(
             "{}-{}{}",
-            desktop_files_entries.browser.desktop_file_name_prefix,
+            self.get_browser()
+                .context("Failed to get browser")?
+                .desktop_file_name_prefix,
             config::APP_NAME_SHORT.get_value(),
-            desktop_files_entries.id
+            self.get_id().context("Failed to get my id")?
         );
         let mut desktop_file_path = applications_dir.join(file_name);
         desktop_file_path.add_extension("desktop");
 
-        desktop_file_path
+        Ok(desktop_file_path)
     }
 
     fn to_new_from_browser(&self) -> Result<DesktopFile> {
         let entries = self.get_entries()?;
-        let save_path = self.get_save_path(&entries);
+        let save_path = self.get_save_path()?;
 
         let mut d_str = entries.browser.desktop_file.clone().to_string();
         d_str = d_str.replace("%{command}", &entries.browser.get_command()?);
@@ -542,7 +545,8 @@ impl DesktopFile {
             d_str = re.replace_all(&d_str, replacement).to_string();
         }
 
-        let mut new_desktop_file = Self::from_string(&save_path, &d_str, &self.app)?;
+        let mut new_desktop_file =
+            Self::from_string(&save_path, &d_str, &self.browser_configs, &self.app_dirs)?;
 
         new_desktop_file.set_is_owned_app();
         new_desktop_file.set_url(&entries.url);

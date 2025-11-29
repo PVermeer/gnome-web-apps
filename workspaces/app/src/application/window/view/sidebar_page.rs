@@ -1,16 +1,13 @@
 use std::rc::Rc;
 
 use super::NavPage;
-use crate::{
-    application::{App, pages::Page},
-    config,
-    services::config::OnceLockExt,
-};
+use crate::application::{App, pages::Page};
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, ToolbarView,
     gtk::{ListBox, SelectionMode},
     prelude::ActionRowExt,
 };
+use common::config::{self, OnceLockExt};
 
 pub struct SidebarPage {
     pub nav_page: NavigationPage,

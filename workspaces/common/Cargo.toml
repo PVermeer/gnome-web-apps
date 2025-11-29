@@ -1,0 +1,17 @@
+[package]
+name = "common"
+edition = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+freedesktop-desktop-entry = { workspace = true }
+gtk = { workspace = true }
+include_dir = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+ureq = { workspace = true }
+url = { workspace = true }

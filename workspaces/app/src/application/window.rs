@@ -1,6 +1,8 @@
 mod view;
 
-use crate::{application::App, config, services::config::OnceLockExt};
+use crate::application::App;
+use common::config::{self, OnceLockExt};
+use gtk::License;
 use libadwaita::{
     AboutDialog, ApplicationWindow,
     gtk::prelude::GtkWindowExt,
@@ -39,12 +41,18 @@ impl AppWindow {
     }
 
     pub fn show_about(&self) {
+        let license = match config::LICENSE.get_value().as_str() {
+            "GPL-3.0" => License::Gpl30,
+            "GPL-3.0-only" => License::Gpl30Only,
+            _ => panic!("Could not convert license"),
+        };
+
         let about = AboutDialog::builder()
             .application_icon(config::APP_ID.get_value())
             .application_name(config::APP_NAME.get_value())
             .version(config::VERSION.get_value())
             .developer_name(config::DEVELOPER.get_value())
-            .license_type(*config::LICENSE.get_value())
+            .license_type(license)
             .issue_url(config::ISSUES_URL.get_value())
             .build();
 
