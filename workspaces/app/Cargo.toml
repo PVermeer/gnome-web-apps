@@ -36,6 +36,4 @@ validator = { workspace = true }
 [build-dependencies]
 common = { workspace = true }
 anyhow = { workspace = true }
-gtk = { workspace = true }
-serde = { workspace = true }
-serde_xml = { workspace = true }
+freedesktop-desktop-entry = { workspace = true }

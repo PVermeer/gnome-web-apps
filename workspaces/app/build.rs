@@ -1,19 +1,17 @@
-use anyhow::{Context, Result};
+use anyhow::{Result, bail};
 use common::{
     app_dirs::AppDirs,
     assets,
     config::{self, OnceLockExt},
     utils,
 };
-use serde::{Deserialize, Serialize};
+use freedesktop_desktop_entry::DesktopEntry;
 use std::{
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
+    process::Command,
 };
-
-#[derive(Serialize, Deserialize, PartialEq)]
-struct MetaInfoXml {}
 
 fn main() -> Result<()> {
     println!("cargo:warning=Debug: build script is running!");
@@ -24,7 +22,7 @@ fn main() -> Result<()> {
     create_config_symlinks(&app_dirs);
     create_data_symlinks(&app_dirs);
 
-    create_app_desktop_file(&app_dirs)?;
+    create_app_desktop_file()?;
     create_app_icon()?;
     create_app_metainfo_file()?;
 
@@ -54,20 +52,29 @@ fn create_data_symlinks(app_dirs: &AppDirs) {
     }
 }
 
-fn create_app_desktop_file(app_dirs: &AppDirs) -> Result<()> {
-    let desktop_file = assets::create_app_desktop_file(app_dirs)?;
-    let file_name = desktop_file
-        .path
-        .file_name()
-        .context("Failed to get filename on dekstop file")?;
+fn create_app_desktop_file() -> Result<()> {
+    let desktop_file = assets::get_desktop_file();
+    let app_id = config::APP_ID.get_value();
+    let app_name = config::APP_NAME.get_value();
+    let app_name_short = config::APP_NAME_SHORT.get_value();
+    let extension = "desktop";
+    let file_name = format!("{app_id}.{extension}");
     let save_dir = build_assets_path().join("desktop");
     let save_path = save_dir.join(file_name);
+
+    let mut base_desktop_file =
+        DesktopEntry::from_str(&save_path, desktop_file, None::<&[String]>)?;
+
+    base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
+    base_desktop_file.add_desktop_entry("Icon".to_string(), app_id.clone());
+    base_desktop_file.add_desktop_entry("StartupWMClass".to_string(), app_id.clone());
+    base_desktop_file.add_desktop_entry("Exec".to_string(), app_name_short.clone());
 
     if !save_dir.is_dir() {
         fs::create_dir_all(&save_dir)?;
     }
 
-    fs::write(&save_path, desktop_file.to_string())?;
+    fs::write(&save_path, base_desktop_file.to_string())?;
 
     Ok(())
 }
@@ -90,16 +97,57 @@ fn create_app_icon() -> Result<()> {
 }
 
 fn create_app_metainfo_file() -> Result<()> {
-    let meta_info: MetaInfoXml = serde_xml::from_str(assets::get_meta_info())?;
-    let save_dir = build_assets_path().join("desktop");
-    let save_path = save_dir.join(format!("{}.metadata.xml", config::APP_ID.get_value()));
+    let app_id = config::APP_ID.get_value();
+    let app_name = config::APP_NAME.get_value();
+    // let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
+    let developer = config::DEVELOPER.get_value();
+    let developer_id = &developer.to_lowercase();
+    let app_summary = config::APP_SUMMARY.get_value();
+    let app_description = config::APP_DESCRIPTION.get_value();
+    let license = config::LICENSE.get_value();
+    let repository = config::REPOSITORY.get_value();
 
-    let serialised = serde_xml::to_string(&meta_info)?;
+    // Change to this when name is final and repo name has changed
+    // let screenshot_base_url = &format!(
+    //     "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/heads/main/assets/screenshots"
+    // );
+    let screenshot_base_url = &format!(
+        "https://raw.githubusercontent.com/{developer}/gnome-web-apps/refs/heads/main/assets/screenshots"
+    );
+
+    let mut meta_data = assets::get_meta_info().to_string();
+
+    meta_data = meta_data.replace("%{app_id}", app_id);
+    meta_data = meta_data.replace("%{app_name}", app_name);
+    meta_data = meta_data.replace("%{developer}", developer);
+    meta_data = meta_data.replace("%{developer_id}", developer_id);
+    meta_data = meta_data.replace("%{app_summary}", app_summary);
+    meta_data = meta_data.replace("%{app_description}", app_description);
+    meta_data = meta_data.replace("%{license}", license);
+    meta_data = meta_data.replace("%{repository}", repository);
+    meta_data = meta_data.replace("%{screenshot_base_url}", screenshot_base_url);
+
+    let save_dir = build_assets_path().join("desktop");
+    let save_path = save_dir.join(format!("{app_id}.metainfo.xml"));
 
     if !save_dir.is_dir() {
         fs::create_dir_all(&save_dir)?;
     }
-    fs::write(&save_path, serialised)?;
+    fs::write(&save_path, meta_data)?;
+
+    match Command::new("appstreamcli")
+        .arg("validate")
+        .arg("--no-net")
+        .arg(save_path.as_os_str())
+        .output()
+    {
+        Err(error) => bail!(error),
+        Ok(output) => {
+            if !output.status.success() {
+                bail!("Metainfo file does not validate!")
+            }
+        }
+    }
 
     Ok(())
 }

@@ -20,6 +20,7 @@ static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
 static META_INFO: &str = include_str!("../../../assets/app.metainfo.xml");
+static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.txt");
 
 pub fn init(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     info!("Creating / overwriting assets");
@@ -42,7 +43,7 @@ pub fn reset_config_files(app_dirs: &AppDirs) -> Result<()> {
     Ok(())
 }
 
-pub fn create_app_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntry> {
+pub fn create_stand_alone_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntry> {
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value().clone();
     let user_data_dir = app_dirs.user_data();
@@ -69,6 +70,14 @@ pub fn get_icon_data() -> &'static [u8] {
 
 pub fn get_meta_info() -> &'static str {
     META_INFO
+}
+
+pub fn get_app_description() -> &'static str {
+    APP_DESCRIPTION
+}
+
+pub fn get_desktop_file() -> &'static str {
+    DESKTOP_FILE
 }
 
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
@@ -135,7 +144,7 @@ fn install_desktop_file(app_dirs: &AppDirs) -> Result<()> {
 
     debug!("Installing desktop file");
 
-    let desktop_file = create_app_desktop_file(app_dirs)?;
+    let desktop_file = create_stand_alone_desktop_file(app_dirs)?;
 
     debug!(
         "Saving app desktop file to: {}",

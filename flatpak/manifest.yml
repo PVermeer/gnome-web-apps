@@ -29,6 +29,9 @@ modules:
     build-commands:
       - cargo build --release --frozen
       - install -D target/release/yawam /app/bin/yawam
+      - install -D assets/desktop/org.pvermeer.YetAnotherWebAppManager.metainfo.xml -t /app/share/metainfo/
+      - install -D assets/desktop/org.pvermeer.YetAnotherWebAppManager.desktop -t /app/share/applications/
+      - install -D assets/desktop/org.pvermeer.YetAnotherWebAppManager.png -t /app/share/icons/hicolor/256x256/apps/
     sources:
       - type: dir
         path: ..

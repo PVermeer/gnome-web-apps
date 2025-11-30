@@ -10,7 +10,6 @@ include_dir = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
-serde_xml = { workspace = true }
 serde_yaml = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }

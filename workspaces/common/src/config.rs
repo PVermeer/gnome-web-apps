@@ -1,4 +1,4 @@
-use crate::utils::strings::capitalize_all_words;
+use crate::{assets, utils::strings::capitalize_all_words};
 use serde::Deserialize;
 use std::sync::OnceLock;
 use tracing::debug;
@@ -6,12 +6,15 @@ use tracing::debug;
 pub static APP_ID: OnceLock<String> = OnceLock::new();
 pub static VERSION: OnceLock<String> = OnceLock::new();
 pub static APP_NAME: OnceLock<String> = OnceLock::new();
+pub static APP_SUMMARY: OnceLock<String> = OnceLock::new();
 pub static APP_DESCRIPTION: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_HYPHEN: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_UNDERSCORE: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_SHORT: OnceLock<String> = OnceLock::new();
+pub static APP_TEXT: OnceLock<String> = OnceLock::new();
 pub static DEVELOPER: OnceLock<String> = OnceLock::new();
 pub static LICENSE: OnceLock<String> = OnceLock::new();
+pub static REPOSITORY: OnceLock<String> = OnceLock::new();
 pub static ISSUES_URL: OnceLock<String> = OnceLock::new();
 
 #[derive(Deserialize)]
@@ -34,9 +37,10 @@ static CARGO_TOML: &str = include_str!("../../app/Cargo.toml");
 
 pub fn init() {
     set_from_cargo_toml();
+    set_from_assets();
 }
 
-#[allow(unused)]
+#[allow(unused_variables)]
 fn set_from_cargo_toml() {
     let CargoToml {
         package:
@@ -69,16 +73,25 @@ fn set_from_cargo_toml() {
         .clone();
     let issues_url = format!("{repository}/issues");
 
-    APP_ID.set(id);
-    VERSION.set(version);
-    APP_NAME.set(name);
-    APP_DESCRIPTION.set(description);
-    APP_NAME_HYPHEN.set(name_hyphen);
-    APP_NAME_UNDERSCORE.set(name_underscore);
-    APP_NAME_SHORT.set(name_short);
-    DEVELOPER.set(developer);
-    LICENSE.set(license);
-    ISSUES_URL.set(issues_url);
+    APP_ID.set(id).unwrap_or_default();
+    VERSION.set(version).unwrap_or_default();
+    APP_NAME.set(name).unwrap_or_default();
+    APP_SUMMARY.set(description).unwrap_or_default();
+    APP_NAME_HYPHEN.set(name_hyphen).unwrap_or_default();
+    APP_NAME_UNDERSCORE.set(name_underscore).unwrap_or_default();
+    APP_NAME_SHORT.set(name_short).unwrap_or_default();
+    DEVELOPER.set(developer).unwrap_or_default();
+    LICENSE.set(license).unwrap_or_default();
+    REPOSITORY.set(repository).unwrap_or_default();
+    ISSUES_URL.set(issues_url).unwrap_or_default();
+}
+
+fn set_from_assets() {
+    let description = assets::get_app_description();
+
+    APP_DESCRIPTION
+        .set(description.to_string())
+        .unwrap_or_default();
 }
 
 pub fn log_all_values_debug() {

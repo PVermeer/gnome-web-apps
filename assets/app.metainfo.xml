@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <!-- <id>url.some.gnome_web_apps</id> -->
-  <!-- <name>Some name</name> -->
-  <!-- <developer id="org.pvermeer">
-    <name>PVermeer</name>
-  </developer> -->
-  <!-- <launchable type="desktop-id">my-desktop-file.desktop</launchable> -->
-  <!-- <summary>Yet Another Web App Manager</summary> -->
+  <id>%{app_id}</id>
+  <name>%{app_name}</name>
+  <developer id="org.%{developer_id}">
+    <name>%{developer}</name>
+  </developer>
+  <launchable type="desktop-id">%{app_id}.desktop</launchable>
+  <summary>%{app_summary}</summary>
   <description>
     <p>
-      Yet another Web App Manager. Doing web apps the easy way. Create applications of your
-      favourite websites using your installed browser.
+      %{app_description}
     </p>
   </description>
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>WebBrowser</category>
+  </categories>
 
   <metadata_license>CC-BY-SA-4.0</metadata_license>
-  <!-- <project_license>GPL-3.0-only</project_license> -->
+  <project_license>%{license}</project_license>
 
-  <!-- <url type="homepage">https://apps.gnome.org/PikaBackup/</url>
-  <url type="bugtracker">https://gitlab.gnome.org/World/pika-backup/-/issues</url>
-  <url type="contact">https://matrix.to/#/#pika-backup:gnome.org</url>
-  <url type="donation">https://opencollective.com/pika-backup</url>
-  <url type="vcs-browser">https://gitlab.gnome.org/World/pika-backup/</url>
-  <url type="help">https://world.pages.gitlab.gnome.org/pika-backup/help/C/</url>
-  <url type="contribute">https://welcome.gnome.org/app/PikaBackup/</url> -->
+  <url type="homepage">%{repository}</url>
+  <url type="bugtracker">%{repository}/issues</url>
+  <url type="contact">%{repository}/issues</url>
+  <!-- <url type="donation"></url> -->
+  <url type="vcs-browser">%{repository}</url>
+  <url type="help">%{repository}/README</url>
+  <url type="contribute">%{repository}</url>
 
   <recommends>
     <display_length compare="ge">360</display_length>
@@ -35,11 +39,12 @@
     <control>tablet</control>
   </supports>
 
-  <!-- <screenshots>
+  <screenshots>
     <screenshot type="default">
-      <image>https://some-screenshot</image>
+      <image>
+        %{screenshot_base_url}/screenshot-1.png</image>
     </screenshot>
-  </screenshots> -->
+  </screenshots>
 
   <!-- <releases>
     <release version="0.0.1" date="2025-11-26">
