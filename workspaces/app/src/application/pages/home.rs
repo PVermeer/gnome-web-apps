@@ -2,7 +2,10 @@ use crate::application::{
     App,
     pages::{ContentPage, NavPage, Page},
 };
-use common::config::{self, OnceLockExt};
+use common::{
+    config::{self, OnceLockExt},
+    utils,
+};
 use gtk::{
     Align, Button, Orientation,
     prelude::{ButtonExt, WidgetExt},
@@ -72,14 +75,23 @@ impl HomePage {
         icon.set_margin_start(25);
         icon.set_margin_end(25);
 
-        let label = Label::builder()
+        let name = Label::builder()
             .label(config::APP_NAME.get_value())
             .css_classes(["title-1"])
             .wrap(true)
             .build();
+        let name_short = Label::builder()
+            .label(format!(
+                "({})",
+                utils::strings::capitalize(config::APP_NAME_SHORT.get_value())
+            ))
+            .css_classes(["title-2"])
+            .wrap(true)
+            .build();
 
         content_box.append(&icon);
-        content_box.append(&label);
+        content_box.append(&name);
+        content_box.append(&name_short);
 
         content_box
     }

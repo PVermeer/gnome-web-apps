@@ -16,13 +16,7 @@
       "cargo": {
         "args": [
           "build",
-          "--bin=gnome-web-apps",
-          "--package=gnome-web-apps"
         ],
-        "filter": {
-          "name": "gnome-web-apps",
-          "kind": "bin"
-        }
       },
       "args": [],
       "cwd": "${workspaceFolder}"
@@ -40,7 +34,7 @@
         "--user",
         "run",
         "--filesystem=/workspaces",
-        "org.pvermeer.GnomeWebApps"
+        "org.pvermeer.YetAnotherWebAppManager"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
@@ -58,7 +52,7 @@
         "--user",
         "run",
         "--filesystem=/workspaces",
-        "org.pvermeer.GnomeWebApps"
+        "org.pvermeer.YetAnotherWebAppManager"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
@@ -80,7 +74,7 @@
         "--devel",
         "--filesystem=/workspaces",
         "--command=bash",
-        "org.pvermeer.GnomeWebApps"
+        "org.pvermeer.YetAnotherWebAppManager"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
@@ -97,13 +91,7 @@
         "args": [
           "test",
           "--no-run",
-          "--bin=gnome-web-apps",
-          "--package=gnome-web-apps"
         ],
-        "filter": {
-          "name": "gnome-web-apps",
-          "kind": "bin"
-        }
       },
       "args": [],
       "cwd": "${workspaceFolder}"

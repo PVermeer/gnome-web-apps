@@ -6,11 +6,11 @@ StartupWMClass=brave-www.youtube.com__-Default
 Terminal=false
 Type=Application
 Version=1.0
-X-GWA=true
-X-GWA-BROWSER-ID=com.brave.Browser
-X-GWA-ID=12345678
-X-GWA-ISOLATE=true
-X-GWA-PROFILE-DIR=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
-X-GWA-URL=https://www.youtube.com
+X-YAWAM=true
+X-YAWAM-BROWSER-ID=com.brave.Browser
+X-YAWAM-ID=12345678
+X-YAWAM-ISOLATE=true
+X-YAWAM-PROFILE-DIR=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
+X-YAWAM-URL=https://www.youtube.com
 X-MultipleArgs=false
 

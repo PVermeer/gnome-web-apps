@@ -6,6 +6,7 @@ use tracing::debug;
 pub static APP_ID: OnceLock<String> = OnceLock::new();
 pub static VERSION: OnceLock<String> = OnceLock::new();
 pub static APP_NAME: OnceLock<String> = OnceLock::new();
+pub static APP_DESCRIPTION: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_HYPHEN: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_UNDERSCORE: OnceLock<String> = OnceLock::new();
 pub static APP_NAME_SHORT: OnceLock<String> = OnceLock::new();
@@ -16,6 +17,7 @@ pub static ISSUES_URL: OnceLock<String> = OnceLock::new();
 #[derive(Deserialize)]
 struct CargoPackageToml {
     name: String,
+    description: String,
     version: String,
     license: String,
     authors: Vec<String>,
@@ -30,12 +32,17 @@ struct CargoToml {
 
 static CARGO_TOML: &str = include_str!("../../app/Cargo.toml");
 
-#[allow(unused)]
 pub fn init() {
+    set_from_cargo_toml();
+}
+
+#[allow(unused)]
+fn set_from_cargo_toml() {
     let CargoToml {
         package:
             CargoPackageToml {
                 name,
+                description,
                 version,
                 license,
                 authors,
@@ -65,6 +72,7 @@ pub fn init() {
     APP_ID.set(id);
     VERSION.set(version);
     APP_NAME.set(name);
+    APP_DESCRIPTION.set(description);
     APP_NAME_HYPHEN.set(name_hyphen);
     APP_NAME_UNDERSCORE.set(name_underscore);
     APP_NAME_SHORT.set(name_short);

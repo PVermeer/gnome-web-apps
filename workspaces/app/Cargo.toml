@@ -1,12 +1,17 @@
 [package]
-name = "gnome-web-apps"
-edition = { workspace = true }
+name = "yet-another-web-app-manager"
 version = "0.0.1"
+description = "Create web apps"
+edition = { workspace = true }
 license = "GPL-3.0-only"
 authors = ["PVermeer"]
 repository = "https://github.com/PVermeer/gnome-web-apps"
 homepage = "https://github.com/PVermeer/gnome-web-apps"
 documentation = "https://github.com/PVermeer/gnome-web-apps/README"
+
+[[bin]]
+name = "yawam"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -31,3 +36,6 @@ validator = { workspace = true }
 [build-dependencies]
 common = { workspace = true }
 anyhow = { workspace = true }
+gtk = { workspace = true }
+serde = { workspace = true }
+serde_xml = { workspace = true }

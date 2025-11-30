@@ -1,0 +1,6 @@
+[Desktop Entry]
+Icon=org.pvermeer.YetAnotherWebAppManager
+Name=Yet Another Web App Manager
+StartupWMClass=org.pvermeer.YetAnotherWebAppManager
+Type=Application
+

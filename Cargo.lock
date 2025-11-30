@@ -130,6 +130,7 @@ dependencies = [
  "rand",
  "regex",
  "serde",
+ "serde-xml-rs",
  "serde_yaml",
  "toml",
  "tracing",
@@ -528,30 +529,6 @@ checksum = "d09d3d0fddf7239521674e57b0465dfbd844632fec54f059f7f56112e3f927e1"
 dependencies = [
  "libc",
  "system-deps",
-]
-
-[[package]]
-name = "gnome-web-apps"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "common",
- "freedesktop-desktop-entry",
- "gtk4",
- "include_dir",
- "libadwaita",
- "rand",
- "regex",
- "sanitize-filename",
- "scraper",
- "serde",
- "serde_yaml",
- "toml",
- "tracing",
- "tracing-subscriber",
- "ureq",
- "url",
- "validator",
 ]
 
 [[package]]
@@ -1417,6 +1394,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-xml-rs"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc2215ce3e6a77550b80a1c37251b7d294febaf42e36e21b7b411e0bf54d540d"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror",
+ "xml",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2032,6 +2021,37 @@ name = "xdg"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fb433233f2df9344722454bc7e96465c9d03bff9d77c248f9e7523fe79585b5"
+
+[[package]]
+name = "xml"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2df5825faced2427b2da74d9100f1e2e93c533fff063506a81ede1cf517b2e7e"
+
+[[package]]
+name = "yet-another-web-app-manager"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "common",
+ "freedesktop-desktop-entry",
+ "gtk4",
+ "include_dir",
+ "libadwaita",
+ "rand",
+ "regex",
+ "sanitize-filename",
+ "scraper",
+ "serde",
+ "serde-xml-rs",
+ "serde_yaml",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+ "url",
+ "validator",
+]
 
 [[package]]
 name = "yoke"

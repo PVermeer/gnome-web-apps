@@ -21,7 +21,7 @@ echo -e "\n==== Building Bundle ====\n"
 
 flatpak build-bundle \
     target/flatpak/repo \
-    target/flatpak/gnome-web-apps.flatpak \
-    org.pvermeer.GnomeWebApps
+    target/flatpak/yet-another-web-app-manager.flatpak \
+    org.pvermeer.YetAnotherWebAppManager
 
 echo -e "\n==== Done ====\n"

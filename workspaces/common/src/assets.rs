@@ -19,6 +19,7 @@ use tracing::{debug, info};
 static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
+static META_INFO: &str = include_str!("../../../assets/app.metainfo.xml");
 
 pub fn init(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     info!("Creating / overwriting assets");
@@ -66,6 +67,10 @@ pub fn get_icon_data() -> &'static [u8] {
     ICON
 }
 
+pub fn get_meta_info() -> &'static str {
+    META_INFO
+}
+
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
     debug!("Extracting config dir");
     let config_dir = app_dirs.config();
@@ -78,7 +83,6 @@ fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
     Ok(())
 }
 
-// TODO add versioning
 fn install_app_icon(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     debug!("Installing app icon");
 
@@ -123,34 +127,11 @@ fn install_app_icon(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
 
 fn install_desktop_file(app_dirs: &AppDirs) -> Result<()> {
     let app_id = config::APP_ID.get_value();
-    let app_version = config::VERSION.get_value();
     let user_data_dir = app_dirs.user_data();
     let extension = "desktop";
     let file_name = format!("{app_id}.{extension}");
     let applications_dir = user_data_dir.join("applications");
     let desktop_file_path = applications_dir.join(file_name);
-
-    if desktop_file_path.is_file() && !cfg!(debug_assertions) {
-        let existing_desktop_file_str = fs::read_to_string(&desktop_file_path).context(format!(
-            "Failed to read existing desktop file: {}",
-            &desktop_file_path.display()
-        ))?;
-        let existing_desktop_file = DesktopEntry::from_str(
-            &desktop_file_path,
-            &existing_desktop_file_str,
-            None::<&[String]>,
-        )
-        .context(format!(
-            "Failed to parse base desktop file: {existing_desktop_file_str:?}"
-        ))?;
-
-        if existing_desktop_file
-            .version()
-            .is_some_and(|version| version == app_version)
-        {
-            return Ok(());
-        }
-    }
 
     debug!("Installing desktop file");
 

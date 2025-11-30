@@ -1,11 +1,11 @@
-id: org.pvermeer.GnomeWebApps
+id: org.pvermeer.YetAnotherWebAppManager
 runtime: org.gnome.Platform
 runtime-version: "49"
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 
-command: gnome-web-apps
+command: yawam
 
 finish-args:
   - --socket=wayland
@@ -19,7 +19,7 @@ finish-args:
   - --filesystem=/var/lib/flatpak/app:ro
 
 modules:
-  - name: gnome-web-apps
+  - name: yet-another-web-app-manager
     buildsystem: simple
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin
@@ -28,7 +28,7 @@ modules:
         FLATPAK_BUILDER_DIR: target/flatpak
     build-commands:
       - cargo build --release --frozen
-      - install -D target/release/gnome-web-apps /app/bin/gnome-web-apps
+      - install -D target/release/yawam /app/bin/yawam
     sources:
       - type: dir
         path: ..

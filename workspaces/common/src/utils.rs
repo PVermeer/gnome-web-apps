@@ -3,7 +3,7 @@ pub mod files {
     use std::{
         fs::{self, DirEntry},
         os,
-        path::{self, Path},
+        path::Path,
     };
     use tracing::debug;
 
@@ -34,7 +34,7 @@ pub mod files {
             }
 
             if !target.is_absolute() {
-                if let Ok(target_absolute) = path::absolute(&target) {
+                if let Ok(target_absolute) = target.canonicalize() {
                     target = target_absolute;
                 } else {
                     bail!(

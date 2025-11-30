@@ -17,6 +17,7 @@ regex = "1"
 sanitize-filename = "0.6"
 scraper = { version = "0", features = ["atomic"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_xml = { version = "0.8.2", package = "serde-xml-rs" }
 serde_yaml = "0.9"
 toml = "0.9.8"
 tracing = "0.1.41"

@@ -35,7 +35,8 @@
 				"tamasfe.even-better-toml",
 				"redhat.vscode-yaml",
 				"foxundermoon.shell-format",
-				"timonwong.shellcheck"
+				"timonwong.shellcheck",
+				"redhat.vscode-xml"
 			]
 		}
 	}

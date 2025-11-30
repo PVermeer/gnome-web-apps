@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <!-- <id>url.some.gnome_web_apps</id> -->
+  <!-- <name>Some name</name> -->
+  <!-- <developer id="org.pvermeer">
+    <name>PVermeer</name>
+  </developer> -->
+  <!-- <launchable type="desktop-id">my-desktop-file.desktop</launchable> -->
+  <!-- <summary>Yet Another Web App Manager</summary> -->
+  <description>
+    <p>
+      Yet another Web App Manager. Doing web apps the easy way. Create applications of your
+      favourite websites using your installed browser.
+    </p>
+  </description>
+
+  <metadata_license>CC-BY-SA-4.0</metadata_license>
+  <!-- <project_license>GPL-3.0-only</project_license> -->
+
+  <!-- <url type="homepage">https://apps.gnome.org/PikaBackup/</url>
+  <url type="bugtracker">https://gitlab.gnome.org/World/pika-backup/-/issues</url>
+  <url type="contact">https://matrix.to/#/#pika-backup:gnome.org</url>
+  <url type="donation">https://opencollective.com/pika-backup</url>
+  <url type="vcs-browser">https://gitlab.gnome.org/World/pika-backup/</url>
+  <url type="help">https://world.pages.gitlab.gnome.org/pika-backup/help/C/</url>
+  <url type="contribute">https://welcome.gnome.org/app/PikaBackup/</url> -->
+
+  <recommends>
+    <display_length compare="ge">360</display_length>
+  </recommends>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+    <control>tablet</control>
+  </supports>
+
+  <!-- <screenshots>
+    <screenshot type="default">
+      <image>https://some-screenshot</image>
+    </screenshot>
+  </screenshots> -->
+
+  <!-- <releases>
+    <release version="0.0.1" date="2025-11-26">
+      <description>
+        <p>Some list:</p>
+        <ul>
+          <li>Item</li>
+          <li>Other item</li>
+        </ul>
+      </description>
+    </release>
+  </releases> -->
+
+</component>

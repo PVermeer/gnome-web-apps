@@ -1,6 +1,9 @@
 use super::NavPage;
 use crate::application::{App, pages::Page};
-use common::config::{self, OnceLockExt};
+use common::{
+    config::{self, OnceLockExt},
+    utils,
+};
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, ToolbarView,
     gtk::{ListBox, SelectionMode},
@@ -35,7 +38,9 @@ impl SidebarPage {
         toolbar.set_content(Some(&list));
 
         let nav_page = NavigationPage::builder()
-            .title(config::APP_NAME.get_value().clone())
+            .title(utils::strings::capitalize(
+                config::APP_NAME_SHORT.get_value(),
+            ))
             .tag("sidebar")
             .child(&toolbar)
             .build();

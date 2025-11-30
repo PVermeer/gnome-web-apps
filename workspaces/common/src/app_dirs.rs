@@ -1,15 +1,7 @@
-use crate::{
-    config::{self, OnceLockExt},
-    utils,
-};
+use crate::config::{self, OnceLockExt};
 use anyhow::{Context, Result};
 use gtk::glib;
-use std::{
-    cell::OnceCell,
-    fs,
-    path::{self, Path, PathBuf},
-    rc::Rc,
-};
+use std::{cell::OnceCell, fs, path::PathBuf, rc::Rc};
 use tracing::debug;
 
 #[derive(Default)]
@@ -63,28 +55,6 @@ impl AppDirs {
         let _ = self.browser_configs.set(browser_configs);
         let _ = self.browser_desktop_files.set(browser_desktop_files);
         let _ = self.flatpak.set(flatpak);
-
-        if cfg!(debug_assertions)
-            && let (Ok(config_path), Ok(data_path), Ok(assets_path)) = (
-                Self::build_dev_config_path(),
-                Self::build_dev_data_path(),
-                Self::build_dev_assets_path(),
-            )
-        {
-            let _ = utils::files::create_symlink(&config_path, &self.config());
-            let _ = utils::files::create_symlink(&data_path, &self.data());
-            let _ =
-                utils::files::create_symlink(&data_path.join("applications"), &self.applications());
-
-            for file in utils::files::get_entries_in_dir(&assets_path.join("desktop-files"))
-                .unwrap_or_default()
-            {
-                let _ = utils::files::create_symlink(
-                    &self.applications().join(file.file_name()),
-                    &file.path(),
-                );
-            }
-        }
 
         Ok(())
     }
@@ -237,31 +207,5 @@ impl AppDirs {
         debug!("Using flatpak path: {}", flatpak_path.display());
 
         flatpak_path
-    }
-
-    pub fn build_dev_assets_path() -> Result<PathBuf> {
-        let path = path::absolute(Path::new("../../dev-assets"))?;
-        Ok(path)
-    }
-
-    pub fn build_dev_data_path() -> Result<PathBuf> {
-        let path = path::absolute(Path::new("../../dev-data"))?;
-        Ok(path)
-    }
-
-    pub fn build_dev_config_path() -> Result<PathBuf> {
-        let path = path::absolute(Path::new("../../dev-config"))?;
-        Ok(path)
-    }
-
-    pub fn build_assets_desktop_path() -> Result<PathBuf> {
-        let path = path::absolute(
-            Path::new("")
-                .join("..")
-                .join("..")
-                .join("assets")
-                .join("desktop"),
-        )?;
-        Ok(path)
     }
 }

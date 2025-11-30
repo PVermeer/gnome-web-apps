@@ -73,6 +73,7 @@ pub struct Browser {
     configs: Rc<BrowserConfigs>,
     icon_theme: Rc<IconTheme>,
     icon_names: HashSet<String>,
+    app_dirs: Rc<AppDirs>,
 }
 impl Browser {
     const FALLBACK_IMAGE: &str = "web-browser-symbolic";
@@ -82,6 +83,7 @@ impl Browser {
         installation: Installation,
         browser_configs: &Rc<BrowserConfigs>,
         icon_theme: &Rc<IconTheme>,
+        app_dirs: &Rc<AppDirs>,
     ) -> Self {
         let icon_names = Self::get_icon_names_from_config(browser_config);
         let name = browser_config.config.name.clone();
@@ -113,6 +115,7 @@ impl Browser {
             icon_names,
             base,
             icon_theme: icon_theme.clone(),
+            app_dirs: app_dirs.clone(),
         }
     }
 
@@ -175,6 +178,23 @@ impl Browser {
         }
 
         Image::from_icon_name(Self::FALLBACK_IMAGE)
+    }
+
+    pub fn get_profiles_path(&self) -> Result<PathBuf> {
+        let profiles_path = match self.installation {
+            Installation::Flatpak(_) => self
+                .app_dirs
+                .flatpak()
+                .join(&self.id)
+                .join("data")
+                .join("profiles"),
+
+            Installation::System => self.app_dirs.profiles().join(&self.id),
+
+            Installation::None => bail!("No installation type on 'Browser'"),
+        };
+
+        Ok(profiles_path)
     }
 
     pub fn get_index(&self) -> Option<usize> {
@@ -270,6 +290,7 @@ impl BrowserConfigs {
             icon_names: HashSet::from(["dialog-warning-symbolic".to_string()]),
             base: Base::None,
             icon_theme: self.icon_theme.clone(),
+            app_dirs: self.app_dirs.clone(),
         }
     }
 
@@ -290,6 +311,7 @@ impl BrowserConfigs {
                         Installation::Flatpak(installation),
                         self,
                         &self.icon_theme,
+                        &self.app_dirs,
                     ));
 
                     if utils::env::is_flatpak_container()
@@ -319,6 +341,7 @@ impl BrowserConfigs {
                         Installation::System,
                         self,
                         &self.icon_theme,
+                        &self.app_dirs,
                     ));
 
                     all_browser_borrow.push(browser);
