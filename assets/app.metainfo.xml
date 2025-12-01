@@ -8,15 +8,9 @@
   <launchable type="desktop-id">%{app_id}.desktop</launchable>
   <summary>%{app_summary}</summary>
   <description>
-    <p>
-      %{app_description}
-    </p>
+    %{app_description}
   </description>
   <content_rating type="oars-1.1" />
-
-  <categories>
-    <category>WebBrowser</category>
-  </categories>
 
   <metadata_license>CC-BY-SA-4.0</metadata_license>
   <project_license>%{license}</project_license>
@@ -41,8 +35,7 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>
-        %{screenshot_base_url}/screenshot-1.png</image>
+      %{screenshots}
     </screenshot>
   </screenshots>
 

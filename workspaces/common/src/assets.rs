@@ -20,7 +20,7 @@ static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
 static META_INFO: &str = include_str!("../../../assets/app.metainfo.xml");
-static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.txt");
+static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.markup");
 
 pub fn init(app_dirs: &AppDirs, icon_theme: &IconTheme) -> Result<()> {
     info!("Creating / overwriting assets");

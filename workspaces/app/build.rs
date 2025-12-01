@@ -106,6 +106,7 @@ fn create_app_metainfo_file() -> Result<()> {
     let app_description = config::APP_DESCRIPTION.get_value();
     let license = config::LICENSE.get_value();
     let repository = config::REPOSITORY.get_value();
+    let assets_path = build_assets_path();
 
     // Change to this when name is final and repo name has changed
     // let screenshot_base_url = &format!(
@@ -114,9 +115,18 @@ fn create_app_metainfo_file() -> Result<()> {
     let screenshot_base_url = &format!(
         "https://raw.githubusercontent.com/{developer}/gnome-web-apps/refs/heads/main/assets/screenshots"
     );
+    let screenshots = utils::files::get_entries_in_dir(&assets_path.join("screenshots"))?
+        .iter()
+        .map(|file| {
+            format!(
+                "<image>{screenshot_base_url}/{}</image>\n",
+                file.file_name().display()
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
 
     let mut meta_data = assets::get_meta_info().to_string();
-
     meta_data = meta_data.replace("%{app_id}", app_id);
     meta_data = meta_data.replace("%{app_name}", app_name);
     meta_data = meta_data.replace("%{developer}", developer);
@@ -125,9 +135,9 @@ fn create_app_metainfo_file() -> Result<()> {
     meta_data = meta_data.replace("%{app_description}", app_description);
     meta_data = meta_data.replace("%{license}", license);
     meta_data = meta_data.replace("%{repository}", repository);
-    meta_data = meta_data.replace("%{screenshot_base_url}", screenshot_base_url);
+    meta_data = meta_data.replace("%{screenshots}", &screenshots);
 
-    let save_dir = build_assets_path().join("desktop");
+    let save_dir = assets_path.join("desktop");
     let save_path = save_dir.join(format!("{app_id}.metainfo.xml"));
 
     if !save_dir.is_dir() {

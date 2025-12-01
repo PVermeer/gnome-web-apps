@@ -1,5 +1,0 @@
-Yet another web app manager, written in rust with GTK and beautiful Adwaita.
-
-- Easy browser switching
-- Add custom browsers with a yaml and desktop file
-- Isolation build in if browsers support it

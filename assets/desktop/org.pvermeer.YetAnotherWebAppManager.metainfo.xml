@@ -8,14 +8,15 @@
   <launchable type="desktop-id">org.pvermeer.YetAnotherWebAppManager.desktop</launchable>
   <summary>Create web apps</summary>
   <description>
-    <p>
-Yet another web app manager, written in rust with GTK and beautiful Adwaita.
+    <p>Yet another web app manager, written in rust with GTK and beautiful Adwaita.</p>
+<ul>
+    <li>Easy browser switching</li>
+    <li>Add custom browsers with a yaml and desktop file</li>
+    <li>Isolation build in if browser supports it</li>
+</ul>
 
-- Easy browser switching
-- Add custom browsers with a yaml and desktop file
-- Isolation build in if browsers support it
-    </p>
   </description>
+  <content_rating type="oars-1.1" />
 
   <metadata_license>CC-BY-SA-4.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
@@ -40,8 +41,8 @@ Yet another web app manager, written in rust with GTK and beautiful Adwaita.
 
   <screenshots>
     <screenshot type="default">
-      <image>
-        https://raw.githubusercontent.com/PVermeer/gnome-web-apps/refs/heads/main/assets/screenshots/screenshot-1.png</image>
+      <image>https://raw.githubusercontent.com/PVermeer/gnome-web-apps/refs/heads/main/assets/screenshots/screenshot-1.png</image>
+
     </screenshot>
   </screenshots>
 
