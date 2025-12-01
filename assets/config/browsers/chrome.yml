@@ -1,0 +1,6 @@
+name: Chrome
+flatpak: com.google.Chrome
+system_bin: google-chrome-stable
+can_isolate: true
+desktop_file_name_prefix: com.google.Chrome.chrome
+base: chromium
