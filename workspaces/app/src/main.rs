@@ -26,7 +26,7 @@ fn main() {
     // Disable > info logging for external crates
     let filter = format!(
         "{}={log_level},common={log_level}",
-        config::APP_NAME_UNDERSCORE.get_value()
+        config::APP_NAME_SHORT.get_value()
     );
 
     let logger = FmtSubscriber::builder()
