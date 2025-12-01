@@ -1,0 +1,16 @@
+[Desktop Entry]
+Exec=flatpak run --user org.mozilla.firefox --class=yawam-9zibqcxn --name=yawam-9zibqcxn -P=9zibqcxn --no-remote https://www.youtube.com
+Icon=/home/vscode/.local/share/yet-another-web-app-manager/icons/9zibqcxn.png
+Name=Firefox-Test
+StartupWMClass=yawam-9zibqcxn
+Terminal=false
+Type=Application
+Version=1.0
+X-MultipleArgs=false
+X-YAWAM=true
+X-YAWAM-BROWSER-ID=org.mozilla.firefox
+X-YAWAM-ID=9zibqcxn
+X-YAWAM-ISOLATE=true
+X-YAWAM-PROFILE=9zibqcxn
+X-YAWAM-URL=https://www.youtube.com
+

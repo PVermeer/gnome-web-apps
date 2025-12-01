@@ -180,21 +180,65 @@ impl Browser {
         Image::from_icon_name(Self::FALLBACK_IMAGE)
     }
 
-    pub fn get_profiles_path(&self) -> Result<PathBuf> {
-        let profiles_path = match self.installation {
-            Installation::Flatpak(_) => self
-                .app_dirs
-                .flatpak()
-                .join(&self.id)
-                .join("data")
-                .join("profiles"),
-
-            Installation::System => self.app_dirs.profiles().join(&self.id),
-
+    pub fn get_run_command(&self) -> Result<Command> {
+        match self.installation {
+            Installation::Flatpak(_) => {
+                let Some(flatpak_id) = self.flatpak_id.clone() else {
+                    bail!("No flatpak id on flatpak installation???")
+                };
+                let mut command = Command::new("flatpak");
+                command.arg("run");
+                command.arg(flatpak_id);
+                Ok(command)
+            }
+            Installation::System => {
+                let Some(executable) = self.executable.clone() else {
+                    bail!("No flatpak id on flatpak installation???")
+                };
+                let command = Command::new(&executable);
+                Ok(command)
+            }
             Installation::None => bail!("No installation type on 'Browser'"),
+        }
+    }
+
+    pub fn get_profile_path(&self, app_id: &str) -> Result<String> {
+        let profile = match self.base {
+            Base::Chromium => {
+                let profile_path = match self.installation {
+                    Installation::Flatpak(_) => self
+                        .app_dirs
+                        .flatpak()
+                        .join(&self.id)
+                        .join("data")
+                        .join("profiles")
+                        .join(app_id),
+
+                    Installation::System => self.app_dirs.profiles().join(&self.id).join(app_id),
+
+                    Installation::None => bail!("No installation type on 'Browser'"),
+                };
+                profile_path.to_string_lossy().to_string()
+            }
+
+            Base::Firefox => {
+                let profile = app_id;
+                if let Ok(mut command) = self.get_run_command() {
+                    let add_profile_command = command.arg("-CreateProfile").arg(profile);
+
+                    if add_profile_command.output().is_err() {
+                        bail!("Could not create profile on firefox based browser")
+                    }
+                }
+                profile.to_string()
+            }
+
+            Base::None => {
+                bail!("No base browser on 'Browser'")
+            }
         };
 
-        Ok(profiles_path)
+        Ok(profile)
     }
 
     pub fn get_index(&self) -> Option<usize> {

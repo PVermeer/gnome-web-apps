@@ -1,6 +1,6 @@
 use crate::{
     app_dirs::AppDirs,
-    browsers::{Browser, BrowserConfigs, Installation},
+    browsers::{Browser, BrowserConfigs},
     config::{self, OnceLockExt},
 };
 use anyhow::{Context, Result, bail};
@@ -23,13 +23,13 @@ pub struct Icon {
 
 pub struct DesktopFileEntries {
     name: String,
-    id: String,
+    app_id: String,
     browser: Rc<Browser>,
     url: String,
     domain: String,
     isolate: bool,
     icon: PathBuf,
-    profile_path: PathBuf,
+    profile_path: String,
 }
 
 #[allow(unused)]
@@ -39,7 +39,7 @@ enum Keys {
     Id,
     BrowserId,
     Isolate,
-    ProfileDir,
+    Profile,
     Name,
     Exec,
     Icon,
@@ -55,7 +55,7 @@ impl Display for Keys {
             Self::Url => write!(f, "X-{}-URL", &identifier),
             Self::BrowserId => write!(f, "X-{}-BROWSER-ID", &identifier),
             Self::Isolate => write!(f, "X-{}-ISOLATE", &identifier),
-            Self::ProfileDir => write!(f, "X-{}-PROFILE-DIR", &identifier),
+            Self::Profile => write!(f, "X-{}-PROFILE", &identifier),
             Self::Name => write!(f, "Name"),
             Self::Exec => write!(f, "Exec"),
             Self::Icon => write!(f, "Icon"),
@@ -313,30 +313,27 @@ impl DesktopFile {
         );
     }
 
-    pub fn get_profile_path(&self) -> Option<PathBuf> {
+    pub fn get_profile_path(&self) -> Option<String> {
         self.desktop_entry
-            .desktop_entry(&Keys::ProfileDir.to_string())
-            .map(|str| Path::new(str).to_path_buf())
-            .and_then(map_to_path_option)
+            .desktop_entry(&Keys::Profile.to_string())
+            .and_then(map_to_string_option)
     }
 
-    pub fn set_profile_path(&mut self, path: &Path) {
-        self.desktop_entry.add_desktop_entry(
-            Keys::ProfileDir.to_string(),
-            path.to_string_lossy().to_string(),
-        );
+    pub fn set_profile_path(&mut self, path: &str) {
+        self.desktop_entry
+            .add_desktop_entry(Keys::Profile.to_string(), path.to_string());
 
         debug!(
             "Set '{}' on desktop file: {}",
-            &Keys::ProfileDir.to_string(),
+            &Keys::Profile.to_string(),
             &self
                 .desktop_entry
-                .desktop_entry(&Keys::ProfileDir.to_string())
+                .desktop_entry(&Keys::Profile.to_string())
                 .unwrap_or_default()
         );
     }
 
-    pub fn build_profile_path(&self) -> Result<PathBuf> {
+    pub fn build_profile_path(&self) -> Result<String> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
         let is_isolated = self.get_isolated().unwrap_or(false);
 
@@ -348,22 +345,9 @@ impl DesktopFile {
         }
 
         let id = self.get_id().context("No id on 'DesktopFile'")?;
+        let profile_path = browser.get_profile_path(&id)?;
 
-        let profile_path = match browser.installation {
-            Installation::Flatpak(_) => self
-                .app_dirs
-                .flatpak()
-                .join(&browser.id)
-                .join("data")
-                .join("profiles")
-                .join(&id),
-
-            Installation::System => self.app_dirs.profiles().join(&browser.id).join(&id),
-
-            Installation::None => bail!("No installation type on 'DesktopFile'"),
-        };
-
-        debug!("Using profile path: {}", &profile_path.display());
+        debug!("Using profile path: {}", &profile_path);
 
         Ok(profile_path)
     }
@@ -431,7 +415,7 @@ impl DesktopFile {
         }
 
         if let Some(profile_path) = self.get_profile_path()
-            && profile_path.is_file()
+            && Path::new(&profile_path).is_file()
         {
             match fs::remove_file(profile_path) {
                 Ok(()) => {}
@@ -456,7 +440,7 @@ impl DesktopFile {
     fn get_entries(&self) -> Result<DesktopFileEntries> {
         match (|| -> Result<DesktopFileEntries> {
             let name = self.get_name().context("Missing 'Name'")?;
-            let id = self.get_id().context(format!("Missing '{}'", Keys::Id))?;
+            let app_id = self.get_id().context(format!("Missing '{}'", Keys::Id))?;
             let url = self.get_url().context(format!("Missing '{}'", Keys::Url))?;
             let browser = self
                 .get_browser()
@@ -478,14 +462,14 @@ impl DesktopFile {
                     if isolate {
                         None
                     } else {
-                        Some(PathBuf::default())
+                        Some(String::default())
                     }
                 })
-                .context(format!("Missing '{}'", Keys::ProfileDir))?;
+                .context(format!("Missing '{}'", Keys::Profile))?;
 
             Ok(DesktopFileEntries {
                 name,
-                id,
+                app_id,
                 browser,
                 url,
                 domain,
@@ -504,7 +488,7 @@ impl DesktopFile {
     fn get_save_path(&self) -> Result<PathBuf> {
         let applications_dir = self.app_dirs.applications();
         let file_name = format!(
-            "{}-{}{}",
+            "{}-{}-{}",
             self.get_browser()
                 .context("Failed to get browser")?
                 .desktop_file_name_prefix,
@@ -520,6 +504,8 @@ impl DesktopFile {
     fn to_new_from_browser(&self) -> Result<DesktopFile> {
         let entries = self.get_entries()?;
         let save_path = self.get_save_path()?;
+        let app_name_short = config::APP_NAME_SHORT.get_value();
+        let app_id = format!("{}-{}", app_name_short, entries.app_id);
 
         let mut d_str = entries.browser.desktop_file.clone().to_string();
         d_str = d_str.replace("%{command}", &entries.browser.get_command()?);
@@ -527,6 +513,7 @@ impl DesktopFile {
         d_str = d_str.replace("%{url}", &entries.url);
         d_str = d_str.replace("%{domain}", &entries.domain);
         d_str = d_str.replace("%{icon}", &entries.icon.to_string_lossy());
+        d_str = d_str.replace("%{app_id}", &app_id);
 
         let isolate_key = "is_isolated";
         let optional_isolated_value = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*([^}}]+)"))
@@ -538,7 +525,7 @@ impl DesktopFile {
             let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
 
             let replacement = if entries.isolate {
-                format!("{value}={}", entries.profile_path.to_string_lossy())
+                format!("{value}={}", entries.profile_path)
             } else {
                 String::new()
             };
@@ -551,7 +538,7 @@ impl DesktopFile {
 
         new_desktop_file.set_is_owned_app();
         new_desktop_file.set_url(&entries.url);
-        new_desktop_file.set_id(&entries.id);
+        new_desktop_file.set_id(&entries.app_id);
         new_desktop_file.set_browser(&entries.browser);
         new_desktop_file.set_isolated(entries.isolate);
         new_desktop_file.set_profile_path(&entries.profile_path);

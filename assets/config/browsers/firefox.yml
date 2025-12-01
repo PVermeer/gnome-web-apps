@@ -1,0 +1,6 @@
+name: Firefox
+flatpak: org.mozilla.firefox
+system_bin: firefox
+can_isolate: true
+desktop_file_name_prefix: org.mozilla.firefox.firefox
+base: firefox

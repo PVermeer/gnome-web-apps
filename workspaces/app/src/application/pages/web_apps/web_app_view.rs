@@ -881,7 +881,7 @@ impl WebAppView {
         let old_profile_path = desktop_file_borrow.get_profile_path().unwrap_or_default();
         let new_profile_path = desktop_file_borrow.build_profile_path().unwrap_or_default();
 
-        if old_profile_path != new_profile_path && old_profile_path.is_dir() {
+        if old_profile_path != new_profile_path && Path::new(&old_profile_path).is_dir() {
             let _ = fs::remove_dir_all(old_profile_path);
         }
 
