@@ -36,20 +36,9 @@ fn create_config_symlinks(app_dirs: &AppDirs) {
 
 fn create_data_symlinks(app_dirs: &AppDirs) {
     let data_path = build_dev_data_path();
-    let assets_desktop_path = build_dev_assets_path().join("desktop-files");
 
     let _ = utils::files::create_symlink(&data_path, &app_dirs.data());
     let _ = utils::files::create_symlink(&data_path.join("applications"), &app_dirs.applications());
-
-    for file in utils::files::get_entries_in_dir(&assets_desktop_path).unwrap() {
-        if file.path().extension().unwrap_or_default() != "desktop" {
-            continue;
-        }
-        let _ = utils::files::create_symlink(
-            &app_dirs.applications().join(file.file_name()),
-            &file.path(),
-        );
-    }
 }
 
 fn create_app_desktop_file() -> Result<()> {
@@ -168,10 +157,6 @@ fn project_path() -> PathBuf {
 
 fn build_assets_path() -> PathBuf {
     project_path().join("assets")
-}
-
-fn build_dev_assets_path() -> PathBuf {
-    project_path().join("dev-assets")
 }
 
 fn build_dev_config_path() -> PathBuf {
