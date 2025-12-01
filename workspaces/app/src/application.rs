@@ -63,7 +63,7 @@ impl App {
             self.error_dialog.init(self);
 
             self.dirs.init()?;
-            assets::init(&self.dirs, &self.icon_theme)?;
+            assets::init(&self.dirs)?;
             self.add_system_icon_paths();
             self.browser_configs.init();
 
