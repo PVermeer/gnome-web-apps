@@ -34,9 +34,9 @@
 				"vadimcn.vscode-lldb",
 				"tamasfe.even-better-toml",
 				"redhat.vscode-yaml",
-				"foxundermoon.shell-format",
 				"timonwong.shellcheck",
-				"redhat.vscode-xml"
+				"redhat.vscode-xml",
+				"lumirelle.shell-format-rev"
 			]
 		}
 	}

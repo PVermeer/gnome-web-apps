@@ -26,7 +26,7 @@
   <url type="contact">https://github.com/PVermeer/gnome-web-apps/issues</url>
   <!-- <url type="donation"></url> -->
   <url type="vcs-browser">https://github.com/PVermeer/gnome-web-apps</url>
-  <url type="help">https://github.com/PVermeer/gnome-web-apps/README</url>
+  <url type="help">https://github.com/PVermeer/gnome-web-apps/blob/main/README.md</url>
   <url type="contribute">https://github.com/PVermeer/gnome-web-apps</url>
 
   <recommends>

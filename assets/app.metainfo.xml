@@ -20,7 +20,7 @@
   <url type="contact">%{repository}/issues</url>
   <!-- <url type="donation"></url> -->
   <url type="vcs-browser">%{repository}</url>
-  <url type="help">%{repository}/README</url>
+  <url type="help">%{repository}/blob/main/README.md</url>
   <url type="contribute">%{repository}</url>
 
   <recommends>
