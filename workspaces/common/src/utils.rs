@@ -63,9 +63,8 @@ pub mod files {
 }
 
 pub mod env {
-    use std::{env, str::FromStr};
-
     use anyhow::Context;
+    use std::{env, str::FromStr};
     use tracing::Level;
 
     pub fn get_log_level() -> Option<Level> {
@@ -112,5 +111,21 @@ pub mod strings {
             .map(capitalize)
             .collect::<Vec<_>>()
             .join(" ")
+    }
+}
+
+pub mod log {
+    use std::error::Error;
+    use tracing::error;
+
+    pub fn error(message: &str, error: Option<impl Error>) {
+        if let Some(error) = error {
+            error!(message = message, "{error:?}");
+        }
+    }
+
+    pub fn error_from_stderr(message: &str, output: &[u8]) {
+        let error = String::from_utf8_lossy(output);
+        error!(message = message, "{error:?}");
     }
 }
