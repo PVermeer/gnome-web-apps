@@ -877,6 +877,7 @@ impl WebAppView {
         };
 
         if old_profile_path != new_profile_path && Path::new(&old_profile_path).is_dir() {
+            debug!(path = old_profile_path, "Deleting profile");
             let _ = fs::remove_dir_all(old_profile_path);
         }
 

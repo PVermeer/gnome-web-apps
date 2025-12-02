@@ -212,6 +212,10 @@ impl Browser {
         let app_profile_path = || -> Result<PathBuf> {
             let path = self.app_dirs.profiles().join(&self.id).join(app_id);
             if !path.is_dir() {
+                debug!(
+                    path = path.to_string_lossy().to_string(),
+                    "Creating profile path"
+                );
                 fs::create_dir_all(&path)
                     .context(format!("Failed to create profile dir: {}", path.display()))?;
             }
@@ -229,6 +233,10 @@ impl Browser {
                 .join("profiles")
                 .join(app_id);
             if !path.is_dir() {
+                debug!(
+                    path = path.to_string_lossy().to_string(),
+                    "Creating profile path"
+                );
                 fs::create_dir_all(&path)
                     .context(format!("Failed to create profile dir: {}", path.display()))?;
             }
