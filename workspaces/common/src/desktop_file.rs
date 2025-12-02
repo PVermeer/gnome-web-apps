@@ -415,9 +415,9 @@ impl DesktopFile {
         }
 
         if let Some(profile_path) = self.get_profile_path()
-            && Path::new(&profile_path).is_file()
+            && Path::new(&profile_path).is_dir()
         {
-            match fs::remove_file(profile_path) {
+            match fs::remove_dir_all(profile_path) {
                 Ok(()) => {}
                 Err(error) => {
                     error!("Failed to remove profile: {error:?}");
