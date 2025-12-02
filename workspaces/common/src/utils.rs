@@ -115,10 +115,9 @@ pub mod strings {
 }
 
 pub mod log {
-    use std::error::Error;
     use tracing::error;
 
-    pub fn error(message: &str, error: Option<impl Error>) {
+    pub fn error(message: &str, error: Option<anyhow::Error>) {
         if let Some(error) = error {
             error!(message = message, "{error:?}");
         }
@@ -127,5 +126,59 @@ pub mod log {
     pub fn error_from_stderr(message: &str, output: &[u8]) {
         let error = String::from_utf8_lossy(output);
         error!(message = message, "{error:?}");
+    }
+}
+
+pub mod command {
+    use anyhow::{Result, bail};
+    use gtk::glib;
+    use std::{fmt::Write, process::Command};
+    use tracing::debug;
+
+    use crate::utils::{env, log};
+
+    pub fn run_command_async(command: &str) -> Result<()> {
+        let mut run_command = String::new();
+
+        if env::is_flatpak_container() {
+            write!(run_command, "flatpak-spawn --host")?;
+            if env::is_devcontainer() {
+                write!(run_command, " --env=DISPLAY=:0")?;
+            }
+        }
+        write!(run_command, " {command}")?;
+
+        debug!(command = run_command, "Running async command");
+        glib::spawn_command_line_async(run_command).map_err(Into::into)
+    }
+
+    pub fn run_command_sync(command: &str) -> Result<String> {
+        let mut run_command = String::new();
+
+        if env::is_flatpak_container() {
+            write!(run_command, "flatpak-spawn --host")?;
+            if env::is_devcontainer() {
+                write!(run_command, " --env=DISPLAY=:0")?;
+            }
+        }
+        write!(run_command, " {command}")?;
+
+        let mut args = glib::shell_parse_argv(&run_command)?;
+        if args.is_empty() {
+            bail!("Incorrect command")
+        }
+        let command = args.remove(0);
+
+        debug!(command = run_command, "Running sync command");
+        let output = Command::new(command).args(args).output()?;
+
+        if !output.status.success() {
+            let message = "Command failed";
+            log::error_from_stderr("Command failed", &output.stderr);
+            bail!(message)
+        }
+        let result = String::from_utf8_lossy(&output.stdout).to_string();
+
+        Ok(result)
     }
 }

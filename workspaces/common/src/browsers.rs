@@ -180,29 +180,31 @@ impl Browser {
         Image::from_icon_name(Self::FALLBACK_IMAGE)
     }
 
-    pub fn get_run_command(&self) -> Result<Command> {
+    pub fn get_run_command(&self) -> Result<String> {
         match self.installation {
             Installation::Flatpak(_) => {
                 let Some(flatpak_id) = self.flatpak_id.clone() else {
                     bail!("No flatpak id on flatpak installation???")
                 };
-                let mut command = Command::new("flatpak");
-                command.arg("run");
-                command.arg(flatpak_id);
+
+                let command = format!("flatpak run {flatpak_id}");
                 Ok(command)
             }
             Installation::System => {
                 let Some(executable) = self.executable.clone() else {
                     bail!("No flatpak id on flatpak installation???")
                 };
-                let command = Command::new(&executable);
-                Ok(command)
+                Ok(executable)
             }
             Installation::None => bail!("No installation type on 'Browser'"),
         }
     }
 
     pub fn get_profile_path(&self, app_id: &str) -> Result<String> {
+        if !self.can_isolate {
+            bail!("Browser cannot isolate")
+        }
+
         let profile = match self.base {
             Base::Chromium => {
                 let profile_path = match self.installation {
@@ -223,11 +225,28 @@ impl Browser {
 
             Base::Firefox => {
                 let profile = app_id;
-                if let Ok(mut command) = self.get_run_command() {
-                    let add_profile_command = command.arg("-CreateProfile").arg(profile);
+                if let Ok(command) = self.get_run_command() {
+                    let mut add_profile_command = command;
+                    write!(add_profile_command, " -CreateProfile {profile}")?;
 
-                    if add_profile_command.output().is_err() {
-                        bail!("Could not create profile on firefox based browser")
+                    debug!(
+                        command = add_profile_command,
+                        "Running firefox set profile command"
+                    );
+
+                    match utils::command::run_command_sync(&add_profile_command) {
+                        Err(error) => {
+                            let message = "Could not create profile on firefox based browser";
+                            utils::log::error(message, Some(error));
+                            bail!(message)
+                        }
+                        Ok(output) => {
+                            debug!(
+                                command = &add_profile_command,
+                                output = output,
+                                "Command output"
+                            );
+                        }
                     }
                 }
                 profile.to_string()
@@ -237,6 +256,10 @@ impl Browser {
                 bail!("No base browser on 'Browser'")
             }
         };
+
+        if profile.is_empty() {
+            bail!("Profile is an empty string")
+        }
 
         Ok(profile)
     }

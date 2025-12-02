@@ -534,20 +534,13 @@ impl WebAppView {
                 debug!("Running in dev-container");
             }
 
-            if utils::env::is_flatpak_container() {
-                if utils::env::is_devcontainer() {
-                    executable = format!("flatpak-spawn --host --env=DISPLAY=:0 {executable}");
-                } else {
-                    executable = format!("flatpak-spawn --host {executable}");
-                }
-
-                debug!("Running in flatpak container");
-            }
-
             debug!("Running web app: '{executable}'");
-
-            if let Err(error) = glib::spawn_command_line_async(executable.clone()) {
-                error!("Failed to run app '{executable}': {error:?}");
+            if let Err(error) = utils::command::run_command_async(&executable) {
+                error!(
+                    executable = executable,
+                    error = error.to_string(),
+                    "Failed to run app"
+                );
             }
         });
     }
