@@ -34,6 +34,6 @@ url = { workspace = true }
 validator = { workspace = true }
 
 [build-dependencies]
-common = { workspace = true }
 anyhow = { workspace = true }
+common = { workspace = true }
 freedesktop-desktop-entry = { workspace = true }

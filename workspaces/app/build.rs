@@ -13,6 +13,8 @@ use std::{
     process::Command,
 };
 
+static FLATPAK_MANIFEST_IN: &str = include_str!("../../flatpak/manifest.in");
+
 fn main() -> Result<()> {
     println!("cargo:warning=Debug: build script is running!");
     config::init();
@@ -25,6 +27,7 @@ fn main() -> Result<()> {
     create_app_desktop_file()?;
     create_app_icon()?;
     create_app_metainfo_file()?;
+    update_flatpak_manifest()?;
 
     Ok(())
 }
@@ -147,6 +150,29 @@ fn create_app_metainfo_file() -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn update_flatpak_manifest() -> Result<()> {
+    let app_id = config::APP_ID.get_value();
+    let app_name = config::APP_NAME.get_value();
+    let app_name_dense = config::APP_NAME_DENSE.get_value();
+    let app_name_short = config::APP_NAME_SHORT.get_value();
+    let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
+
+    let mut manifest = FLATPAK_MANIFEST_IN.to_string();
+    manifest = manifest.replace("%{app_id}", app_id);
+    manifest = manifest.replace("%{app_name}", app_name);
+    manifest = manifest.replace("%{app_name_dense}", app_name_dense);
+    manifest = manifest.replace("%{app_name_short}", app_name_short);
+    manifest = manifest.replace("%{app_name_hyphen}", app_name_hyphen);
+
+    let save_path = Path::new("..")
+        .join("..")
+        .join("flatpak")
+        .join("manifest.yml");
+    fs::write(save_path, manifest)?;
 
     Ok(())
 }

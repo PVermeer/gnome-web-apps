@@ -46,16 +46,12 @@
     </screenshot>
   </screenshots>
 
-  <!-- <releases>
-    <release version="0.0.1" date="2025-11-26">
+  <releases>
+    <release version="0.0.1" date="2025-12-01">
       <description>
-        <p>Some list:</p>
-        <ul>
-          <li>Item</li>
-          <li>Other item</li>
-        </ul>
+        <p>Beta test version</p>
       </description>
     </release>
-  </releases> -->
+  </releases>
 
 </component>
