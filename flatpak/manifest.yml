@@ -17,6 +17,7 @@ finish-args:
   - --filesystem=xdg-data/applications:create
   - --filesystem=xdg-data/flatpak/app:ro
   - --filesystem=/var/lib/flatpak/app:ro
+  - --filesystem=~/.var/app:create
 
 modules:
   - name: yet-another-web-app-manager

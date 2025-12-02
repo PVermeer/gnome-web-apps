@@ -858,9 +858,23 @@ impl WebAppView {
 
     fn on_isolation_change(self: &Rc<Self>) {
         let mut desktop_file_borrow = self.desktop_file.borrow_mut();
+        let is_isolated = self.isolate_row.is_active();
 
         let old_profile_path = desktop_file_borrow.get_profile_path().unwrap_or_default();
-        let new_profile_path = desktop_file_borrow.build_profile_path().unwrap_or_default();
+
+        let new_profile_path = if is_isolated {
+            match desktop_file_borrow.build_profile_path() {
+                Err(error) => {
+                    drop(desktop_file_borrow);
+                    self.reset_desktop_file();
+                    self.on_error("Could not set isolation", Some(&error));
+                    return;
+                }
+                Ok(profile) => profile,
+            }
+        } else {
+            String::new()
+        };
 
         if old_profile_path != new_profile_path && Path::new(&old_profile_path).is_dir() {
             let _ = fs::remove_dir_all(old_profile_path);

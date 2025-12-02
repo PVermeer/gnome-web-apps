@@ -1,5 +1,8 @@
-use crate::app_dirs::AppDirs;
 use crate::utils;
+use crate::{
+    app_dirs::AppDirs,
+    config::{self, OnceLockExt},
+};
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{IconTheme, Image};
@@ -205,51 +208,49 @@ impl Browser {
             bail!("Browser cannot isolate")
         }
 
+        // Save in own app
+        let app_profile_path = || -> Result<PathBuf> {
+            let path = self.app_dirs.profiles().join(&self.id).join(app_id);
+            if !path.is_dir() {
+                fs::create_dir_all(&path)
+                    .context(format!("Failed to create profile dir: {}", path.display()))?;
+            }
+            Ok(path)
+        };
+
+        // Save in browser own location (for sandboxes)
+        let browser_profile_path = || -> Result<PathBuf> {
+            let path = self
+                .app_dirs
+                .flatpak()
+                .join(&self.id)
+                .join("data")
+                .join(config::APP_NAME_HYPHEN.get_value())
+                .join("profiles")
+                .join(app_id);
+            if !path.is_dir() {
+                fs::create_dir_all(&path)
+                    .context(format!("Failed to create profile dir: {}", path.display()))?;
+            }
+            Ok(path)
+        };
+
         let profile = match self.base {
-            Base::Chromium => {
+            /*
+               Firefox has a method to create profiles (-CreateProfile <name> and -P) but is poorly implemented.
+               If firefox has never run it will set the created profile as default and
+               never creates a default profile.
+               Then there is --profile <path>, this works but will not create the path if it doesn't exists. So `--filesystem=~/.var/app:create` is needed to break in the sandbox to create the path if it doesn't exists. All a bit poorly implemented.
+
+               Chromium based just created the provided profile path
+            */
+            Base::Chromium | Base::Firefox => {
                 let profile_path = match self.installation {
-                    Installation::Flatpak(_) => self
-                        .app_dirs
-                        .flatpak()
-                        .join(&self.id)
-                        .join("data")
-                        .join("profiles")
-                        .join(app_id),
-
-                    Installation::System => self.app_dirs.profiles().join(&self.id).join(app_id),
-
+                    Installation::Flatpak(_) => browser_profile_path()?,
+                    Installation::System => app_profile_path()?,
                     Installation::None => bail!("No installation type on 'Browser'"),
                 };
                 profile_path.to_string_lossy().to_string()
-            }
-
-            Base::Firefox => {
-                let profile = app_id;
-                if let Ok(command) = self.get_run_command() {
-                    let mut add_profile_command = command;
-                    write!(add_profile_command, " -CreateProfile {profile}")?;
-
-                    debug!(
-                        command = add_profile_command,
-                        "Running firefox set profile command"
-                    );
-
-                    match utils::command::run_command_sync(&add_profile_command) {
-                        Err(error) => {
-                            let message = "Could not create profile on firefox based browser";
-                            utils::log::error(message, Some(error));
-                            bail!(message)
-                        }
-                        Ok(output) => {
-                            debug!(
-                                command = &add_profile_command,
-                                output = output,
-                                "Command output"
-                            );
-                        }
-                    }
-                }
-                profile.to_string()
             }
 
             Base::None => {
