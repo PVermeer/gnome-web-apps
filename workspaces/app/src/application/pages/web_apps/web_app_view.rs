@@ -17,7 +17,7 @@ use gtk::{
 use icon_picker::IconPicker;
 use libadwaita::{
     ActionRow, ButtonContent, ComboRow, EntryRow, HeaderBar, NavigationPage, NavigationView,
-    PreferencesGroup, PreferencesPage, SwitchRow, Toast, ToastOverlay, WrapBox,
+    PreferencesGroup, PreferencesPage, SwitchRow, Toast, ToastOverlay, ToastPriority, WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -413,13 +413,6 @@ impl WebAppView {
         toast
     }
 
-    fn build_error_toast(message: &str) -> Toast {
-        let toast = Toast::new(message);
-        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
-
-        toast
-    }
-
     fn build_change_icon_button() -> Button {
         let button_content = ButtonContent::builder()
             .label("Change icon")
@@ -509,7 +502,6 @@ impl WebAppView {
                 }),
                 Some(move || {
                     // Fail
-                    let toast = Self::build_error_toast("Failed to save icon");
                     let undo_icon_path = undo_icon_path_fail.clone();
                     self_clone_fail
                         .desktop_file
@@ -517,7 +509,7 @@ impl WebAppView {
                         .set_icon_path(Path::new(&undo_icon_path));
 
                     self_clone_fail.on_desktop_file_change();
-                    self_clone_fail.toast_overlay.add_toast(toast);
+                    self_clone_fail.on_error("Failed to save icon", None);
                 }),
             );
         });
@@ -582,8 +574,7 @@ impl WebAppView {
             );
 
             if !*self_clone.is_new.borrow() && self_clone.desktop_file.borrow().delete().is_err() {
-                let error_toast = Self::build_error_toast("Failed to delete all files");
-                self_clone.toast_overlay.add_toast(error_toast);
+                self_clone.on_error("Failed to delete all files", None);
             }
 
             self_clone.nav_view.pop();
@@ -853,8 +844,7 @@ impl WebAppView {
         }
 
         if !is_new && self.desktop_file.borrow_mut().save().is_err() {
-            let toast = Self::build_error_toast("Failed to save app");
-            self.toast_overlay.add_toast(toast);
+            self.on_error("Failed to save app", None);
         }
 
         self.reset_reset_button();
@@ -864,9 +854,7 @@ impl WebAppView {
 
     fn on_new_desktop_file_save(self: &Rc<Self>) {
         if let Err(error) = self.desktop_file.borrow().validate() {
-            error!("Invalid desktop file to save: '{error:?}'");
-            let toast = Self::build_error_toast("Failed to save app");
-            self.toast_overlay.add_toast(toast);
+            self.on_error("Failed to save app", Some(&error));
             return;
         }
         *self.is_new.borrow_mut() = false;
@@ -886,5 +874,16 @@ impl WebAppView {
         }
 
         desktop_file_borrow.set_profile_path(&new_profile_path);
+    }
+
+    fn on_error(self: &Rc<Self>, message: &str, error: Option<&anyhow::Error>) {
+        if let Some(error) = error {
+            error!("{error:?}");
+        }
+        let toast = Toast::new(message);
+        toast.set_timeout(Self::TOAST_MESSAGE_TIMEOUT);
+        toast.set_priority(ToastPriority::High);
+        self.toast_overlay.dismiss_all();
+        self.toast_overlay.add_toast(toast);
     }
 }
