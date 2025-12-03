@@ -573,7 +573,6 @@ impl WebAppView {
             } else {
                 entry_row.set_show_apply_button(false);
                 entry_row.set_tooltip_text(Some("Name is empty"));
-                self_clone.change_icon_button.set_sensitive(false);
             }
 
             self_clone.on_validate();
@@ -616,6 +615,7 @@ impl WebAppView {
             if is_valid {
                 entry_row.set_show_apply_button(true);
                 entry_row.set_tooltip_text(None);
+                self_clone.change_icon_button.set_sensitive(true);
             } else {
                 entry_row.set_show_apply_button(false);
                 entry_row
@@ -659,8 +659,8 @@ impl WebAppView {
                         .set_icon_path(Path::new(""));
                     error!("{error:?}");
                 }
-                self_clone.on_desktop_file_change();
 
+                self_clone.on_desktop_file_change();
                 spinner_clone.set_visible(false);
                 self_clone.change_icon_button.set_sensitive(true);
             });
