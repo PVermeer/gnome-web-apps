@@ -180,6 +180,27 @@ impl IconPicker {
         Ok(icon)
     }
 
+    fn icons_loading(&self) {
+        self.prefs_page.set_visible(false);
+        self.spinner.set_visible(true);
+        self.pref_row_icons.set_visible(false);
+        self.pref_row_icons_fail.set_visible(true);
+    }
+
+    fn no_icons(&self) {
+        self.prefs_page.set_visible(true);
+        self.spinner.set_visible(false);
+        self.pref_row_icons.set_visible(false);
+        self.pref_row_icons_fail.set_visible(true);
+    }
+
+    fn show_icons(&self) {
+        self.prefs_page.set_visible(true);
+        self.spinner.set_visible(false);
+        self.pref_row_icons.set_visible(true);
+        self.pref_row_icons_fail.set_visible(false);
+    }
+
     fn load_icons(self: &Rc<Self>) {
         let self_clone = self.clone();
         let url = self_clone
@@ -189,25 +210,16 @@ impl IconPicker {
             .unwrap_or_default();
 
         glib::spawn_future_local(async move {
-            self_clone.prefs_page.set_visible(false);
-            self_clone.spinner.set_visible(true);
-            self_clone.pref_row_icons.set_visible(false);
-            self_clone.pref_row_icons_fail.set_visible(true);
+            self_clone.icons_loading();
 
             if let Err(error) = self_clone.set_online_icons(&url).await {
                 error!("{error:?}");
-                self_clone.prefs_page.set_visible(true);
-                self_clone.spinner.set_visible(false);
-                self_clone.pref_row_icons.set_visible(false);
-                self_clone.pref_row_icons_fail.set_visible(true);
+                self_clone.no_icons();
                 return;
             }
 
             self_clone.reload_icons();
-            self_clone.prefs_page.set_visible(true);
-            self_clone.spinner.set_visible(false);
-            self_clone.pref_row_icons.set_visible(true);
-            self_clone.pref_row_icons_fail.set_visible(false);
+            self_clone.show_icons();
         });
     }
 
@@ -222,7 +234,7 @@ impl IconPicker {
 
         icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
 
-        for (url, icon) in icons {
+        for (url, icon) in &icons {
             let frame = gtk::Box::new(Orientation::Vertical, 0);
             frame.set_widget_name(url);
             let picture = Picture::new();
@@ -242,6 +254,12 @@ impl IconPicker {
             if let Some(flow_box_child) = flow_box_child {
                 flow_box.select_child(flow_box_child);
             }
+        }
+
+        if icons.is_empty() {
+            self.no_icons();
+        } else {
+            self.show_icons();
         }
 
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
