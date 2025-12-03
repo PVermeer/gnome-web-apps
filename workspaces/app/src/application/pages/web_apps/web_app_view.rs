@@ -768,8 +768,18 @@ impl WebAppView {
             self.on_validate();
         }
 
-        if !is_new && self.desktop_file.borrow_mut().save().is_err() {
-            self.on_error("Error saving", None);
+        if !is_new && let Err(error) = self.desktop_file.borrow_mut().save() {
+            match error {
+                DesktopFileError::ValidationError(error) => {
+                    self.on_error(
+                        &format!("Failed to save: '{}'", &error.to_string()),
+                        Some(&error.into()),
+                    );
+                }
+                DesktopFileError::Other(error) => {
+                    self.on_error("Error saving document", Some(&error));
+                }
+            }
         }
 
         self.reset_reset_button();
@@ -779,7 +789,14 @@ impl WebAppView {
 
     fn on_new_desktop_file_save(self: &Rc<Self>) {
         if let Err(error) = self.desktop_file.borrow().validate() {
-            self.on_error("Failed to save app", Some(&error));
+            match error {
+                DesktopFileError::ValidationError(error) => {
+                    self.on_error("Invalid input", Some(&error.into()));
+                }
+                DesktopFileError::Other(error) => {
+                    self.on_error("Error saving document", Some(&error));
+                }
+            }
             return;
         }
         *self.is_new.borrow_mut() = false;

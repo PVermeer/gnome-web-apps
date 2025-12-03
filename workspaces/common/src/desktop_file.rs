@@ -34,7 +34,8 @@ pub struct DesktopFileEntries {
 }
 
 #[allow(unused)]
-enum Keys {
+#[derive(Debug)]
+pub enum Keys {
     Gwa,
     Url,
     Id,
@@ -64,6 +65,32 @@ impl Display for Keys {
         }
     }
 }
+
+pub enum DesktopFileError {
+    ValidationError(ValidationError),
+    Other(anyhow::Error),
+}
+impl From<ValidationError> for DesktopFileError {
+    fn from(e: ValidationError) -> Self {
+        DesktopFileError::ValidationError(e)
+    }
+}
+impl From<anyhow::Error> for DesktopFileError {
+    fn from(e: anyhow::Error) -> Self {
+        DesktopFileError::Other(e)
+    }
+}
+#[derive(Debug)]
+pub struct ValidationError {
+    pub field: Keys,
+    pub message: String,
+}
+impl Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}: {}", self.message, self.field)
+    }
+}
+impl std::error::Error for ValidationError {}
 
 fn map_to_string_option(value: &str) -> Option<String> {
     if value.is_empty() {
@@ -355,40 +382,32 @@ impl DesktopFile {
         Ok(profile_path)
     }
 
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<(), DesktopFileError> {
         match self.to_new_from_browser() {
-            Err(error) => {
-                debug!("Validate error: {error:?}");
-                Err(error)
-            }
+            Err(error) => Err(error),
             Ok(_) => Ok(()),
         }
     }
 
-    pub fn save(&mut self) -> Result<()> {
-        if let Err(error) = (|| -> Result<()> {
-            let new_desktop_file = self.to_new_from_browser()?;
+    pub fn save(&mut self) -> Result<(), DesktopFileError> {
+        let new_desktop_file = self.to_new_from_browser()?;
 
-            if self.desktop_entry.path.is_file() && !self.desktop_entry.path.is_symlink() {
-                match fs::remove_file(&self.desktop_entry.path) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        error!("Failed to remove desktop file before saving new: {error:?}");
-                    }
+        if self.desktop_entry.path.is_file() && !self.desktop_entry.path.is_symlink() {
+            match fs::remove_file(&self.desktop_entry.path) {
+                Ok(()) => {}
+                Err(error) => {
+                    error!("Failed to remove desktop file before saving new: {error:?}");
                 }
             }
-
-            let save_path = new_desktop_file.desktop_entry.path.clone();
-
-            debug!("Saving desktop file to: {}", save_path.display());
-            fs::write(&save_path, new_desktop_file.desktop_entry.to_string())?;
-            self.desktop_entry = new_desktop_file.desktop_entry;
-
-            Ok(())
-        })() {
-            error!("{error:?}");
-            bail!(error)
         }
+
+        let save_path = new_desktop_file.desktop_entry.path.clone();
+
+        debug!("Saving desktop file to: {}", save_path.display());
+        fs::write(&save_path, new_desktop_file.desktop_entry.to_string())
+            .context("Saving desktop file")?;
+        self.desktop_entry = new_desktop_file.desktop_entry;
+
         Ok(())
     }
 
@@ -440,57 +459,77 @@ impl DesktopFile {
         Ok(())
     }
 
-    fn get_entries(&self) -> Result<DesktopFileEntries> {
-        match (|| -> Result<DesktopFileEntries> {
-            let name = self.get_name().context("Missing 'Name'")?;
-            let app_id = self.get_id().context(format!("Missing '{}'", Keys::Id))?;
-            let url = self
-                .get_url()
-                .context(format!("Missing '{}'", Keys::Url))
-                .ok()
-                .filter(ValidateUrl::validate_url)
-                .context(format!("Invalid '{}'", Keys::Url))?;
-            let browser = self
-                .get_browser()
-                .context(format!("Missing '{}'", Keys::BrowserId))?;
-            let domain = Url::parse(&url)?
-                .domain()
-                .and_then(map_to_string_option)
-                .context("Failed to get domain of url")?;
-            let isolate = self
-                .get_isolated()
-                .context(format!("Missing '{}'", Keys::Isolate))?;
-            let icon = self
-                .get_icon_path()
-                .and_then(map_to_path_option)
-                .context("Missing 'Icon'")?;
-            let profile_path = self
-                .get_profile_path()
-                .or_else(|| {
-                    if isolate {
-                        None
-                    } else {
-                        Some(String::default())
-                    }
-                })
-                .context(format!("Missing '{}'", Keys::Profile))?;
-
-            Ok(DesktopFileEntries {
-                name,
-                app_id,
-                browser,
-                url,
-                domain,
-                isolate,
-                icon,
-                profile_path,
+    fn get_entries(&self) -> Result<DesktopFileEntries, DesktopFileError> {
+        let name = self.get_name().ok_or(ValidationError {
+            field: Keys::Name,
+            message: "Missing".to_string(),
+        })?;
+        let app_id = self.get_id().ok_or(ValidationError {
+            field: Keys::Id,
+            message: "Missing".to_string(),
+        })?;
+        let url = self
+            .get_url()
+            .ok_or(ValidationError {
+                field: Keys::Url,
+                message: "Missing".to_string(),
             })
-        })() {
-            Ok(result) => Ok(result),
-            Err(error) => {
-                bail!("Failed to get all entries on desktop file: '{error:?}'")
-            }
-        }
+            .ok()
+            .filter(ValidateUrl::validate_url)
+            .ok_or(ValidationError {
+                field: Keys::Url,
+                message: "Invalid".to_string(),
+            })?;
+        let browser = self.get_browser().ok_or(ValidationError {
+            field: Keys::BrowserId,
+            message: "Missing".to_string(),
+        })?;
+        let domain = Url::parse(&url)
+            .map_err(|_| ValidationError {
+                field: Keys::Url,
+                message: "Invalid domain".to_string(),
+            })?
+            .domain()
+            .and_then(map_to_string_option)
+            .ok_or(ValidationError {
+                field: Keys::Url,
+                message: "Invalid domain".to_string(),
+            })?;
+        let isolate = self.get_isolated().ok_or(ValidationError {
+            field: Keys::Isolate,
+            message: "Missing".to_string(),
+        })?;
+        let icon = self
+            .get_icon_path()
+            .and_then(map_to_path_option)
+            .ok_or(ValidationError {
+                field: Keys::Icon,
+                message: "Missing".to_string(),
+            })?;
+        let profile_path = self
+            .get_profile_path()
+            .or_else(|| {
+                if isolate {
+                    None
+                } else {
+                    Some(String::default())
+                }
+            })
+            .ok_or(ValidationError {
+                field: Keys::Profile,
+                message: "Missing".to_string(),
+            })?;
+
+        Ok(DesktopFileEntries {
+            name,
+            app_id,
+            browser,
+            url,
+            domain,
+            isolate,
+            icon,
+            profile_path,
+        })
     }
 
     fn get_save_path(&self) -> Result<PathBuf> {
@@ -509,7 +548,7 @@ impl DesktopFile {
         Ok(desktop_file_path)
     }
 
-    fn to_new_from_browser(&self) -> Result<DesktopFile> {
+    fn to_new_from_browser(&self) -> Result<DesktopFile, DesktopFileError> {
         let entries = self.get_entries()?;
         let save_path = self.get_save_path()?;
         let app_name_short = config::APP_NAME_SHORT.get_value();
