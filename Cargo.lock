@@ -135,6 +135,7 @@ dependencies = [
  "tracing",
  "ureq",
  "url",
+ "validator",
 ]
 
 [[package]]

@@ -16,6 +16,7 @@ use std::{
 };
 use tracing::{debug, error, info};
 use url::Url;
+use validator::ValidateUrl;
 
 pub struct Icon {
     pub pixbuf: Pixbuf,
@@ -441,7 +442,12 @@ impl DesktopFile {
         match (|| -> Result<DesktopFileEntries> {
             let name = self.get_name().context("Missing 'Name'")?;
             let app_id = self.get_id().context(format!("Missing '{}'", Keys::Id))?;
-            let url = self.get_url().context(format!("Missing '{}'", Keys::Url))?;
+            let url = self
+                .get_url()
+                .context(format!("Missing '{}'", Keys::Url))
+                .ok()
+                .filter(ValidateUrl::validate_url)
+                .context(format!("Invalid '{}'", Keys::Url))?;
             let browser = self
                 .get_browser()
                 .context(format!("Missing '{}'", Keys::BrowserId))?;

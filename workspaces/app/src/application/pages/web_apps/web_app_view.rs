@@ -223,7 +223,7 @@ impl WebAppView {
         button_wrap_box.append(&self.run_app_button);
 
         let app_image = desktop_file_borrow.get_icon();
-        app_image.set_css_classes(&["icon-dropshadow"]);
+        app_image.add_css_class("icon-dropshadow");
         app_image.set_pixel_size(96);
         app_image.set_margin_start(25);
         app_image.set_margin_end(25);
@@ -420,6 +420,7 @@ impl WebAppView {
             .label("Save")
             .css_classes(["suggested-action", "pill"])
             .visible(is_new)
+            .sensitive(false)
             .build()
     }
 
@@ -573,6 +574,8 @@ impl WebAppView {
                 entry_row.set_tooltip_text(Some("Name is empty"));
                 self_clone.change_icon_button.set_sensitive(false);
             }
+
+            self_clone.on_validate();
         });
 
         let self_clone = self.clone();
@@ -602,7 +605,7 @@ impl WebAppView {
         self.url_row.connect_changed(move |entry_row| {
             let is_valid = entry_row.text().validate_url();
 
-            debug!("{} is valid: {is_valid}", entry_row.title());
+            debug!(is_valid = is_valid, "Validate input: {}", entry_row.title());
 
             validate_icon.set_visible(!is_valid);
             if is_valid {
@@ -614,6 +617,8 @@ impl WebAppView {
                     .set_tooltip_text(Some("Please enter a valid URL (e.g., https://example.com)"));
                 self_clone.change_icon_button.set_sensitive(false);
             }
+
+            self_clone.on_validate();
         });
 
         let self_clone = self.clone();
@@ -726,19 +731,45 @@ impl WebAppView {
         }
     }
 
+    fn is_dirty(self: &Rc<Self>) -> bool {
+        let desktop_file_borrow = self.desktop_file.borrow();
+        let name_saved = desktop_file_borrow.get_name().unwrap_or_default();
+        let url_saved = desktop_file_borrow.get_url().unwrap_or_default();
+        drop(desktop_file_borrow);
+
+        let is_dirty = name_saved != self.name_row.text() || url_saved != self.url_row.text();
+
+        debug!(is_dirty = is_dirty, "Desktop file dirty validation");
+
+        is_dirty
+    }
+
+    fn is_valid(self: &Rc<Self>) -> bool {
+        let is_valid = !self.is_dirty() && self.desktop_file.borrow().validate().is_ok();
+        debug!(is_valid = is_valid, "Desktop file Validation");
+
+        is_valid
+    }
+
+    fn on_validate(self: &Rc<Self>) {
+        if *self.is_new.borrow() && self.is_valid() {
+            self.save_button.set_sensitive(true);
+        } else {
+            self.save_button.set_sensitive(false);
+        }
+    }
+
     fn on_desktop_file_change(self: &Rc<Self>) {
         debug!("Desktop file changed");
 
         let is_new = *self.is_new.borrow();
 
-        if is_new && self.desktop_file.borrow().validate().is_ok() {
-            self.save_button.set_sensitive(true);
-        } else {
-            self.save_button.set_sensitive(false);
+        if is_new {
+            self.on_validate();
         }
 
         if !is_new && self.desktop_file.borrow_mut().save().is_err() {
-            self.on_error("Failed to save app", None);
+            self.on_error("Error saving", None);
         }
 
         self.reset_reset_button();
