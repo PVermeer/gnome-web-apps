@@ -6,7 +6,7 @@ use crate::application::{
 };
 use common::{
     browsers::{Base, Browser},
-    desktop_file::DesktopFile,
+    desktop_file::{DesktopFile, DesktopFileError},
     utils,
 };
 use gtk::{
@@ -17,7 +17,8 @@ use gtk::{
 use icon_picker::IconPicker;
 use libadwaita::{
     ActionRow, ButtonContent, ComboRow, EntryRow, HeaderBar, NavigationPage, NavigationView,
-    PreferencesGroup, PreferencesPage, SwitchRow, Toast, ToastOverlay, ToastPriority, WrapBox,
+    PreferencesGroup, PreferencesPage, Spinner, SwitchRow, Toast, ToastOverlay, ToastPriority,
+    WrapBox,
     gtk::{
         self, Button, Image, InputPurpose, Label, Orientation,
         prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt},
@@ -63,7 +64,7 @@ impl NavPage for WebAppView {
     }
 }
 impl WebAppView {
-    const TOAST_MESSAGE_TIMEOUT: u32 = 1;
+    const TOAST_MESSAGE_TIMEOUT: u32 = 4;
     const TOAST_RESET: &str = "Reset";
 
     pub fn new(
@@ -597,8 +598,12 @@ impl WebAppView {
     }
 
     fn connect_url_row(self: &Rc<Self>) {
-        let validate_icon = Self::build_validate_icon();
-        self.url_row.add_suffix(&validate_icon);
+        let validate_icon_url = Self::build_validate_icon();
+        let spinner = Spinner::new();
+        spinner.set_visible(false);
+
+        self.url_row.add_suffix(&validate_icon_url);
+        self.url_row.add_suffix(&spinner);
 
         let self_clone = self.clone();
 
@@ -607,7 +612,7 @@ impl WebAppView {
 
             debug!(is_valid = is_valid, "Validate input: {}", entry_row.title());
 
-            validate_icon.set_visible(!is_valid);
+            validate_icon_url.set_visible(!is_valid);
             if is_valid {
                 entry_row.set_show_apply_button(true);
                 entry_row.set_tooltip_text(None);
@@ -625,11 +630,26 @@ impl WebAppView {
 
         self.url_row.connect_apply(move |entry_row| {
             self_clone.change_icon_button.set_sensitive(true);
-
             let url = entry_row.text().to_string();
-            let self_clone = self_clone.clone();
 
+            self_clone
+                .desktop_file
+                .borrow_mut()
+                .set_url(&entry_row.text());
+
+            self_clone
+                .desktop_file
+                .borrow_mut()
+                .set_icon_path(Path::new(""));
+
+            self_clone.reset_app_header();
+
+            let self_clone = self_clone.clone();
+            let spinner_clone = spinner.clone();
             glib::spawn_future_local(async move {
+                spinner_clone.set_visible(true);
+                self_clone.change_icon_button.set_sensitive(false);
+
                 let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
 
                 if let Err(error) = icon_picker.set_first_icon(&url).await {
@@ -640,17 +660,10 @@ impl WebAppView {
                     error!("{error:?}");
                 }
                 self_clone.on_desktop_file_change();
+
+                spinner_clone.set_visible(false);
+                self_clone.change_icon_button.set_sensitive(true);
             });
-        });
-
-        let self_clone = self.clone();
-
-        self.url_row.connect_apply(move |entry_row| {
-            self_clone
-                .desktop_file
-                .borrow_mut()
-                .set_url(&entry_row.text());
-            self_clone.on_desktop_file_change();
         });
     }
 
@@ -731,6 +744,19 @@ impl WebAppView {
         }
     }
 
+    fn reset_change_icon_button(self: &Rc<Self>) {
+        if self
+            .desktop_file
+            .borrow()
+            .get_icon_path()
+            .is_some_and(|icon_path| !icon_path.to_string_lossy().is_empty())
+        {
+            self.change_icon_button.remove_css_class("error");
+        } else {
+            self.change_icon_button.add_css_class("error");
+        }
+    }
+
     fn is_dirty(self: &Rc<Self>) -> bool {
         let desktop_file_borrow = self.desktop_file.borrow();
         let name_saved = desktop_file_borrow.get_name().unwrap_or_default();
@@ -773,7 +799,7 @@ impl WebAppView {
                 DesktopFileError::ValidationError(error) => {
                     self.on_error(
                         &format!("Failed to save: '{}'", &error.to_string()),
-                        Some(&error.into()),
+                        Some(&error.clone().into()),
                     );
                 }
                 DesktopFileError::Other(error) => {
@@ -782,6 +808,7 @@ impl WebAppView {
             }
         }
 
+        self.reset_change_icon_button();
         self.reset_reset_button();
         self.reset_browser_isolation();
         self.reset_app_header();

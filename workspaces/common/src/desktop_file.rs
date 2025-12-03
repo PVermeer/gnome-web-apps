@@ -34,7 +34,7 @@ pub struct DesktopFileEntries {
 }
 
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Keys {
     Gwa,
     Url,
@@ -80,7 +80,7 @@ impl From<anyhow::Error> for DesktopFileError {
         DesktopFileError::Other(e)
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ValidationError {
     pub field: Keys,
     pub message: String,
