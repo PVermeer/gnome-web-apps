@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
-use gtk::{Image, gdk_pixbuf::Pixbuf};
+use gtk::{Image, gdk_pixbuf::Pixbuf, prelude::WidgetExt};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
 use std::{
@@ -282,14 +282,16 @@ impl DesktopFile {
 
     pub fn get_icon(&self) -> Image {
         let fallback_icon = "image-missing-symbolic";
-        let icon_name = self.desktop_entry.icon().unwrap_or(fallback_icon);
+        let icon_name = self.desktop_entry.icon().unwrap_or_default();
         let icon_path = Path::new(icon_name);
         if icon_path.is_file() {
             Image::from_file(icon_path)
         } else if !icon_name.is_empty() {
             Image::from_icon_name(icon_name)
         } else {
-            Image::from_icon_name(fallback_icon)
+            let image = Image::from_icon_name(fallback_icon);
+            image.add_css_class("error");
+            image
         }
     }
 
