@@ -7,7 +7,7 @@ use gtk::{
     gdk_pixbuf::Pixbuf,
     gio::prelude::FileExt,
     glib::object::Cast,
-    prelude::{BoxExt, ButtonExt, ListBoxRowExt, WidgetExt},
+    prelude::{BoxExt, ButtonExt, FlowBoxChildExt, ListBoxRowExt, WidgetExt},
 };
 use libadwaita::{
     AlertDialog, ButtonContent, ButtonRow, PreferencesGroup, PreferencesPage, PreferencesRow,
@@ -201,6 +201,23 @@ impl IconPicker {
         self.pref_row_icons_fail.set_visible(false);
     }
 
+    fn select_icon(&self, filename: &str) {
+        let flow_box_borrow = self.pref_row_icons_flow_box.borrow();
+        if let Some(flow_box) = flow_box_borrow.as_ref() {
+            let mut idx = 0;
+            while let Some(flow_box_child) = flow_box.child_at_index(idx) {
+                if let Some(widget) = flow_box_child.child()
+                    && filename == widget.widget_name()
+                {
+                    flow_box.select_child(&flow_box_child);
+                    break;
+                }
+
+                idx += 1;
+            }
+        }
+    }
+
     fn load_icons(self: &Rc<Self>) {
         let self_clone = self.clone();
         let url = self_clone
@@ -361,9 +378,10 @@ impl IconPicker {
                 self_clone
                     .icons
                     .borrow_mut()
-                    .insert(filename, Rc::new(icon));
+                    .insert(filename.clone(), Rc::new(icon));
 
                 self_clone.reload_icons();
+                self_clone.select_icon(&filename);
             },
         );
     }
