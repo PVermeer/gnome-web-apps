@@ -17,11 +17,19 @@ use libadwaita::{
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use scraper::{Html, Selector};
-use std::{cell::RefCell, cmp::Reverse, collections::HashMap, fs, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Reverse,
+    collections::HashMap,
+    fs,
+    rc::Rc,
+    time::{Duration, SystemTime},
+};
 use tracing::{debug, error, info};
 
 pub struct IconPicker {
     init: RefCell<bool>,
+    fetched_icons_ts: RefCell<SystemTime>,
     prefs_page: PreferencesPage,
     app: Rc<App>,
     desktop_file: Rc<RefCell<DesktopFile>>,
@@ -37,6 +45,8 @@ pub struct IconPicker {
 impl IconPicker {
     pub const DIALOG_SAVE: &str = "save";
     pub const DIALOG_CANCEL: &str = "cancel";
+    /// In seconds
+    pub const ONLINE_FETCH_THROTTLE: u64 = 20;
 
     pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
@@ -56,8 +66,15 @@ impl IconPicker {
         content_box.append(&spinner);
         content_box.append(&prefs_page);
 
+        let fetched_icons_ts = RefCell::new(
+            SystemTime::now()
+                .checked_sub(Duration::from_secs(Self::ONLINE_FETCH_THROTTLE + 5))
+                .unwrap_or(SystemTime::now()),
+        );
+
         Rc::new(Self {
             init: RefCell::new(false),
+            fetched_icons_ts,
             prefs_page,
             app: app.clone(),
             desktop_file: desktop_file.clone(),
@@ -74,10 +91,11 @@ impl IconPicker {
 
     pub fn init(self: &Rc<Self>) {
         let mut is_init = self.init.borrow_mut();
+        self.load_icons();
+
         if *is_init {
             return;
         }
-        self.load_icons();
 
         let self_clone = self.clone();
         self.pref_group_icons_reset_button
@@ -142,8 +160,8 @@ impl IconPicker {
         dialog
     }
 
-    pub async fn set_first_icon(self: &Rc<Self>, url: &str) -> Result<()> {
-        self.set_online_icons(url).await?;
+    pub async fn save_first_icon_found(self: &Rc<Self>) -> Result<()> {
+        self.set_online_icons().await?;
         let icons_borrow = self.icons.borrow();
         let mut icons: Vec<(&String, &Rc<Icon>)> = icons_borrow.iter().collect();
         icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
@@ -180,21 +198,21 @@ impl IconPicker {
         Ok(icon)
     }
 
-    fn icons_loading(&self) {
+    fn set_icons_loading(&self) {
         self.prefs_page.set_visible(false);
         self.spinner.set_visible(true);
         self.pref_row_icons.set_visible(false);
         self.pref_row_icons_fail.set_visible(true);
     }
 
-    fn no_icons(&self) {
+    fn set_no_icons(&self) {
         self.prefs_page.set_visible(true);
         self.spinner.set_visible(false);
         self.pref_row_icons.set_visible(false);
         self.pref_row_icons_fail.set_visible(true);
     }
 
-    fn show_icons(&self) {
+    fn set_show_icons(&self) {
         self.prefs_page.set_visible(true);
         self.spinner.set_visible(false);
         self.pref_row_icons.set_visible(true);
@@ -220,23 +238,17 @@ impl IconPicker {
 
     fn load_icons(self: &Rc<Self>) {
         let self_clone = self.clone();
-        let url = self_clone
-            .desktop_file
-            .borrow()
-            .get_url()
-            .unwrap_or_default();
 
         glib::spawn_future_local(async move {
-            self_clone.icons_loading();
+            self_clone.set_icons_loading();
 
-            if let Err(error) = self_clone.set_online_icons(&url).await {
+            if let Err(error) = self_clone.set_online_icons().await {
                 error!("{error:?}");
-                self_clone.no_icons();
+                self_clone.set_no_icons();
                 return;
             }
 
             self_clone.reload_icons();
-            self_clone.show_icons();
         });
     }
 
@@ -274,19 +286,30 @@ impl IconPicker {
         }
 
         if icons.is_empty() {
-            self.no_icons();
+            self.set_no_icons();
         } else {
-            self.show_icons();
+            self.set_show_icons();
         }
 
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
-    async fn set_online_icons(&self, url: &str) -> Result<()> {
-        debug!("Fetching online icons");
-        let url_clone = url.to_string();
+    async fn set_online_icons(&self) -> Result<()> {
+        let now = SystemTime::now();
+        let throttle_duration = Duration::from_secs(Self::ONLINE_FETCH_THROTTLE);
+        let previous_fetch_ts = *self.fetched_icons_ts.borrow();
+        let previous_fetch_duration = now.duration_since(previous_fetch_ts).unwrap();
 
-        let html_text = self.app.fetch.get_as_string(url_clone).await?;
+        if previous_fetch_duration < throttle_duration {
+            return Ok(());
+        }
+
+        *self.fetched_icons_ts.borrow_mut() = SystemTime::now();
+
+        debug!("Fetching online icons");
+        let url = self.desktop_file.borrow().get_url().unwrap_or_default();
+
+        let html_text = self.app.fetch.get_as_string(url.clone()).await?;
         let fragment = Html::parse_document(&html_text);
         let selector =
             Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
@@ -328,7 +351,7 @@ impl IconPicker {
         }
 
         if self.icons.borrow().is_empty() {
-            bail!("No icons found for: {url}")
+            bail!("No icons found for: {}", &url)
         }
 
         Ok(())

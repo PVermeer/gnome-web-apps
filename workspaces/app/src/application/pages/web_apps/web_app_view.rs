@@ -53,6 +53,7 @@ pub struct WebAppView {
     url_row: EntryRow,
     isolate_row: SwitchRow,
     browser_row: ComboRow,
+    icon_picker: RefCell<Option<Rc<IconPicker>>>,
 }
 impl NavPage for WebAppView {
     fn get_navpage(&self) -> &NavigationPage {
@@ -121,6 +122,7 @@ impl WebAppView {
             url_row,
             isolate_row,
             browser_row,
+            icon_picker: RefCell::new(None),
         })
     }
 
@@ -150,6 +152,20 @@ impl WebAppView {
 
     pub fn get_is_new(self: &Rc<Self>) -> bool {
         *self.is_new.borrow()
+    }
+
+    pub fn get_icon_picker(self: &Rc<Self>) -> Rc<IconPicker> {
+        if let Some(icon_picker) = self.icon_picker.borrow().clone() {
+            icon_picker
+        } else {
+            let icon_picker = IconPicker::new(&self.app, &self.desktop_file);
+            *self.icon_picker.borrow_mut() = Some(icon_picker.clone());
+            icon_picker
+        }
+    }
+
+    fn reset_icon_picker(self: &Rc<Self>) {
+        *self.icon_picker.borrow_mut() = None;
     }
 
     fn reset_desktop_file(self: &Rc<Self>) {
@@ -472,9 +488,9 @@ impl WebAppView {
             let self_clone_success = self_clone.clone();
             let self_clone_fail = self_clone.clone();
 
-            let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
-
             drop(desktop_file_borrow);
+
+            let icon_picker = self_clone.get_icon_picker();
 
             icon_picker.show_dialog(
                 Some(move || {
@@ -627,10 +643,10 @@ impl WebAppView {
         });
 
         let self_clone = self.clone();
+        let running_icon_search_id = Rc::new(RefCell::new(0));
 
         self.url_row.connect_apply(move |entry_row| {
             self_clone.change_icon_button.set_sensitive(true);
-            let url = entry_row.text().to_string();
 
             self_clone
                 .desktop_file
@@ -643,16 +659,29 @@ impl WebAppView {
                 .set_icon_path(Path::new(""));
 
             self_clone.reset_app_header();
+            self_clone.reset_icon_picker();
 
             let self_clone = self_clone.clone();
             let spinner_clone = spinner.clone();
+            let running_icon_search_id_clone = running_icon_search_id.clone();
+
+            // Bug with clippy, make sure its dropped before await future
+            #[allow(clippy::await_holding_refcell_ref)]
             glib::spawn_future_local(async move {
+                let mut is_running_icon_search_borrow = running_icon_search_id_clone.borrow_mut();
+                *is_running_icon_search_borrow += 1;
+                let id = *is_running_icon_search_borrow;
+                drop(is_running_icon_search_borrow);
+
                 spinner_clone.set_visible(true);
                 self_clone.change_icon_button.set_sensitive(false);
 
-                let icon_picker = IconPicker::new(&self_clone.app, &self_clone.desktop_file);
+                let icon_picker = self_clone.get_icon_picker();
+                if let Err(error) = icon_picker.save_first_icon_found().await {
+                    if *running_icon_search_id_clone.borrow() != id {
+                        return;
+                    }
 
-                if let Err(error) = icon_picker.set_first_icon(&url).await {
                     self_clone
                         .desktop_file
                         .borrow_mut()
@@ -660,6 +689,9 @@ impl WebAppView {
                     error!("{error:?}");
                 }
 
+                if *running_icon_search_id_clone.borrow() != id {
+                    return;
+                }
                 self_clone.on_desktop_file_change();
                 spinner_clone.set_visible(false);
                 self_clone.change_icon_button.set_sensitive(true);
