@@ -91,7 +91,7 @@ impl IconPicker {
 
     pub fn init(self: &Rc<Self>) {
         let mut is_init = self.init.borrow_mut();
-        self.load_icons();
+        self.load_icons(false);
 
         if *is_init {
             return;
@@ -100,7 +100,7 @@ impl IconPicker {
         let self_clone = self.clone();
         self.pref_group_icons_reset_button
             .connect_clicked(move |_| {
-                self_clone.load_icons();
+                self_clone.load_icons(true);
             });
 
         let self_clone = self.clone();
@@ -161,7 +161,7 @@ impl IconPicker {
     }
 
     pub async fn save_first_icon_found(self: &Rc<Self>) -> Result<()> {
-        self.set_online_icons().await?;
+        self.set_online_icons(false).await?;
         let icons_borrow = self.icons.borrow();
         let mut icons: Vec<(&String, &Rc<Icon>)> = icons_borrow.iter().collect();
         icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
@@ -236,13 +236,13 @@ impl IconPicker {
         }
     }
 
-    fn load_icons(self: &Rc<Self>) {
+    fn load_icons(self: &Rc<Self>, force: bool) {
         let self_clone = self.clone();
 
         glib::spawn_future_local(async move {
             self_clone.set_icons_loading();
 
-            if let Err(error) = self_clone.set_online_icons().await {
+            if let Err(error) = self_clone.set_online_icons(force).await {
                 error!("{error:?}");
                 self_clone.set_no_icons();
                 return;
@@ -294,13 +294,13 @@ impl IconPicker {
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
-    async fn set_online_icons(&self) -> Result<()> {
+    async fn set_online_icons(&self, force: bool) -> Result<()> {
         let now = SystemTime::now();
         let throttle_duration = Duration::from_secs(Self::ONLINE_FETCH_THROTTLE);
         let previous_fetch_ts = *self.fetched_icons_ts.borrow();
         let previous_fetch_duration = now.duration_since(previous_fetch_ts).unwrap();
 
-        if previous_fetch_duration < throttle_duration {
+        if !force && previous_fetch_duration < throttle_duration {
             return Ok(());
         }
 

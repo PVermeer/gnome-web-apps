@@ -670,7 +670,7 @@ impl WebAppView {
             glib::spawn_future_local(async move {
                 let mut is_running_icon_search_borrow = running_icon_search_id_clone.borrow_mut();
                 *is_running_icon_search_borrow += 1;
-                let id = *is_running_icon_search_borrow;
+                let run_id = *is_running_icon_search_borrow;
                 drop(is_running_icon_search_borrow);
 
                 spinner_clone.set_visible(true);
@@ -678,7 +678,7 @@ impl WebAppView {
 
                 let icon_picker = self_clone.get_icon_picker();
                 if let Err(error) = icon_picker.save_first_icon_found().await {
-                    if *running_icon_search_id_clone.borrow() != id {
+                    if *running_icon_search_id_clone.borrow() != run_id {
                         return;
                     }
 
@@ -689,7 +689,7 @@ impl WebAppView {
                     error!("{error:?}");
                 }
 
-                if *running_icon_search_id_clone.borrow() != id {
+                if *running_icon_search_id_clone.borrow() != run_id {
                     return;
                 }
                 self_clone.on_desktop_file_change();
