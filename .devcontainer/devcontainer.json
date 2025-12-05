@@ -36,7 +36,8 @@
 				"redhat.vscode-yaml",
 				"timonwong.shellcheck",
 				"redhat.vscode-xml",
-				"lumirelle.shell-format-rev"
+				"lumirelle.shell-format-rev",
+				"esbenp.prettier-vscode"
 			]
 		}
 	}

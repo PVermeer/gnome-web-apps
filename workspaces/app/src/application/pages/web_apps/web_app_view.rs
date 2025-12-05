@@ -871,7 +871,7 @@ impl WebAppView {
         let old_profile_path = desktop_file_borrow.get_profile_path().unwrap_or_default();
 
         let new_profile_path = if is_isolated {
-            match desktop_file_borrow.build_profile_path() {
+            match desktop_file_borrow.build_profile() {
                 Err(error) => {
                     drop(desktop_file_borrow);
                     self.reset_desktop_file();

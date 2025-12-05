@@ -1,0 +1,9 @@
+#toolbar-menubar[inactive="true"] ~ #TabsToolbar {
+  visibility: collapse !important;
+}
+#toolbar-menubar[inactive="true"] ~ #nav-bar {
+  visibility: collapse !important;
+}
+#navigator-toolbox {
+  border-bottom: none !important;
+}

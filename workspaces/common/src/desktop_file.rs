@@ -363,7 +363,8 @@ impl DesktopFile {
         );
     }
 
-    pub fn build_profile_path(&self) -> Result<String> {
+    /// Returning the path or profile name
+    pub fn build_profile(&self) -> Result<String> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
         let is_isolated = self.get_isolated().unwrap_or(false);
 
@@ -376,6 +377,7 @@ impl DesktopFile {
 
         let id = self.get_id().context("No id on 'DesktopFile'")?;
         let profile_path = browser.get_profile_path(&id)?;
+        browser.copy_profile_config_to_profile_path(&id)?;
 
         debug!("Using profile path: {}", &profile_path);
 

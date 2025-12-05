@@ -9,6 +9,7 @@ edition = "2024"
 common = { path = "workspaces/common" }
 anyhow = "1"
 freedesktop-desktop-entry = "0"
+fs_extra = "1.3.0"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }
 include_dir = "0.7.4"
 libadwaita = { version = "0", features = ["v1_7"] }

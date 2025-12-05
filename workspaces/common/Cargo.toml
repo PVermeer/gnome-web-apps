@@ -5,6 +5,7 @@ edition = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 freedesktop-desktop-entry = { workspace = true }
+fs_extra = { workspace = true}
 gtk = { workspace = true }
 include_dir = { workspace = true }
 rand = { workspace = true }

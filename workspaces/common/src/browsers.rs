@@ -248,7 +248,9 @@ impl Browser {
                Firefox has a method to create profiles (-CreateProfile <name> and -P) but is poorly implemented.
                If firefox has never run it will set the created profile as default and
                never creates a default profile.
-               Then there is --profile <path>, this works but will not create the path if it doesn't exists. So `--filesystem=~/.var/app:create` is needed to break in the sandbox to create the path if it doesn't exists. All a bit poorly implemented.
+               Then there is --profile <path>, this works but will not create the path if it doesn't exists.
+               So `--filesystem=~/.var/app:create` is needed to break in the sandbox to create the path if it doesn't exists.
+               All a bit poorly implemented.
 
                Chromium based just created the provided profile path
             */
@@ -271,6 +273,35 @@ impl Browser {
         }
 
         Ok(profile)
+    }
+
+    pub fn copy_profile_config_to_profile_path(&self, app_id: &str) -> Result<()> {
+        let profile_path = self.get_profile_path(app_id)?;
+
+        let copy_options = fs_extra::dir::CopyOptions {
+            overwrite: true,
+            content_only: true,
+            ..fs_extra::dir::CopyOptions::default()
+        };
+
+        let copy_profile_config = move |config_path: &PathBuf| -> Result<()> {
+            if config_path.is_dir() {
+                fs_extra::dir::copy(config_path, &profile_path, &copy_options)?;
+            }
+            Ok(())
+        };
+
+        match self.base {
+            Base::Chromium => {
+                let config_path = self.app_dirs.config().join("profiles").join("chromium");
+                copy_profile_config(&config_path)
+            }
+            Base::Firefox => {
+                let config_path = self.app_dirs.config().join("profiles").join("firefox");
+                copy_profile_config(&config_path)
+            }
+            Base::None => Ok(()),
+        }
     }
 
     pub fn get_index(&self) -> Option<usize> {
