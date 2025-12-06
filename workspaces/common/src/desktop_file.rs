@@ -1,6 +1,6 @@
 use crate::{
     app_dirs::AppDirs,
-    browsers::{Browser, BrowserConfigs},
+    browsers::{Base, Browser, BrowserConfigs},
     config::{self, OnceLockExt},
 };
 use anyhow::{Context, Result, bail};
@@ -30,7 +30,7 @@ pub struct DesktopFileEntries {
     domain: String,
     isolate: bool,
     icon: PathBuf,
-    profile_path: String,
+    profile_path: PathBuf,
 }
 
 #[allow(unused)]
@@ -108,11 +108,11 @@ fn map_to_bool_option(value: &str) -> Option<bool> {
     }
 }
 
-fn map_to_path_option(value: PathBuf) -> Option<PathBuf> {
-    if value.as_os_str().is_empty() {
+fn map_to_path_option(value: &str) -> Option<PathBuf> {
+    if value.is_empty() {
         None
     } else {
-        Some(value)
+        Some(Path::new(value).to_path_buf())
     }
 }
 
@@ -325,7 +325,6 @@ impl DesktopFile {
     pub fn get_icon_path(&self) -> Option<PathBuf> {
         self.desktop_entry
             .desktop_entry(&Keys::Icon.to_string())
-            .map(|str| Path::new(str).to_path_buf())
             .and_then(map_to_path_option)
     }
 
@@ -343,15 +342,17 @@ impl DesktopFile {
         );
     }
 
-    pub fn get_profile_path(&self) -> Option<String> {
+    pub fn get_profile_path(&self) -> Option<PathBuf> {
         self.desktop_entry
             .desktop_entry(&Keys::Profile.to_string())
-            .and_then(map_to_string_option)
+            .and_then(map_to_path_option)
     }
 
-    pub fn set_profile_path(&mut self, path: &str) {
-        self.desktop_entry
-            .add_desktop_entry(Keys::Profile.to_string(), path.to_string());
+    pub fn set_profile_path(&mut self, path: &Path) {
+        self.desktop_entry.add_desktop_entry(
+            Keys::Profile.to_string(),
+            path.to_string_lossy().to_string(),
+        );
 
         debug!(
             "Set '{}' on desktop file: {}",
@@ -363,8 +364,43 @@ impl DesktopFile {
         );
     }
 
-    /// Returning the path or profile name
-    pub fn build_profile(&self) -> Result<String> {
+    pub fn copy_profile_config_to_profile_path(&self) -> Result<()> {
+        let profile_path = self
+            .get_profile_path()
+            .context("No profile path on 'DesktopFile'")?;
+        let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
+
+        if !profile_path.is_dir() {
+            bail!("Profile path is not created")
+        }
+
+        let copy_options = fs_extra::dir::CopyOptions {
+            overwrite: true,
+            content_only: true,
+            ..fs_extra::dir::CopyOptions::default()
+        };
+
+        let copy_profile_config = move |config_path: &PathBuf| -> Result<()> {
+            if config_path.is_dir() {
+                fs_extra::dir::copy(config_path, &profile_path, &copy_options)?;
+            }
+            Ok(())
+        };
+
+        match browser.base {
+            Base::Chromium => {
+                let config_path = self.app_dirs.config().join("profiles").join("chromium");
+                copy_profile_config(&config_path)
+            }
+            Base::Firefox => {
+                let config_path = self.app_dirs.config().join("profiles").join("firefox");
+                copy_profile_config(&config_path)
+            }
+            Base::None => Ok(()),
+        }
+    }
+
+    pub fn build_profile_path(&self) -> Result<PathBuf> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
         let is_isolated = self.get_isolated().unwrap_or(false);
 
@@ -376,10 +412,21 @@ impl DesktopFile {
         }
 
         let id = self.get_id().context("No id on 'DesktopFile'")?;
-        let profile_path = browser.get_profile_path(&id)?;
-        browser.copy_profile_config_to_profile_path(&id)?;
+        let profile_path = browser.get_profile_path()?.join(&id);
 
-        debug!("Using profile path: {}", &profile_path);
+        if !profile_path.is_dir() {
+            debug!(
+                path = profile_path.to_string_lossy().to_string(),
+                "Creating profile path"
+            );
+            fs::create_dir_all(&profile_path).context(format!(
+                "Failed to create profile dir: {}",
+                profile_path.display()
+            ))?;
+        }
+
+        debug!("Using profile path: {}", &profile_path.display());
+        self.copy_profile_config_to_profile_path()?;
 
         Ok(profile_path)
     }
@@ -501,20 +548,17 @@ impl DesktopFile {
             field: Keys::Isolate,
             message: "Missing".to_string(),
         })?;
-        let icon = self
-            .get_icon_path()
-            .and_then(map_to_path_option)
-            .ok_or(ValidationError {
-                field: Keys::Icon,
-                message: "Missing".to_string(),
-            })?;
+        let icon = self.get_icon_path().ok_or(ValidationError {
+            field: Keys::Icon,
+            message: "Missing".to_string(),
+        })?;
         let profile_path = self
             .get_profile_path()
             .or_else(|| {
                 if isolate {
                     None
                 } else {
-                    Some(String::default())
+                    Some(PathBuf::default())
                 }
             })
             .ok_or(ValidationError {
@@ -574,7 +618,7 @@ impl DesktopFile {
             let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
 
             let replacement = if entries.isolate {
-                format!("{value}={}", entries.profile_path)
+                format!("{value}={}", entries.profile_path.to_string_lossy())
             } else {
                 String::new()
             };

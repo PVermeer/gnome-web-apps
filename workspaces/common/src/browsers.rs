@@ -203,22 +203,14 @@ impl Browser {
         }
     }
 
-    pub fn get_profile_path(&self, app_id: &str) -> Result<String> {
+    pub fn get_profile_path(&self) -> Result<PathBuf> {
         if !self.can_isolate {
             bail!("Browser cannot isolate")
         }
 
         // Save in own app
         let app_profile_path = || -> Result<PathBuf> {
-            let path = self.app_dirs.profiles().join(&self.id).join(app_id);
-            if !path.is_dir() {
-                debug!(
-                    path = path.to_string_lossy().to_string(),
-                    "Creating profile path"
-                );
-                fs::create_dir_all(&path)
-                    .context(format!("Failed to create profile dir: {}", path.display()))?;
-            }
+            let path = self.app_dirs.profiles().join(&self.id);
             Ok(path)
         };
 
@@ -230,16 +222,7 @@ impl Browser {
                 .join(&self.id)
                 .join("data")
                 .join(config::APP_NAME_HYPHEN.get_value())
-                .join("profiles")
-                .join(app_id);
-            if !path.is_dir() {
-                debug!(
-                    path = path.to_string_lossy().to_string(),
-                    "Creating profile path"
-                );
-                fs::create_dir_all(&path)
-                    .context(format!("Failed to create profile dir: {}", path.display()))?;
-            }
+                .join("profiles");
             Ok(path)
         };
 
@@ -254,54 +237,18 @@ impl Browser {
 
                Chromium based just created the provided profile path
             */
-            Base::Chromium | Base::Firefox => {
-                let profile_path = match self.installation {
-                    Installation::Flatpak(_) => browser_profile_path()?,
-                    Installation::System => app_profile_path()?,
-                    Installation::None => bail!("No installation type on 'Browser'"),
-                };
-                profile_path.to_string_lossy().to_string()
-            }
+            Base::Chromium | Base::Firefox => match self.installation {
+                Installation::Flatpak(_) => browser_profile_path()?,
+                Installation::System => app_profile_path()?,
+                Installation::None => bail!("No installation type on 'Browser'"),
+            },
 
             Base::None => {
                 bail!("No base browser on 'Browser'")
             }
         };
 
-        if profile.is_empty() {
-            bail!("Profile is an empty string")
-        }
-
         Ok(profile)
-    }
-
-    pub fn copy_profile_config_to_profile_path(&self, app_id: &str) -> Result<()> {
-        let profile_path = self.get_profile_path(app_id)?;
-
-        let copy_options = fs_extra::dir::CopyOptions {
-            overwrite: true,
-            content_only: true,
-            ..fs_extra::dir::CopyOptions::default()
-        };
-
-        let copy_profile_config = move |config_path: &PathBuf| -> Result<()> {
-            if config_path.is_dir() {
-                fs_extra::dir::copy(config_path, &profile_path, &copy_options)?;
-            }
-            Ok(())
-        };
-
-        match self.base {
-            Base::Chromium => {
-                let config_path = self.app_dirs.config().join("profiles").join("chromium");
-                copy_profile_config(&config_path)
-            }
-            Base::Firefox => {
-                let config_path = self.app_dirs.config().join("profiles").join("firefox");
-                copy_profile_config(&config_path)
-            }
-            Base::None => Ok(()),
-        }
     }
 
     pub fn get_index(&self) -> Option<usize> {

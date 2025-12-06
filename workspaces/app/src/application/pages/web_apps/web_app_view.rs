@@ -28,7 +28,11 @@ use libadwaita::{
         PreferencesRowExt,
     },
 };
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{
+    cell::RefCell,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 use std::{fmt::Write as _, fs};
 use tracing::{debug, error};
 use validator::ValidateUrl;
@@ -871,7 +875,7 @@ impl WebAppView {
         let old_profile_path = desktop_file_borrow.get_profile_path().unwrap_or_default();
 
         let new_profile_path = if is_isolated {
-            match desktop_file_borrow.build_profile() {
+            match desktop_file_borrow.build_profile_path() {
                 Err(error) => {
                     drop(desktop_file_borrow);
                     self.reset_desktop_file();
@@ -881,11 +885,14 @@ impl WebAppView {
                 Ok(profile) => profile,
             }
         } else {
-            String::new()
+            PathBuf::default()
         };
 
         if old_profile_path != new_profile_path && Path::new(&old_profile_path).is_dir() {
-            debug!(path = old_profile_path, "Deleting profile");
+            debug!(
+                path = old_profile_path.display().to_string(),
+                "Deleting profile"
+            );
             let _ = fs::remove_dir_all(old_profile_path);
         }
 
