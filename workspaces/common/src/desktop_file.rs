@@ -8,6 +8,7 @@ use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{Image, gdk_pixbuf::Pixbuf, prelude::WidgetExt};
 use rand::{Rng, distributions::Alphanumeric};
 use regex::Regex;
+use semver::Version;
 use std::{
     fmt::Display,
     fs::{self},
@@ -25,6 +26,7 @@ pub struct Icon {
 pub struct DesktopFileEntries {
     name: String,
     app_id: String,
+    version: Version,
     browser: Rc<Browser>,
     url: String,
     domain: String,
@@ -33,10 +35,10 @@ pub struct DesktopFileEntries {
     profile_path: PathBuf,
 }
 
-#[allow(unused)]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Keys {
     Gwa,
+    Version,
     Url,
     Id,
     BrowserId,
@@ -53,6 +55,7 @@ impl Display for Keys {
 
         match self {
             Self::Gwa => write!(f, "X-{}", &identifier),
+            Self::Version => write!(f, "X-{}-VERSION", &identifier),
             Self::Id => write!(f, "X-{}-ID", &identifier),
             Self::Url => write!(f, "X-{}-URL", &identifier),
             Self::BrowserId => write!(f, "X-{}-BROWSER-ID", &identifier),
@@ -216,6 +219,28 @@ impl DesktopFile {
             &self
                 .desktop_entry
                 .desktop_entry(&Keys::Name.to_string())
+                .unwrap_or_default()
+        );
+    }
+
+    pub fn get_version(&self) -> Option<Version> {
+        self.desktop_entry
+            .desktop_entry(&Keys::Version.to_string())
+            .map(|result| {
+                Version::parse(result).expect("Failed to parse 'Version' on 'DesktopFile'")
+            })
+    }
+
+    pub fn set_version(&mut self, version: &Version) {
+        self.desktop_entry
+            .add_desktop_entry(Keys::Version.to_string(), version.to_string());
+
+        debug!(
+            "Set '{}' on desktop file: {}",
+            &Keys::Version.to_string(),
+            &self
+                .desktop_entry
+                .desktop_entry(&Keys::Version.to_string())
                 .unwrap_or_default()
         );
     }
@@ -508,6 +533,37 @@ impl DesktopFile {
         Ok(())
     }
 
+    /// Run update actions when app has been updated, returns true if actions have been applied
+    #[allow(clippy::collapsible_if)]
+    pub fn update(&mut self) -> Result<bool, DesktopFileError> {
+        let app_version =
+            Version::parse(config::VERSION.get_value()).context("Failed to get app version")?;
+        let desktop_file_version = match self.get_version() {
+            None => {
+                let version = Version::new(0, 0, 0);
+                self.set_version(&version);
+                version
+            }
+            Some(version) => version,
+        };
+
+        if desktop_file_version < app_version {
+            if self.get_isolated().is_some() && self.get_profile_path().is_some() {
+                self.copy_profile_config_to_profile_path()?;
+            }
+        } else {
+            return Ok(false);
+        }
+
+        // if desktop_file_version <= Version::new(0, 0, 0) {
+
+        // }
+
+        self.set_version(&app_version);
+        self.save()?;
+        Ok(true)
+    }
+
     fn get_entries(&self) -> Result<DesktopFileEntries, DesktopFileError> {
         let name = self.get_name().ok_or(ValidationError {
             field: Keys::Name,
@@ -515,6 +571,10 @@ impl DesktopFile {
         })?;
         let app_id = self.get_id().ok_or(ValidationError {
             field: Keys::Id,
+            message: "Missing".to_string(),
+        })?;
+        let version = self.get_version().ok_or(ValidationError {
+            field: Keys::Version,
             message: "Missing".to_string(),
         })?;
         let url = self
@@ -569,6 +629,7 @@ impl DesktopFile {
         Ok(DesktopFileEntries {
             name,
             app_id,
+            version,
             browser,
             url,
             domain,
@@ -630,8 +691,9 @@ impl DesktopFile {
             Self::from_string(&save_path, &d_str, &self.browser_configs, &self.app_dirs)?;
 
         new_desktop_file.set_is_owned_app();
-        new_desktop_file.set_url(&entries.url);
         new_desktop_file.set_id(&entries.app_id);
+        new_desktop_file.set_version(&entries.version);
+        new_desktop_file.set_url(&entries.url);
         new_desktop_file.set_browser(&entries.browser);
         new_desktop_file.set_isolated(entries.isolate);
         new_desktop_file.set_profile_path(&entries.profile_path);

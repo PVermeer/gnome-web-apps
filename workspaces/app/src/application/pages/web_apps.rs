@@ -2,7 +2,10 @@ mod web_app_view;
 
 use super::NavPage;
 use crate::application::{App, pages::PrefNavPage};
-use common::{desktop_file::DesktopFile, utils};
+use common::{
+    desktop_file::{DesktopFile, DesktopFileError},
+    utils,
+};
 use gtk::{
     Button, Image,
     prelude::{ButtonExt, WidgetExt},
@@ -13,7 +16,7 @@ use libadwaita::{
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use std::{cell::RefCell, rc::Rc};
-use tracing::debug;
+use tracing::{debug, error};
 use web_app_view::WebAppView;
 
 pub struct WebAppsPage {
@@ -164,7 +167,7 @@ impl WebAppsPage {
         let applications_path = app.dirs.applications();
 
         for file in utils::files::get_entries_in_dir(&applications_path).unwrap_or_default() {
-            let Ok(desktop_file) =
+            let Ok(mut desktop_file) =
                 DesktopFile::from_path(&file.path(), &app.browser_configs, &app.dirs)
             else {
                 continue;
@@ -174,7 +177,36 @@ impl WebAppsPage {
                 continue;
             }
 
-            debug!("Found desktop file: {}", desktop_file.get_path().display());
+            let file_name = desktop_file
+                .get_path()
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+
+            debug!(file_name = &file_name, "Found desktop file");
+
+            let is_updated = match desktop_file.update() {
+                Ok(is_updated) => is_updated,
+                Err(error) => {
+                    match error {
+                        DesktopFileError::ValidationError(error) => error!(
+                            error = error.to_string(),
+                            desktop_file = &file_name,
+                            "Failed to validate after updating 'DesktopFile'"
+                        ),
+                        DesktopFileError::Other(error) => error!(
+                            error = error.to_string(),
+                            desktop_file = &file_name,
+                            "Failed to update 'DesktopFile'"
+                        ),
+                    }
+                    continue;
+                }
+            };
+            if is_updated {
+                debug!(file_name = &file_name, "Updated desktop file");
+            }
 
             owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }

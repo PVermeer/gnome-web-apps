@@ -130,6 +130,7 @@ dependencies = [
  "include_dir",
  "rand",
  "regex",
+ "semver",
  "serde",
  "serde_yaml",
  "toml",

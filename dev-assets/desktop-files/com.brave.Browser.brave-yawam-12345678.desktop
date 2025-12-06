@@ -1,6 +1,6 @@
 [Desktop Entry]
-Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
-Icon=dev-assets/icons/12345678.png
+Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/yet-another-web-app-manager/profiles/12345678
+Icon=/home/vscode/.local/share/yet-another-web-app-manager/icons/12345678.png
 Name=Dev Test App
 StartupWMClass=brave-www.youtube.com__-Default
 Terminal=false
@@ -11,6 +11,7 @@ X-YAWAM=true
 X-YAWAM-BROWSER-ID=com.brave.Browser
 X-YAWAM-ID=12345678
 X-YAWAM-ISOLATE=true
-X-YAWAM-PROFILE=/home/vscode/.var/app/com.brave.Browser/data/profiles/12345678
+X-YAWAM-PROFILE=/home/vscode/.var/app/com.brave.Browser/data/yet-another-web-app-manager/profiles/12345678
 X-YAWAM-URL=https://www.youtube.com
+X-YAWAM-VERSION=0.0.1
 

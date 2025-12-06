@@ -17,6 +17,7 @@ rand = "0.8"
 regex = "1"
 sanitize-filename = "0.6"
 scraper = { version = "0", features = ["atomic"] }
+semver = "1.0.27"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 toml = "0.9.8"
