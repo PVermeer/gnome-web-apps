@@ -31,7 +31,7 @@ pub struct DesktopFileEntries {
     url: String,
     domain: String,
     isolate: bool,
-    icon: PathBuf,
+    icon_path: PathBuf,
     profile_path: PathBuf,
 }
 
@@ -564,6 +564,44 @@ impl DesktopFile {
         Ok(true)
     }
 
+    /// Check paths, try to fix and print errors
+    pub fn check_paths(&self) {
+        let entries = match self.get_entries() {
+            Ok(entries) => entries,
+            Err(error) => {
+                error!(
+                    name = self.get_name().unwrap_or_default(),
+                    error = match &error {
+                        DesktopFileError::ValidationError(error) => {
+                            format!("Field: {}, Error: {}", error.field, error.message)
+                        }
+                        DesktopFileError::Other(error) => error.to_string(),
+                    },
+                    "Failed to get entries on 'DesktopFile'"
+                );
+                return;
+            }
+        };
+
+        if entries.isolate && !entries.profile_path.is_dir() {
+            error!(
+                name = entries.name,
+                "Profile does not exists. Trying to create new profile."
+            );
+            fs::create_dir_all(entries.profile_path).unwrap_or_else(|error| {
+                error!(
+                    name = entries.name,
+                    error = error.to_string(),
+                    "Failed to create profile dir"
+                );
+            });
+        }
+
+        if !entries.icon_path.is_file() {
+            error!(name = entries.name, "Icon file does not exists");
+        }
+    }
+
     fn get_entries(&self) -> Result<DesktopFileEntries, DesktopFileError> {
         let name = self.get_name().ok_or(ValidationError {
             field: Keys::Name,
@@ -634,7 +672,7 @@ impl DesktopFile {
             url,
             domain,
             isolate,
-            icon,
+            icon_path: icon,
             profile_path,
         })
     }
@@ -666,7 +704,7 @@ impl DesktopFile {
         d_str = d_str.replace("%{name}", &entries.name);
         d_str = d_str.replace("%{url}", &entries.url);
         d_str = d_str.replace("%{domain}", &entries.domain);
-        d_str = d_str.replace("%{icon}", &entries.icon.to_string_lossy());
+        d_str = d_str.replace("%{icon}", &entries.icon_path.to_string_lossy());
         d_str = d_str.replace("%{app_id}", &app_id);
 
         let isolate_key = "is_isolated";

@@ -208,6 +208,9 @@ impl WebAppsPage {
                 debug!(file_name = &file_name, "Updated desktop file");
             }
 
+            debug!(file_name = &file_name, "Checking paths");
+            desktop_file.check_paths();
+
             owned_desktop_files.push(Rc::new(RefCell::new(desktop_file)));
         }
 
