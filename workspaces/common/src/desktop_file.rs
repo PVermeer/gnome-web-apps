@@ -136,6 +136,9 @@ impl DesktopFile {
             .collect();
         desktop_entry.add_desktop_entry(Keys::Id.to_string(), random_id);
 
+        let version = config::VERSION.get_value().clone();
+        desktop_entry.add_desktop_entry(Keys::Version.to_string(), version);
+
         Self {
             desktop_entry,
             browser_configs: browser_configs.clone(),
