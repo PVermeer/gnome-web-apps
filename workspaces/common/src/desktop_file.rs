@@ -69,6 +69,7 @@ impl Display for Keys {
     }
 }
 
+#[derive(Debug)]
 pub enum DesktopFileError {
     ValidationError(ValidationError),
     Other(anyhow::Error),
@@ -83,6 +84,19 @@ impl From<anyhow::Error> for DesktopFileError {
         DesktopFileError::Other(e)
     }
 }
+impl Display for DesktopFileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::ValidationError(validation_error) => {
+                write!(f, "{validation_error}")
+            }
+            Self::Other(error) => {
+                write!(f, "{error}")
+            }
+        }
+    }
+}
+impl std::error::Error for DesktopFileError {}
 #[derive(Debug, Clone)]
 pub struct ValidationError {
     pub field: Keys,
@@ -463,7 +477,13 @@ impl DesktopFile {
 
     pub fn validate(&self) -> Result<(), DesktopFileError> {
         match self.to_new_from_browser() {
-            Err(error) => Err(error),
+            Err(error) => {
+                error!(
+                    validation_error = error.to_string(),
+                    "Invalid 'DesktopFile'"
+                );
+                Err(error)
+            }
             Ok(_) => Ok(()),
         }
     }
