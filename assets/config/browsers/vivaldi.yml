@@ -1,0 +1,6 @@
+name: Vivaldi
+flatpak: com.vivaldi.Vivaldi
+system_bin: vivaldi
+can_isolate: true
+desktop_file_name_prefix: com.vivaldi.Vivaldi.vivaldi
+base: chromium
