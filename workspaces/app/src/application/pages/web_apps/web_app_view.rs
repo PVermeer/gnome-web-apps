@@ -355,9 +355,15 @@ impl WebAppView {
             let box_container = gtk::Box::new(gtk::Orientation::Horizontal, 6);
             let icon = browser.get_icon();
 
-            icon.set_css_classes(&["error"]);
             box_container.append(&icon);
             box_container.append(&Label::new(Some(&browser.get_name_with_installation())));
+
+            if browser.is_not_installed() {
+                icon.add_css_class("error");
+                box_container.add_css_class("dimmed");
+                list_item.set_activatable(false);
+                list_item.set_selectable(false);
+            }
 
             list_item.set_child(Some(&box_container));
         });

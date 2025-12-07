@@ -130,6 +130,10 @@ impl Browser {
         matches!(self.installation, Installation::System)
     }
 
+    pub fn is_not_installed(&self) -> bool {
+        self.installation == Installation::None
+    }
+
     pub fn get_name_with_installation(&self) -> String {
         let mut txt = String::new();
         let _ = write!(txt, "{}", self.name);
