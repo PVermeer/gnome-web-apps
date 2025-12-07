@@ -96,7 +96,7 @@ impl Browsers {
     }
 
     fn build_browser_expand_content(browser: &Browser) -> gtk::Box {
-        let content_box = gtk::Box::new(Orientation::Vertical, 6);
+        let content_box = gtk::Box::new(Orientation::Vertical, 12);
         content_box.set_margin_top(12);
         content_box.set_margin_bottom(12);
 
@@ -150,6 +150,28 @@ impl Browsers {
                 .build();
             content_box.append(&isolation_label);
         }
+
+        if !browser.issues.is_empty() {
+            let mut markup_issues = String::new();
+            for issue in &browser.issues {
+                let _ = writeln!(markup_issues, "• {issue}");
+            }
+
+            let issues_label = Label::builder()
+                .use_markup(true)
+                .label("<b>Known issues:</b>")
+                .build();
+
+            let issues_list_label = Label::builder()
+                .label(&markup_issues)
+                .wrap(true)
+                .halign(Align::Center)
+                .build();
+
+            content_box.append(&issues_label);
+            content_box.append(&issues_list_label);
+        }
+
         content_box
     }
 }

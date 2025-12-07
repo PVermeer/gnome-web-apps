@@ -55,6 +55,8 @@ pub struct BrowserYaml {
     can_isolate: bool,
     desktop_file_name_prefix: String,
     base: String,
+    #[serde(default)]
+    issues: Vec<String>,
 }
 
 struct BrowserConfig {
@@ -73,6 +75,7 @@ pub struct Browser {
     pub desktop_file: DesktopEntry,
     pub desktop_file_name_prefix: String,
     pub base: Base,
+    pub issues: Vec<String>,
     configs: Rc<BrowserConfigs>,
     icon_theme: Rc<IconTheme>,
     icon_names: HashSet<String>,
@@ -96,6 +99,7 @@ impl Browser {
         let desktop_file = browser_config.desktop_file.clone();
         let desktop_file_name_prefix = browser_config.config.desktop_file_name_prefix.clone();
         let base = Base::from_string(&browser_config.config.base);
+        let issues = browser_config.config.issues.clone();
 
         let id = if matches!(installation, Installation::Flatpak(_)) {
             flatpak_id.clone().unwrap()
@@ -117,6 +121,7 @@ impl Browser {
             configs: browser_configs.clone(),
             icon_names,
             base,
+            issues,
             icon_theme: icon_theme.clone(),
             app_dirs: app_dirs.clone(),
         }
@@ -347,6 +352,7 @@ impl BrowserConfigs {
             configs: self.clone(),
             icon_names: HashSet::from(["dialog-warning-symbolic".to_string()]),
             base: Base::None,
+            issues: Vec::new(),
             icon_theme: self.icon_theme.clone(),
             app_dirs: self.app_dirs.clone(),
         }
