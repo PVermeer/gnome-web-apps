@@ -389,10 +389,7 @@ impl DesktopFile {
         );
     }
 
-    pub fn copy_profile_config_to_profile_path(&self) -> Result<()> {
-        let profile_path = self
-            .get_profile_path()
-            .context("No profile path on 'DesktopFile'")?;
+    pub fn copy_profile_config_to_profile_path(&self, profile_path: &Path) -> Result<()> {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
 
         if !profile_path.is_dir() {
@@ -406,8 +403,13 @@ impl DesktopFile {
         };
 
         let copy_profile_config = move |config_path: &PathBuf| -> Result<()> {
+            debug!(
+                config_path = config_path.display().to_string(),
+                profile_path = &profile_path.display().to_string(),
+                "Copying profile config"
+            );
             if config_path.is_dir() {
-                fs_extra::dir::copy(config_path, &profile_path, &copy_options)?;
+                fs_extra::dir::copy(config_path, profile_path, &copy_options)?;
             }
             Ok(())
         };
@@ -451,7 +453,7 @@ impl DesktopFile {
         }
 
         debug!("Using profile path: {}", &profile_path.display());
-        self.copy_profile_config_to_profile_path()?;
+        self.copy_profile_config_to_profile_path(&profile_path)?;
 
         Ok(profile_path)
     }
@@ -548,8 +550,10 @@ impl DesktopFile {
         };
 
         if desktop_file_version < app_version {
-            if self.get_isolated().is_some() && self.get_profile_path().is_some() {
-                self.copy_profile_config_to_profile_path()?;
+            if self.get_isolated().is_some()
+                && let Some(profile_path) = self.get_profile_path()
+            {
+                self.copy_profile_config_to_profile_path(&profile_path)?;
             }
         } else {
             return Ok(false);
