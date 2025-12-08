@@ -615,13 +615,7 @@ impl DesktopFile {
                 name = entries.name,
                 "Profile does not exists. Trying to create new profile."
             );
-            fs::create_dir_all(entries.profile_path).unwrap_or_else(|error| {
-                error!(
-                    name = entries.name,
-                    error = error.to_string(),
-                    "Failed to create profile dir"
-                );
-            });
+            let _ = self.build_profile_path();
         }
 
         if !entries.icon_path.is_file() {
