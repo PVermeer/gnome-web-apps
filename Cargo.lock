@@ -1881,6 +1881,7 @@ dependencies = [
  "sanitize-filename",
  "scraper",
  "serde",
+ "serde_json",
  "serde_yaml",
  "toml",
  "tracing",

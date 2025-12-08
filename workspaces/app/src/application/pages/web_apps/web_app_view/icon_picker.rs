@@ -17,6 +17,7 @@ use libadwaita::{
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::{
     cell::RefCell,
     cmp::Reverse,
@@ -26,6 +27,16 @@ use std::{
     time::{Duration, SystemTime},
 };
 use tracing::{debug, error, info};
+use validator::ValidateUrl;
+
+#[derive(Deserialize)]
+struct ManifestIcon {
+    src: Option<String>,
+}
+#[derive(Deserialize)]
+struct ManifestJson {
+    icons: Option<Vec<ManifestIcon>>,
+}
 
 pub struct IconPicker {
     init: RefCell<bool>,
@@ -294,7 +305,86 @@ impl IconPicker {
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
-    async fn set_online_icons(&self, force: bool) -> Result<()> {
+    async fn get_manifest_icon_urls_from_html(
+        self: &Rc<Self>,
+        html_fragment: &Html,
+        url: &String,
+    ) -> Vec<String> {
+        let mut manifest_urls = Vec::new();
+        let mut manifest_handles = Vec::new();
+        let mut icon_urls = Vec::new();
+
+        if let Ok(manifest_selector) = Selector::parse("link[rel~=\"manifest\"]") {
+            for element in html_fragment.select(&manifest_selector) {
+                if let Some(href) = element.value().attr("href") {
+                    info!("Manifest found: {href}");
+                    if href.validate_url() {
+                        manifest_urls.push(href.to_string());
+                        continue;
+                    }
+                    let try_url = format!("{url}/{href}");
+                    if try_url.validate_url() {
+                        manifest_urls.push(try_url);
+                    }
+                }
+            }
+        }
+
+        for manifest_url in manifest_urls {
+            let app_clone = self.app.clone();
+            let url_clone = manifest_url.clone();
+            // Spawn in parallel on main thread
+            let handle =
+                glib::spawn_future_local(
+                    async move { app_clone.fetch.get_as_string(url_clone).await },
+                );
+            manifest_handles.push((handle, manifest_url));
+        }
+
+        for handle in manifest_handles {
+            let (handle, url) = handle;
+            let Ok(Ok(manifest_json)) = handle.await else {
+                error!("Failed to fetch manifest: '{url}'");
+                continue;
+            };
+            let Ok(manifest) = serde_json::from_str::<ManifestJson>(&manifest_json) else {
+                continue;
+            };
+            let Some(icons) = manifest.icons else {
+                continue;
+            };
+            for icon in icons {
+                let Some(src) = icon.src else {
+                    continue;
+                };
+                if src.validate_url() {
+                    info!("Favicon found: {src}");
+                    icon_urls.push(src);
+                }
+            }
+        }
+
+        icon_urls
+    }
+
+    fn get_icon_urls_from_html(html_fragment: &Html) -> Vec<String> {
+        let mut icon_urls = Vec::new();
+
+        if let Ok(icon_selector) =
+            Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]")
+        {
+            for element in html_fragment.select(&icon_selector) {
+                if let Some(href) = element.value().attr("href") {
+                    info!("Favicon found: {href}");
+                    icon_urls.push(href.to_string());
+                }
+            }
+        }
+
+        icon_urls
+    }
+
+    async fn set_online_icons(self: &Rc<Self>, force: bool) -> Result<()> {
         let now = SystemTime::now();
         let throttle_duration = Duration::from_secs(Self::ONLINE_FETCH_THROTTLE);
         let previous_fetch_ts = *self.fetched_icons_ts.borrow();
@@ -311,30 +401,26 @@ impl IconPicker {
 
         let html_text = self.app.fetch.get_as_string(url.clone()).await?;
         let fragment = Html::parse_document(&html_text);
-        let selector =
-            Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]").unwrap();
 
-        let mut urls = Vec::new();
-        for element in fragment.select(&selector) {
-            if let Some(href) = element.value().attr("href") {
-                info!("Favicon found: {href}");
-                urls.push(href.to_string());
-            }
-        }
+        let mut icon_urls = Vec::new();
+        icon_urls.append(&mut self.get_manifest_icon_urls_from_html(&fragment, &url).await);
+        icon_urls.append(&mut Self::get_icon_urls_from_html(&fragment));
+        icon_urls.push(format!("{url}/favicon.ico"));
 
-        let mut handles = Vec::new();
-        for url in urls {
+        let mut icon_handles = Vec::new();
+
+        for icon_url in icon_urls {
             let app_clone = self.app.clone();
-            let url_clone = url.clone();
+            let url_clone = icon_url.clone();
             // Spawn in parallel on main thread
             let handle =
                 glib::spawn_future_local(
                     async move { app_clone.fetch.get_as_bytes(url_clone).await },
                 );
-            handles.push((handle, url));
+            icon_handles.push((handle, icon_url));
         }
 
-        for handle in handles {
+        for handle in icon_handles {
             let (handle, url) = handle;
             let Ok(Ok(image_bytes)) = handle.await else {
                 error!("Failed to fetch image: '{url}'");
@@ -483,7 +569,8 @@ impl IconPicker {
             .column_spacing(10)
             .row_spacing(10)
             .homogeneous(false)
-            .max_children_per_line(5)
+            .max_children_per_line(4)
+            .min_children_per_line(4)
             .selection_mode(SelectionMode::Single)
             .build()
     }

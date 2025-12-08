@@ -25,6 +25,7 @@ regex = { workspace = true }
 sanitize-filename = { workspace = true }
 scraper = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
