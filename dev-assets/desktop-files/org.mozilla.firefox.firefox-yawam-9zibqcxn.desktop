@@ -1,7 +1,7 @@
 [Desktop Entry]
 Exec=flatpak run --user org.mozilla.firefox --class=yawam-9zibqcxn --name=yawam-9zibqcxn --profile=/home/vscode/.var/app/org.mozilla.firefox/data/yet-another-web-app-manager/profiles/9zibqcxn --no-remote https://www.youtube.com
-Icon=/home/vscode/.local/share/yet-another-web-app-manager/icons/9zibqcxn.png
-Name=Firefox-Test
+Icon=/workspaces/gnome-web-apps/dev-assets/icons/YouTube.png
+Name=Dev Firefox app
 StartupWMClass=yawam-9zibqcxn
 Terminal=false
 Type=Application

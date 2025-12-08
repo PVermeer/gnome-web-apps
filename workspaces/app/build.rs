@@ -23,6 +23,7 @@ fn main() -> Result<()> {
 
     create_config_symlinks(&app_dirs);
     create_data_symlinks(&app_dirs);
+    copy_dev_web_apps(&app_dirs);
 
     create_app_desktop_file()?;
     create_app_icon()?;
@@ -42,6 +43,19 @@ fn create_data_symlinks(app_dirs: &AppDirs) {
 
     let _ = utils::files::create_symlink(&data_path, &app_dirs.data());
     let _ = utils::files::create_symlink(&data_path.join("applications"), &app_dirs.applications());
+}
+
+fn copy_dev_web_apps(app_dirs: &AppDirs) {
+    let dev_desktop_files = build_dev_assets_path().join("desktop-files");
+    let user_applications_dir = app_dirs.applications();
+
+    for desktop_file in utils::files::get_entries_in_dir(&dev_desktop_files).unwrap() {
+        fs::copy(
+            desktop_file.path(),
+            user_applications_dir.join(desktop_file.file_name()),
+        )
+        .unwrap();
+    }
 }
 
 fn create_app_desktop_file() -> Result<()> {
@@ -191,4 +205,8 @@ fn build_dev_config_path() -> PathBuf {
 
 fn build_dev_data_path() -> PathBuf {
     project_path().join("dev-data")
+}
+
+fn build_dev_assets_path() -> PathBuf {
+    project_path().join("dev-assets")
 }
