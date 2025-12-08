@@ -91,6 +91,7 @@
         "args": [
           "test",
           "--no-run",
+          "--bins"
         ],
       },
       "args": [],

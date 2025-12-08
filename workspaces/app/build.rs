@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use common::{
     app_dirs::AppDirs,
     assets,
@@ -29,6 +29,9 @@ fn main() -> Result<()> {
     create_app_icon()?;
     create_app_metainfo_file()?;
     update_flatpak_manifest()?;
+
+    install_app_desktop_file(&app_dirs)?;
+    install_app_icon(&app_dirs)?;
 
     Ok(())
 }
@@ -63,8 +66,7 @@ fn create_app_desktop_file() -> Result<()> {
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
     let app_name_short = config::APP_NAME_SHORT.get_value();
-    let extension = "desktop";
-    let file_name = format!("{app_id}.{extension}");
+    let file_name = build_desktop_file_name();
     let save_dir = build_assets_path().join("desktop");
     let save_path = save_dir.join(file_name);
 
@@ -86,9 +88,7 @@ fn create_app_desktop_file() -> Result<()> {
 }
 
 fn create_app_icon() -> Result<()> {
-    let app_id = config::APP_ID.get_value();
-    let extension = "png";
-    let file_name = format!("{app_id}.{extension}");
+    let file_name = build_icon_file_name();
     let save_dir = build_assets_path().join("desktop");
     let save_path = save_dir.join(file_name);
 
@@ -99,6 +99,34 @@ fn create_app_icon() -> Result<()> {
     let mut icon_file = File::create(&save_path)?;
     icon_file.write_all(assets::get_icon_data())?;
 
+    Ok(())
+}
+
+fn install_app_desktop_file(app_dirs: &AppDirs) -> Result<()> {
+    let file_name = build_desktop_file_name();
+    let desktop_file = build_assets_path().join("desktop").join(&file_name);
+    let save_file = app_dirs.applications().join(file_name);
+
+    fs::copy(desktop_file, save_file).context("Desktop file copy failed")?;
+    Ok(())
+}
+
+fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
+    let file_name = build_icon_file_name();
+    let icon_file = build_assets_path().join("desktop").join(&file_name);
+    let save_dir = app_dirs
+        .user_data()
+        .join("icons")
+        .join("hicolor")
+        .join("256x256")
+        .join("apps");
+    if !save_dir.is_dir() {
+        fs::create_dir_all(&save_dir).context("Failed to create icon dir")?;
+    }
+
+    let save_file = save_dir.join(file_name);
+
+    fs::copy(icon_file, save_file).context("Icon copy failed")?;
     Ok(())
 }
 
@@ -209,4 +237,20 @@ fn build_dev_data_path() -> PathBuf {
 
 fn build_dev_assets_path() -> PathBuf {
     project_path().join("dev-assets")
+}
+
+fn build_desktop_file_name() -> String {
+    let app_id = config::APP_ID.get_value();
+    let extension = "desktop";
+    let file_name = format!("{app_id}.{extension}");
+
+    file_name
+}
+
+fn build_icon_file_name() -> String {
+    let app_id = config::APP_ID.get_value();
+    let extension = "png";
+    let file_name = format!("{app_id}.{extension}");
+
+    file_name
 }
