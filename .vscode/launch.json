@@ -10,7 +10,7 @@
       "name": "Debug",
       "env": {
         // "RUST_BACKTRACE": "1",
-        "RUST_LOG": "debug",
+        "WAH_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
@@ -26,7 +26,7 @@
       "request": "launch",
       "name": "Flatpak run",
       "env": {
-        "RUST_LOG": "debug",
+        "WAH_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "runtimeExecutable": "flatpak",
@@ -44,7 +44,7 @@
       "request": "launch",
       "name": "Flatpak build and run",
       "env": {
-        "RUST_LOG": "debug",
+        "WAH_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "runtimeExecutable": "flatpak",
@@ -63,7 +63,7 @@
       "request": "launch",
       "name": "Flatpak container",
       "env": {
-        "RUST_LOG": "debug",
+        "WAH_LOG": "debug",
         "RUST_BACKTRACE": "1",
         "GSETTINGS_BACKEND": "memory",
       },
@@ -84,7 +84,7 @@
       "request": "launch",
       "name": "Debug unit tests",
       "env": {
-        "RUST_LOG": "debug",
+        "WAH_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
