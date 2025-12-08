@@ -20,7 +20,8 @@
 		"--device=/dev/fuse"
 	],
 	"containerEnv": {
-		"RUN_IN_VSCODE_DEVCONTAINER": "true"
+		"RUN_IN_VSCODE_DEVCONTAINER": "true",
+		"DISPLAY": "${localEnv:DISPLAY}"
 	},
 	"mounts": [],
 	"postCreateCommand": "sudo dnf install -y chromium firefox && flatpak --user install -y com.github.tchx84.Flatseal com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox one.ablaze.floorp",
