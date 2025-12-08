@@ -65,7 +65,7 @@ fn create_app_desktop_file() -> Result<()> {
     let desktop_file = assets::get_desktop_file();
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
-    let app_name_short = config::APP_NAME_SHORT.get_value();
+    let bin_name = config::BIN_NAME.get_value();
     let file_name = build_desktop_file_name();
     let save_dir = build_assets_path().join("desktop");
     let save_path = save_dir.join(file_name);
@@ -76,7 +76,7 @@ fn create_app_desktop_file() -> Result<()> {
     base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
     base_desktop_file.add_desktop_entry("Icon".to_string(), app_id.clone());
     base_desktop_file.add_desktop_entry("StartupWMClass".to_string(), app_id.clone());
-    base_desktop_file.add_desktop_entry("Exec".to_string(), app_name_short.clone());
+    base_desktop_file.add_desktop_entry("Exec".to_string(), bin_name.clone());
 
     if !save_dir.is_dir() {
         fs::create_dir_all(&save_dir)?;
@@ -133,7 +133,7 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
 fn create_app_metainfo_file() -> Result<()> {
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
-    // let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
+    let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
     let developer = config::DEVELOPER.get_value();
     let developer_id = &developer.to_lowercase();
     let app_summary = config::APP_SUMMARY.get_value();
@@ -147,7 +147,7 @@ fn create_app_metainfo_file() -> Result<()> {
     //     "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/heads/main/assets/screenshots"
     // );
     let screenshot_base_url = &format!(
-        "https://raw.githubusercontent.com/{developer}/gnome-web-apps/refs/heads/main/assets/screenshots"
+        "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/heads/main/assets/screenshots"
     );
     let screenshots = utils::files::get_entries_in_dir(&assets_path.join("screenshots"))?
         .iter()
@@ -202,6 +202,7 @@ fn update_flatpak_manifest() -> Result<()> {
     let app_name_dense = config::APP_NAME_DENSE.get_value();
     let app_name_short = config::APP_NAME_SHORT.get_value();
     let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
+    let bin_name = config::BIN_NAME.get_value();
 
     let mut manifest = FLATPAK_MANIFEST_IN.to_string();
     manifest = manifest.replace("%{app_id}", app_id);
@@ -209,6 +210,7 @@ fn update_flatpak_manifest() -> Result<()> {
     manifest = manifest.replace("%{app_name_dense}", app_name_dense);
     manifest = manifest.replace("%{app_name_short}", app_name_short);
     manifest = manifest.replace("%{app_name_hyphen}", app_name_hyphen);
+    manifest = manifest.replace("%{bin_name}", bin_name);
 
     let save_path = Path::new("..")
         .join("..")

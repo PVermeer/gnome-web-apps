@@ -15,13 +15,15 @@ flatpak-builder \
     --force-clean \
     --install \
     --user \
-    target/flatpak/build flatpak/manifest.yml
+    --disable-rofiles-fuse \
+    target/flatpak/build \
+    flatpak/manifest.yml
 
 echo -e "\n==== Building Bundle ====\n"
 
 flatpak build-bundle \
     target/flatpak/repo \
-    target/flatpak/yet-another-web-app-manager.flatpak \
-    org.pvermeer.YetAnotherWebAppManager
+    target/flatpak/web-app-hub.flatpak \
+    org.pvermeer.WebAppHub
 
 echo -e "\n==== Done ====\n"

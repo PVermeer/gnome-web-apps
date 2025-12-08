@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.pvermeer.WebAppHub</id>
+  <name>Web App Hub</name>
+  <developer id="org.pvermeer">
+    <name>PVermeer</name>
+  </developer>
+  <launchable type="desktop-id">org.pvermeer.WebAppHub.desktop</launchable>
+  <summary>Create Web Apps with ease</summary>
+  <description>
+    <p>
+A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App Hub you can manage your Web App with ease. All apps will have their own icon and can be isolated from the normal normal browser profile.
+</p>
+<ul>
+    <li>Easy browser switching</li>
+    <li>Uses your installed browsers</li>
+    <li>Isolation build in if the browser supports it</li>
+    <li>Apps will have their own icon and dock indicator</li>
+    <li>Add custom browser configs with a yaml and a desktop file</li>
+</ul>
+
+  </description>
+  <content_rating type="oars-1.1" />
+
+  <metadata_license>CC-BY-SA-4.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+
+  <url type="homepage">https://github.com/PVermeer/web-app-hub</url>
+  <url type="bugtracker">https://github.com/PVermeer/web-app-hub/issues</url>
+  <url type="contact">https://github.com/PVermeer/web-app-hub/issues</url>
+  <!-- <url type="donation"></url> -->
+  <url type="vcs-browser">https://github.com/PVermeer/web-app-hub</url>
+  <url type="help">https://github.com/PVermeer/web-app-hub/blob/main/README.md</url>
+  <url type="contribute">https://github.com/PVermeer/web-app-hub</url>
+
+  <recommends>
+    <display_length compare="ge">360</display_length>
+  </recommends>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+    <control>tablet</control>
+  </supports>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/heads/main/assets/screenshots/screenshot-1.png</image>
+
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.0.1" date="2025-12-01">
+      <description>
+        <p>Beta test version</p>
+      </description>
+    </release>
+  </releases>
+
+</component>

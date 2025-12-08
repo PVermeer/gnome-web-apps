@@ -34,7 +34,7 @@
         "--user",
         "run",
         "--filesystem=/workspaces",
-        "org.pvermeer.YetAnotherWebAppManager"
+        "org.pvermeer.WebAppHub"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
@@ -52,7 +52,7 @@
         "--user",
         "run",
         "--filesystem=/workspaces",
-        "org.pvermeer.YetAnotherWebAppManager"
+        "org.pvermeer.WebAppHub"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
@@ -74,7 +74,7 @@
         "--devel",
         "--filesystem=/workspaces",
         "--command=bash",
-        "org.pvermeer.YetAnotherWebAppManager"
+        "org.pvermeer.WebAppHub"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"

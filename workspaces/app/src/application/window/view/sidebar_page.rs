@@ -38,9 +38,7 @@ impl SidebarPage {
         toolbar.set_content(Some(&list));
 
         let nav_page = NavigationPage::builder()
-            .title(utils::strings::capitalize(
-                config::APP_NAME_SHORT.get_value(),
-            ))
+            .title(utils::strings::capitalize(config::APP_NAME.get_value()))
             .tag("sidebar")
             .child(&toolbar)
             .build();

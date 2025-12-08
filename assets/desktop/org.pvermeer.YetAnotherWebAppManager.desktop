@@ -1,9 +1,0 @@
-[Desktop Entry]
-Categories=Utility;GNOME
-Exec=yawam
-Icon=org.pvermeer.YetAnotherWebAppManager
-Keywords=WebApp;App;Software;Manager
-Name=Yet Another Web App Manager
-StartupWMClass=org.pvermeer.YetAnotherWebAppManager
-Type=Application
-

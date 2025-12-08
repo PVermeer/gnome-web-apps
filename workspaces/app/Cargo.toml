@@ -1,16 +1,16 @@
 [package]
-name = "yet-another-web-app-manager"
+name = "web-app-hub"
 version = "0.0.1"
-description = "Create web apps"
+description = "Create Web Apps with ease"
 edition = { workspace = true }
 license = "GPL-3.0-only"
 authors = ["PVermeer"]
-repository = "https://github.com/PVermeer/gnome-web-apps"
-homepage = "https://github.com/PVermeer/gnome-web-apps"
-documentation = "https://github.com/PVermeer/gnome-web-apps/README"
+repository = "https://github.com/PVermeer/web-app-hub"
+homepage = "https://github.com/PVermeer/web-app-hub"
+documentation = "https://github.com/PVermeer/web-app-hub/README"
 
 [[bin]]
-name = "yawam"
+name = "web-app-hub"
 path = "src/main.rs"
 
 [dependencies]

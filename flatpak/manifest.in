@@ -5,7 +5,7 @@ sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 
-command: %{app_name_short}
+command: %{bin_name}
 
 finish-args:
   - --socket=wayland
@@ -29,7 +29,7 @@ modules:
         FLATPAK_BUILDER_DIR: target/flatpak
     build-commands:
       - cargo build --release --frozen
-      - install -D target/release/%{app_name_short} /app/bin/%{app_name_short}
+      - install -D target/release/%{bin_name} /app/bin/%{bin_name}
       - install -D assets/desktop/org.pvermeer.%{app_name_dense}.metainfo.xml -t /app/share/metainfo/
       - install -D assets/desktop/org.pvermeer.%{app_name_dense}.desktop -t /app/share/applications/
       - install -D assets/desktop/org.pvermeer.%{app_name_dense}.png -t /app/share/icons/hicolor/256x256/apps/

@@ -18,7 +18,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "RUST_LOG=debug ./target/release/yawam",
+			"command": "RUST_LOG=debug ./target/release/web-app-hub",
 			"problemMatcher": [
 				"$rustc",
 			],

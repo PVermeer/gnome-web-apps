@@ -17,6 +17,7 @@ pub static DEVELOPER: OnceLock<String> = OnceLock::new();
 pub static LICENSE: OnceLock<String> = OnceLock::new();
 pub static REPOSITORY: OnceLock<String> = OnceLock::new();
 pub static ISSUES_URL: OnceLock<String> = OnceLock::new();
+pub static BIN_NAME: OnceLock<String> = OnceLock::new();
 
 #[derive(Deserialize)]
 struct CargoPackageToml {
@@ -30,8 +31,13 @@ struct CargoPackageToml {
     documentation: String,
 }
 #[derive(Deserialize)]
+struct CargoPackageBin {
+    name: String,
+}
+#[derive(Deserialize)]
 struct CargoToml {
     package: CargoPackageToml,
+    bin: Vec<CargoPackageBin>,
 }
 
 static CARGO_TOML: &str = include_str!("../../app/Cargo.toml");
@@ -55,6 +61,7 @@ fn set_from_cargo_toml() {
                 homepage,
                 documentation,
             },
+        bin,
     } = toml::from_str(CARGO_TOML).expect("Could not load Cargo.toml");
 
     let name_hyphen = name.clone();
@@ -73,6 +80,7 @@ fn set_from_cargo_toml() {
         .expect("Could not load developer / author")
         .clone();
     let issues_url = format!("{repository}/issues");
+    let bin_name = bin.first().map(|bin| bin.name.clone()).unwrap_or_default();
 
     APP_ID.set(id).unwrap_or_default();
     VERSION.set(version).unwrap_or_default();
@@ -86,6 +94,7 @@ fn set_from_cargo_toml() {
     LICENSE.set(license).unwrap_or_default();
     REPOSITORY.set(repository).unwrap_or_default();
     ISSUES_URL.set(issues_url).unwrap_or_default();
+    BIN_NAME.set(bin_name).unwrap_or_default();
 }
 
 fn set_from_assets() {
@@ -106,6 +115,7 @@ pub fn log_all_values_debug() {
         APP_NAME_SHORT = APP_NAME_SHORT.get_value(),
         DEVELOPER = DEVELOPER.get_value(),
         LICENSE = format!("{:?}", LICENSE.get_value()),
+        BIN = BIN_NAME.get_value()
     );
 }
 

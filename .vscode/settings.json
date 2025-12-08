@@ -1,7 +1,7 @@
 {
     "rust-analyzer.check.command": "clippy",
     "yaml.schemas": {
-        "https://raw.githubusercontent.com/flatpak/flatpak-builder/master/data/flatpak-manifest.schema.json": "file:///workspaces/gnome-web-apps/flatpak/manifest.yml"
+        "https://raw.githubusercontent.com/flatpak/flatpak-builder/master/data/flatpak-manifest.schema.json": "file:///workspaces/web-app-hub/flatpak/manifest.yml"
     },
     "rust-analyzer.check.extraArgs": [
         "--",

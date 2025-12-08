@@ -1,0 +1,9 @@
+[Desktop Entry]
+Categories=Utility;GNOME
+Exec=web-app-hub
+Icon=org.pvermeer.WebAppHub
+Keywords=WebApp;App;Software;Manager
+Name=Web App Hub
+StartupWMClass=org.pvermeer.WebAppHub
+Type=Application
+
