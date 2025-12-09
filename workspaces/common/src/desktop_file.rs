@@ -763,11 +763,7 @@ impl DesktopFile {
                 String::new()
             };
 
-            println!("REPLACING: {replacement}");
-
             *d_str = re.replace_all(&*d_str, replacement).to_string();
-
-            println!("{d_str}");
         }
     }
 
