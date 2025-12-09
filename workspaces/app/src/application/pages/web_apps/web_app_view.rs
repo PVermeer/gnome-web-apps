@@ -325,11 +325,9 @@ impl WebAppView {
             .subtitle("Use an isolated profile")
             .active(is_isolated)
             .sensitive(browser_can_isolate)
+            .tooltip_text("The selected browser is not capable of isolation")
+            .has_tooltip(!browser_can_isolate)
             .build();
-
-        if !browser_can_isolate {
-            switch_row.set_tooltip_text(Some("The selected browser is not capable of isolation"));
-        }
 
         if !browser_can_isolate && is_isolated {
             debug!("Found desktop file with isolate on a browser that is incapable");
@@ -357,13 +355,9 @@ impl WebAppView {
             .subtitle("Always start the app maximized")
             .active(is_maximized)
             .sensitive(browser_can_maximize)
+            .tooltip_text("The selected browser is not capable of starting maximized")
+            .has_tooltip(!browser_can_maximize)
             .build();
-
-        if !browser_can_maximize {
-            switch_row.set_tooltip_text(Some(
-                "The selected browser is not capable of starting maximized",
-            ));
-        }
 
         if !browser_can_maximize && is_maximized {
             debug!("Found desktop file with maximize on a browser that is incapable");
@@ -840,8 +834,27 @@ impl WebAppView {
             .get_browser()
             .is_some_and(|browser| browser.can_isolate);
         self.isolate_row.set_sensitive(browser_can_isolate);
-        if !browser_can_isolate {
+        if browser_can_isolate {
+            self.isolate_row.set_has_tooltip(false);
+        } else {
             self.isolate_row.set_active(false);
+            self.isolate_row.set_has_tooltip(true);
+        }
+    }
+
+    fn reset_browser_maximize(self: &Rc<Self>) {
+        let browser_can_maximize = self
+            .desktop_file
+            .borrow()
+            .get_browser()
+            .is_some_and(|browser| browser.can_start_maximized);
+        self.maximize_row.set_sensitive(browser_can_maximize);
+
+        if browser_can_maximize {
+            self.maximize_row.set_has_tooltip(false);
+        } else {
+            self.maximize_row.set_active(false);
+            self.maximize_row.set_has_tooltip(true);
         }
     }
 
@@ -889,6 +902,11 @@ impl WebAppView {
     fn on_desktop_file_change(self: &Rc<Self>) {
         debug!("Desktop file changed");
 
+        self.reset_change_icon_button();
+        self.reset_reset_button();
+        self.reset_browser_isolation();
+        self.reset_browser_maximize();
+
         let is_new = *self.is_new.borrow();
 
         if is_new {
@@ -909,9 +927,6 @@ impl WebAppView {
             }
         }
 
-        self.reset_change_icon_button();
-        self.reset_reset_button();
-        self.reset_browser_isolation();
         self.reset_app_header();
     }
 
