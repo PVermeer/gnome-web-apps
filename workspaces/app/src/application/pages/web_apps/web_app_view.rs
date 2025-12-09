@@ -327,6 +327,10 @@ impl WebAppView {
             .sensitive(browser_can_isolate)
             .build();
 
+        if !browser_can_isolate {
+            switch_row.set_tooltip_text(Some("The selected browser is not capable of isolation"));
+        }
+
         if !browser_can_isolate && is_isolated {
             debug!("Found desktop file with isolate on a browser that is incapable");
             switch_row.set_active(false);
@@ -354,6 +358,12 @@ impl WebAppView {
             .active(is_maximized)
             .sensitive(browser_can_maximize)
             .build();
+
+        if !browser_can_maximize {
+            switch_row.set_tooltip_text(Some(
+                "The selected browser is not capable of starting maximized",
+            ));
+        }
 
         if !browser_can_maximize && is_maximized {
             debug!("Found desktop file with maximize on a browser that is incapable");

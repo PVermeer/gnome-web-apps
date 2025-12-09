@@ -151,6 +151,14 @@ impl Browsers {
             content_box.append(&isolation_label);
         }
 
+        if browser.can_start_maximized {
+            let isolation_label = Label::builder()
+                .label("<b>This browser can start your web apps maximized.</b>")
+                .use_markup(true)
+                .build();
+            content_box.append(&isolation_label);
+        }
+
         if !browser.issues.is_empty() {
             let mut markup_issues = String::new();
             for issue in &browser.issues {
