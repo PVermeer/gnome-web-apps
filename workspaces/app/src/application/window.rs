@@ -22,8 +22,8 @@ impl AppWindow {
             .application(adw_application)
             .title(config::APP_NAME.get_value())
             .icon_name(config::APP_ID.get_value())
-            .default_height(725)
-            .default_width(850)
+            .default_height(775)
+            .default_width(900)
             .content(&view.nav_split)
             .build();
 

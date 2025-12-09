@@ -56,6 +56,7 @@ pub struct WebAppView {
     name_row: EntryRow,
     url_row: EntryRow,
     isolate_row: SwitchRow,
+    maximize_row: SwitchRow,
     browser_row: ComboRow,
     icon_picker: RefCell<Option<Rc<IconPicker>>>,
 }
@@ -86,6 +87,9 @@ impl WebAppView {
         let browser_can_isolate = desktop_file_borrow
             .get_browser()
             .is_some_and(|browser| browser.can_isolate);
+        let browser_can_maximize = desktop_file_borrow
+            .get_browser()
+            .is_some_and(|browser| browser.can_start_maximized);
         let icon = "preferences-desktop-apps-symbolic";
         let PrefPage {
             nav_page,
@@ -104,6 +108,7 @@ impl WebAppView {
         let name_row = Self::build_name_row(desktop_file);
         let url_row = Self::build_url_row(desktop_file);
         let isolate_row = Self::build_isolate_row(desktop_file, browser_can_isolate);
+        let maximize_row = Self::build_maximize_row(desktop_file, browser_can_maximize);
         let browser_row = Self::build_browser_row(app, desktop_file);
 
         Rc::new(Self {
@@ -125,6 +130,7 @@ impl WebAppView {
             name_row,
             url_row,
             isolate_row,
+            maximize_row,
             browser_row,
             icon_picker: RefCell::new(None),
         })
@@ -272,11 +278,13 @@ impl WebAppView {
         pref_group.add(&self.name_row);
         pref_group.add(&self.url_row);
         pref_group.add(&self.isolate_row);
+        pref_group.add(&self.maximize_row);
         pref_group.add(&self.browser_row);
 
         self.connect_name_row();
         self.connect_url_row();
         self.connect_isolate_row();
+        self.connect_maximize_row();
         self.connect_browser_row();
 
         pref_group
@@ -327,6 +335,34 @@ impl WebAppView {
         // SwitchRow has already a setting on load, so sync this if empty
         if has_isolated.is_none() {
             desktop_file_borrow.set_isolated(switch_row.is_active());
+        }
+
+        switch_row
+    }
+
+    fn build_maximize_row(
+        desktop_file: &Rc<RefCell<DesktopFile>>,
+        browser_can_maximize: bool,
+    ) -> SwitchRow {
+        let mut desktop_file_borrow = desktop_file.borrow_mut();
+        let has_maximized = desktop_file_borrow.get_maximized();
+        let is_maximized = has_maximized.unwrap_or(false);
+
+        let switch_row = SwitchRow::builder()
+            .title("Maximize")
+            .subtitle("Always start the app maximized")
+            .active(is_maximized)
+            .sensitive(browser_can_maximize)
+            .build();
+
+        if !browser_can_maximize && is_maximized {
+            debug!("Found desktop file with maximize on a browser that is incapable");
+            switch_row.set_active(false);
+        }
+
+        // SwitchRow has already a setting on load, so sync this if empty
+        if has_maximized.is_none() {
+            desktop_file_borrow.set_maximized(switch_row.is_active());
         }
 
         switch_row
@@ -719,6 +755,19 @@ impl WebAppView {
                 .set_isolated(switch_row.is_active());
 
             self_clone.on_isolation_change();
+            self_clone.on_desktop_file_change();
+        });
+    }
+
+    fn connect_maximize_row(self: &Rc<Self>) {
+        let self_clone = self.clone();
+
+        self.maximize_row.connect_active_notify(move |switch_row| {
+            self_clone
+                .desktop_file
+                .borrow_mut()
+                .set_maximized(switch_row.is_active());
+
             self_clone.on_desktop_file_change();
         });
     }

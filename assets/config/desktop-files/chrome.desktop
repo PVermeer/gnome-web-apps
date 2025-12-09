@@ -3,7 +3,7 @@ Version=1.0
 Type=Application
 Terminal=false
 Name=%{name}
-Exec=%{command} --app="%{url}" --class=chrome-%{domain}__-Default --name=chrome-%{domain}__-Default %{is_isolated ? --user-data-dir}
+Exec=%{command} --no-first-run --app="%{url}" --class=chrome-%{domain}__-Default --name=chrome-%{domain}__-Default %{is_isolated ? --user-data-dir} %{is_maximized ? --start-maximized}
 X-MultipleArgs=false
 Icon=%{icon}
 StartupWMClass=chrome-%{domain}__-Default

@@ -1,5 +1,5 @@
 [Desktop Entry]
-Exec=flatpak run --user com.brave.Browser --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/web-app-hub/profiles/12345678
+Exec=flatpak run --user com.brave.Browser --no-first-run --app="https://www.youtube.com" --class=brave-www.youtube.com__-Default --name=brave-www.youtube.com__-Default --user-data-dir=/home/vscode/.var/app/com.brave.Browser/data/web-app-hub/profiles/12345678 --start-maximized
 Icon=/workspaces/web-app-hub/dev-assets/icons/YouTube.png
 Name=Dev Brave App
 StartupWMClass=brave-www.youtube.com__-Default
@@ -11,6 +11,7 @@ X-WAH=true
 X-WAH-BROWSER-ID=com.brave.Browser
 X-WAH-ID=12345678
 X-WAH-ISOLATE=true
+X-WAH-MAXIMIZE=true
 X-WAH-PROFILE=/home/vscode/.var/app/com.brave.Browser/data/web-app-hub/profiles/12345678
 X-WAH-URL=https://www.youtube.com
 X-WAH-VERSION=0.0.1

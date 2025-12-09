@@ -31,6 +31,7 @@ pub struct DesktopFileEntries {
     url: String,
     domain: String,
     isolate: bool,
+    maximize: bool,
     icon_path: PathBuf,
     profile_path: PathBuf,
 }
@@ -43,6 +44,7 @@ pub enum Keys {
     Id,
     BrowserId,
     Isolate,
+    Maximize,
     Profile,
     Name,
     Exec,
@@ -60,6 +62,7 @@ impl Display for Keys {
             Self::Url => write!(f, "X-{}-URL", &identifier),
             Self::BrowserId => write!(f, "X-{}-BROWSER-ID", &identifier),
             Self::Isolate => write!(f, "X-{}-ISOLATE", &identifier),
+            Self::Maximize => write!(f, "X-{}-MAXIMIZE", &identifier),
             Self::Profile => write!(f, "X-{}-PROFILE", &identifier),
             Self::Name => write!(f, "Name"),
             Self::Exec => write!(f, "Exec"),
@@ -346,6 +349,25 @@ impl DesktopFile {
                 .desktop_entry
                 .desktop_entry(&Keys::Isolate.to_string())
                 .unwrap_or_default()
+        );
+    }
+
+    pub fn get_maximized(&self) -> Option<bool> {
+        self.desktop_entry
+            .desktop_entry(&Keys::Maximize.to_string())
+            .and_then(map_to_bool_option)
+    }
+
+    pub fn set_maximized(&mut self, is_maximized: bool) {
+        let key = Keys::Maximize.to_string();
+
+        self.desktop_entry
+            .add_desktop_entry(key.clone(), is_maximized.to_string());
+
+        debug!(
+            "Set '{}' on desktop file: {}",
+            &key,
+            &self.desktop_entry.desktop_entry(&key).unwrap_or_default()
         );
     }
 
@@ -667,6 +689,10 @@ impl DesktopFile {
             field: Keys::Isolate,
             message: "Missing".to_string(),
         })?;
+        let maximize = self.get_maximized().ok_or(ValidationError {
+            field: Keys::Maximize,
+            message: "Missing".to_string(),
+        })?;
         let icon = self.get_icon_path().ok_or(ValidationError {
             field: Keys::Icon,
             message: "Missing".to_string(),
@@ -693,6 +719,7 @@ impl DesktopFile {
             url,
             domain,
             isolate,
+            maximize,
             icon_path: icon,
             profile_path,
         })
@@ -714,6 +741,36 @@ impl DesktopFile {
         Ok(desktop_file_path)
     }
 
+    fn replace_conditional(
+        conditional_key: &str,
+        set_value: bool,
+        with_value: Option<&str>,
+        d_str: &mut String,
+    ) {
+        let optional_replace_value = Regex::new(&format!(r"%\{{{conditional_key}\s*\?\s*([^}}]+)"))
+            .unwrap()
+            .captures(&*d_str)
+            .and_then(|caps| caps.get(1).map(|value| value.as_str().to_string()));
+
+        if let Some(replace_value) = optional_replace_value {
+            let re = Regex::new(&format!(r"%\{{{conditional_key}\s*\?\s*[^}}]+\}}",)).unwrap();
+
+            let replacement = if set_value && let Some(with_value) = with_value {
+                format!("{replace_value}={with_value}")
+            } else if set_value {
+                replace_value
+            } else {
+                String::new()
+            };
+
+            println!("REPLACING: {replacement}");
+
+            *d_str = re.replace_all(&*d_str, replacement).to_string();
+
+            println!("{d_str}");
+        }
+    }
+
     fn to_new_from_browser(&self) -> Result<DesktopFile, DesktopFileError> {
         let entries = self.get_entries()?;
         let save_path = self.get_save_path()?;
@@ -727,24 +784,13 @@ impl DesktopFile {
         d_str = d_str.replace("%{domain}", &entries.domain);
         d_str = d_str.replace("%{icon}", &entries.icon_path.to_string_lossy());
         d_str = d_str.replace("%{app_id}", &app_id);
-
-        let isolate_key = "is_isolated";
-        let optional_isolated_value = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*([^}}]+)"))
-            .unwrap()
-            .captures(&d_str)
-            .and_then(|caps| caps.get(1).map(|value| value.as_str().to_string()));
-
-        if let Some(value) = optional_isolated_value {
-            let re = Regex::new(&format!(r"%\{{{isolate_key}\s*\?\s*[^}}]+\}}",)).unwrap();
-
-            let replacement = if entries.isolate {
-                format!("{value}={}", entries.profile_path.to_string_lossy())
-            } else {
-                String::new()
-            };
-
-            d_str = re.replace_all(&d_str, replacement).to_string();
-        }
+        Self::replace_conditional(
+            "is_isolated",
+            entries.isolate,
+            Some(&entries.profile_path.to_string_lossy()),
+            &mut d_str,
+        );
+        Self::replace_conditional("is_maximized", entries.maximize, None, &mut d_str);
 
         let mut new_desktop_file =
             Self::from_string(&save_path, &d_str, &self.browser_configs, &self.app_dirs)?;
@@ -755,6 +801,7 @@ impl DesktopFile {
         new_desktop_file.set_url(&entries.url);
         new_desktop_file.set_browser(&entries.browser);
         new_desktop_file.set_isolated(entries.isolate);
+        new_desktop_file.set_maximized(entries.maximize);
         new_desktop_file.set_profile_path(&entries.profile_path);
 
         Ok(new_desktop_file)

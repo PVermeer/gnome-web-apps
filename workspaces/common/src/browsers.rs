@@ -53,6 +53,8 @@ pub struct BrowserYaml {
     system_bin: Option<String>,
     #[serde(default)]
     can_isolate: bool,
+    #[serde(default)]
+    can_start_maximized: bool,
     desktop_file_name_prefix: String,
     base: String,
     #[serde(default)]
@@ -70,6 +72,7 @@ pub struct Browser {
     pub name: String,
     pub installation: Installation,
     pub can_isolate: bool,
+    pub can_start_maximized: bool,
     pub flatpak_id: Option<String>,
     pub executable: Option<String>,
     pub desktop_file: DesktopEntry,
@@ -94,6 +97,7 @@ impl Browser {
         let icon_names = Self::get_icon_names_from_config(browser_config);
         let name = browser_config.config.name.clone();
         let can_isolate = browser_config.config.can_isolate;
+        let can_start_maximized = browser_config.config.can_start_maximized;
         let flatpak_id = browser_config.config.flatpak.clone();
         let executable = browser_config.config.system_bin.clone();
         let desktop_file = browser_config.desktop_file.clone();
@@ -114,6 +118,7 @@ impl Browser {
             name,
             installation,
             can_isolate,
+            can_start_maximized,
             flatpak_id,
             executable,
             desktop_file,
@@ -345,6 +350,7 @@ impl BrowserConfigs {
             name: "No browser".to_string(),
             installation: Installation::None,
             can_isolate: false,
+            can_start_maximized: false,
             flatpak_id: None,
             executable: None,
             desktop_file: DesktopEntry::from_appid("No browser".to_string()),

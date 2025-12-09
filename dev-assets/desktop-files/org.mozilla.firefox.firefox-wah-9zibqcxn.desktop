@@ -11,6 +11,7 @@ X-WAH=true
 X-WAH-BROWSER-ID=org.mozilla.firefox
 X-WAH-ID=9zibqcxn
 X-WAH-ISOLATE=true
+X-WAH-MAXIMIZE=false
 X-WAH-PROFILE=/home/vscode/.var/app/org.mozilla.firefox/data/web-app-hub/profiles/9zibqcxn
 X-WAH-URL=https://www.youtube.com
 X-WAH-VERSION=0.0.1

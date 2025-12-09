@@ -2,5 +2,6 @@ name: Ungoogled Chromium
 flatpak: io.github.ungoogled_software.ungoogled_chromium
 system_bin:
 can_isolate: true
+can_start_maximized: true
 desktop_file_name_prefix: io.github.ungoogled_software.ungoogled_chromium.ungoogled_chromium
 base: chromium
