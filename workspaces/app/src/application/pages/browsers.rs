@@ -143,20 +143,26 @@ impl Browsers {
             content_box.append(&executable_label);
         }
 
+        let mut capabilities_list = String::new();
         if browser.can_isolate {
-            let isolation_label = Label::builder()
-                .label("<b>This browser can isolate your web apps.</b>")
-                .use_markup(true)
-                .build();
-            content_box.append(&isolation_label);
+            let _ = writeln!(capabilities_list, "• Can isolate your web apps");
         }
-
         if browser.can_start_maximized {
-            let isolation_label = Label::builder()
-                .label("<b>This browser can start your web apps maximized.</b>")
+            let _ = writeln!(capabilities_list, "• Can start your web apps maximized");
+        }
+        if !capabilities_list.is_empty() {
+            let capability_label = Label::builder()
                 .use_markup(true)
+                .label("<b>Capabilities:</b>")
                 .build();
-            content_box.append(&isolation_label);
+            let capability_list_label = Label::builder()
+                .label(&capabilities_list)
+                .wrap(true)
+                .halign(Align::Center)
+                .build();
+
+            content_box.append(&capability_label);
+            content_box.append(&capability_list_label);
         }
 
         if !browser.issues.is_empty() {
