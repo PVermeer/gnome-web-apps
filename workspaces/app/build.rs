@@ -52,7 +52,25 @@ fn copy_dev_web_apps(app_dirs: &AppDirs) {
     let dev_desktop_files = build_dev_assets_path().join("desktop-files");
     let user_applications_dir = app_dirs.applications();
 
-    for desktop_file in utils::files::get_entries_in_dir(&dev_desktop_files).unwrap() {
+    for desktop_file in &utils::files::get_entries_in_dir(&dev_desktop_files).unwrap() {
+        let id = desktop_file
+            .file_name()
+            .to_string_lossy()
+            .split('-')
+            .next_back()
+            .unwrap()
+            .to_string();
+
+        let mut exists = false;
+        for file in &utils::files::get_entries_in_dir(&user_applications_dir).unwrap() {
+            if file.file_name().to_string_lossy().ends_with(&id) {
+                exists = true;
+            }
+        }
+        if exists {
+            continue;
+        }
+
         fs::copy(
             desktop_file.path(),
             user_applications_dir.join(desktop_file.file_name()),
