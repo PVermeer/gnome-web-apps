@@ -12,12 +12,12 @@ use libadwaita::{
 use std::fmt::Write as _;
 use std::rc::Rc;
 
-pub struct Browsers {
+pub struct BrowsersPage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
     prefs_page: PreferencesPage,
 }
-impl NavPage for Browsers {
+impl NavPage for BrowsersPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
     }
@@ -26,7 +26,7 @@ impl NavPage for Browsers {
         Some(&self.nav_row)
     }
 }
-impl Browsers {
+impl BrowsersPage {
     pub fn new() -> Rc<Self> {
         let title = "Browsers";
         let icon = "web-browser-symbolic";

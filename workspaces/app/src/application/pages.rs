@@ -2,7 +2,7 @@ mod browsers;
 mod home;
 mod web_apps;
 
-use crate::application::{App, pages::browsers::Browsers};
+use crate::application::{App, pages::browsers::BrowsersPage};
 use home::HomePage;
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView,
@@ -24,7 +24,7 @@ pub enum Page {
 pub struct Pages {
     home: Rc<HomePage>,
     web_apps: Rc<WebAppsPage>,
-    browsers: Rc<Browsers>,
+    browsers: Rc<BrowsersPage>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
@@ -32,7 +32,7 @@ impl Pages {
         Self {
             home: HomePage::new(),
             web_apps: WebAppsPage::new(),
-            browsers: Browsers::new(),
+            browsers: BrowsersPage::new(),
         }
     }
 
