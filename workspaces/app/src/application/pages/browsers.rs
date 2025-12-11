@@ -1,6 +1,6 @@
 use super::NavPage;
 use crate::application::{App, pages::PrefPage};
-use common::browsers::{Browser, Installation};
+use common::browsers::{Base, Browser, Installation};
 use gtk::{
     Align, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
@@ -150,6 +150,16 @@ impl BrowsersPage {
         if browser.can_start_maximized {
             let _ = writeln!(capabilities_list, "• Can start your web apps maximized");
         }
+        match browser.base {
+            Base::None => {},
+            Base::Chromium => {
+                let _ = writeln!(capabilities_list, "• Setup browser with <Ctrl+T>");
+            },
+            Base::Firefox => {
+                let _ = writeln!(capabilities_list, "• Setup browser with <Alt>");
+            }
+        }
+
         if !capabilities_list.is_empty() {
             let capability_label = Label::builder()
                 .use_markup(true)
