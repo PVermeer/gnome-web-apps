@@ -56,6 +56,7 @@ impl BrowsersPage {
     fn build_browser_sections(app: &Rc<App>) -> Vec<PreferencesGroup> {
         let flatpak_browsers = app.browser_configs.get_flatpak_browsers();
         let system_browsers = app.browser_configs.get_system_browsers();
+        let uninstalled_browsers = app.browser_configs.get_uninstalled_browsers();
 
         if flatpak_browsers.is_empty() && system_browsers.is_empty() {
             let status_page = StatusPage::builder()
@@ -72,6 +73,9 @@ impl BrowsersPage {
 
         let flatpak_pref_group = PreferencesGroup::builder().title("Flatpak").build();
         let system_pref_group = PreferencesGroup::builder().title("System").build();
+        let uninstalled_pref_group = PreferencesGroup::builder()
+            .title("Supported but not installed")
+            .build();
 
         for browser in &flatpak_browsers {
             let browser_row = Self::build_browser_row(browser);
@@ -81,8 +85,16 @@ impl BrowsersPage {
             let browser_row = Self::build_browser_row(browser);
             system_pref_group.add(&browser_row);
         }
+        for browser in &uninstalled_browsers {
+            let browser_row = Self::build_browser_row(browser);
+            uninstalled_pref_group.add(&browser_row);
+        }
 
-        Vec::from([flatpak_pref_group, system_pref_group])
+        Vec::from([
+            flatpak_pref_group,
+            system_pref_group,
+            uninstalled_pref_group,
+        ])
     }
 
     fn build_browser_row(browser: &Browser) -> ExpanderRow {
@@ -151,10 +163,10 @@ impl BrowsersPage {
             let _ = writeln!(capabilities_list, "• Can start your web apps maximized");
         }
         match browser.base {
-            Base::None => {},
+            Base::None => {}
             Base::Chromium => {
                 let _ = writeln!(capabilities_list, "• Setup browser with <Ctrl+T>");
-            },
+            }
             Base::Firefox => {
                 let _ = writeln!(capabilities_list, "• Setup browser with <Alt>");
             }

@@ -398,7 +398,7 @@ impl WebAppView {
             box_container.append(&icon);
             box_container.append(&Label::new(Some(&browser.get_name_with_installation())));
 
-            if browser.is_not_installed() {
+            if !browser.is_installed() {
                 icon.add_css_class("error");
                 box_container.add_css_class("dimmed");
                 list_item.set_activatable(false);

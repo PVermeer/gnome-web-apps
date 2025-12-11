@@ -6,7 +6,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{IconTheme, Image};
-use std::{cell::RefCell, collections::HashSet, fs, path::Path, process::Command, rc::Rc};
+use std::{cell::OnceCell, collections::HashSet, fs, path::Path, process::Command, rc::Rc};
 use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
 
@@ -105,12 +105,13 @@ impl Browser {
         let base = Base::from_string(&browser_config.config.base);
         let issues = browser_config.config.issues.clone();
 
-        let id = if matches!(installation, Installation::Flatpak(_)) {
-            flatpak_id.clone().unwrap()
-        } else if matches!(installation, Installation::System) {
-            executable.clone().unwrap()
-        } else {
-            panic!("Could not create id for Browser")
+        let id = match &installation {
+            Installation::Flatpak(_) => flatpak_id.clone().unwrap(),
+            Installation::System => executable.clone().unwrap(),
+            Installation::None => flatpak_id
+                .clone()
+                .or(executable.clone())
+                .expect("Could not create id for Browser"),
         };
 
         Self {
@@ -140,8 +141,8 @@ impl Browser {
         matches!(self.installation, Installation::System)
     }
 
-    pub fn is_not_installed(&self) -> bool {
-        self.installation == Installation::None
+    pub fn is_installed(&self) -> bool {
+        !matches!(self.installation, Installation::None)
     }
 
     pub fn get_name_with_installation(&self) -> String {
@@ -287,32 +288,31 @@ impl Browser {
 }
 
 pub struct BrowserConfigs {
-    all_browsers: RefCell<Vec<Rc<Browser>>>,
+    all_browsers: OnceCell<Vec<Rc<Browser>>>,
+    uninstalled_browsers: OnceCell<Vec<Rc<Browser>>>,
     icon_theme: Rc<IconTheme>,
     app_dirs: Rc<AppDirs>,
 }
 impl BrowserConfigs {
     pub fn new(icon_theme: &Rc<IconTheme>, app_dirs: &Rc<AppDirs>) -> Rc<Self> {
         Rc::new(Self {
-            all_browsers: RefCell::new(Vec::new()),
+            all_browsers: OnceCell::new(),
+            uninstalled_browsers: OnceCell::new(),
             icon_theme: icon_theme.clone(),
             app_dirs: app_dirs.clone(),
         })
     }
 
     pub fn init(self: &Rc<Self>) {
-        let no_browser = self.get_no_browser();
-        self.all_browsers.borrow_mut().push(Rc::new(no_browser));
-
         self.set_browsers_from_files();
     }
 
     pub fn get_all_browsers(&self) -> Vec<Rc<Browser>> {
-        self.all_browsers.borrow().clone()
+        self.all_browsers.get().unwrap().clone()
     }
 
     pub fn get_flatpak_browsers(&self) -> Vec<Rc<Browser>> {
-        let all_browsers_borrow = self.all_browsers.borrow();
+        let all_browsers_borrow = self.all_browsers.get().unwrap();
         all_browsers_borrow
             .iter()
             .filter(|browser| browser.is_flatpak())
@@ -321,7 +321,7 @@ impl BrowserConfigs {
     }
 
     pub fn get_system_browsers(&self) -> Vec<Rc<Browser>> {
-        let all_browsers_borrow = self.all_browsers.borrow();
+        let all_browsers_borrow = self.all_browsers.get().unwrap();
         all_browsers_borrow
             .iter()
             .filter(|browser| browser.installation == Installation::System)
@@ -329,9 +329,14 @@ impl BrowserConfigs {
             .collect()
     }
 
+    pub fn get_uninstalled_browsers(&self) -> Vec<Rc<Browser>> {
+        self.uninstalled_browsers.get().unwrap().clone()
+    }
+
     pub fn get_by_id(&self, id: &str) -> Option<Rc<Browser>> {
         self.all_browsers
-            .borrow()
+            .get()
+            .unwrap()
             .iter()
             .find(|browser| browser.id == id)
             .cloned()
@@ -339,7 +344,8 @@ impl BrowserConfigs {
 
     pub fn get_index(&self, browser: &Browser) -> Option<usize> {
         self.all_browsers
-            .borrow()
+            .get()
+            .unwrap()
             .iter()
             .position(|browser_iter| browser_iter.id == browser.id)
     }
@@ -366,9 +372,12 @@ impl BrowserConfigs {
 
     fn set_browsers_from_files(self: &Rc<Self>) {
         let browser_configs = self.get_browsers_from_files();
-        let mut all_browser_borrow = self.all_browsers.borrow_mut();
+        let mut installed_browsers = Vec::new();
+        let mut uninstalled_browsers = Vec::new();
 
         for browser_config in browser_configs {
+            let mut is_installed = false;
+
             if let Some(flatpak) = &browser_config.config.flatpak {
                 if let Some(installation) = Self::is_installed_flatpak(flatpak) {
                     info!(
@@ -390,7 +399,8 @@ impl BrowserConfigs {
                         self.add_icon_search_path(&icon_search_path);
                     }
 
-                    all_browser_borrow.push(browser);
+                    installed_browsers.push(browser);
+                    is_installed = true;
                 } else {
                     debug!(
                         "Flatpak browser '{flatpak}' for '{}' is not installed",
@@ -414,7 +424,8 @@ impl BrowserConfigs {
                         &self.app_dirs,
                     ));
 
-                    all_browser_borrow.push(browser);
+                    installed_browsers.push(browser);
+                    is_installed = true;
                 } else {
                     debug!(
                         "System browser '{system_bin}' for '{}' is not installed",
@@ -422,7 +433,24 @@ impl BrowserConfigs {
                     );
                 }
             }
+
+            if !is_installed {
+                let browser = Rc::new(Browser::new(
+                    &browser_config,
+                    Installation::None,
+                    self,
+                    &self.icon_theme,
+                    &self.app_dirs,
+                ));
+                uninstalled_browsers.push(browser);
+            }
         }
+
+        let no_browser = self.get_no_browser();
+        installed_browsers.push(Rc::new(no_browser));
+
+        let _ = self.all_browsers.set(installed_browsers);
+        let _ = self.uninstalled_browsers.set(uninstalled_browsers);
     }
 
     fn is_installed_flatpak(flatpak: &str) -> Option<FlatpakInstallation> {
