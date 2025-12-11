@@ -1,9 +1,12 @@
 mod browsers;
 mod home;
+mod info;
 mod web_apps;
 
-use crate::application::{App, pages::browsers::BrowsersPage};
+use crate::application::App;
+use browsers::BrowsersPage;
 use home::HomePage;
+use info::InfoPage;
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView,
     PreferencesPage, ToastOverlay, ToolbarView,
@@ -19,12 +22,14 @@ pub enum Page {
     Home,
     WebApps,
     Browsers,
+    Info,
 }
 
 pub struct Pages {
     home: Rc<HomePage>,
     web_apps: Rc<WebAppsPage>,
     browsers: Rc<BrowsersPage>,
+    info: Rc<InfoPage>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
@@ -33,6 +38,7 @@ impl Pages {
             home: HomePage::new(),
             web_apps: WebAppsPage::new(),
             browsers: BrowsersPage::new(),
+            info: InfoPage::new(),
         }
     }
 
@@ -40,11 +46,13 @@ impl Pages {
         self.home.init(app);
         self.web_apps.init(app);
         self.browsers.init(app);
+        self.info.init(app);
 
         let sidebar = &app.window.view.sidebar;
         sidebar.add_nav_row(app.clone(), Page::Home);
         sidebar.add_nav_row(app.clone(), Page::WebApps);
         sidebar.add_nav_row(app.clone(), Page::Browsers);
+        sidebar.add_nav_row(app.clone(), Page::Info);
     }
 
     pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
@@ -52,6 +60,7 @@ impl Pages {
             Page::Home => self.home.clone(),
             Page::WebApps => self.web_apps.clone(),
             Page::Browsers => self.browsers.clone(),
+            Page::Info => self.info.clone(),
         }
     }
 }

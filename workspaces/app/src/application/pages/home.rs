@@ -8,7 +8,7 @@ use gtk::{
     prelude::{ButtonExt, WidgetExt},
 };
 use libadwaita::{
-    ActionRow, NavigationPage,
+    ActionRow, NavigationPage, WrapBox,
     gtk::{self, Label, prelude::BoxExt},
 };
 use std::rc::Rc;
@@ -29,7 +29,7 @@ impl NavPage for HomePage {
 }
 impl HomePage {
     pub fn new() -> Rc<Self> {
-        let title = "Home page";
+        let title = "Home";
         let icon = "go-home-symbolic";
 
         let ContentPage {
@@ -51,11 +51,11 @@ impl HomePage {
 
         let header = Self::build_header(app);
         let text = Self::build_text();
-        let action_button = Self::build_action_button(app);
+        let buttons = Self::build_action_buttons(app);
 
         self.content_box.append(&header);
         self.content_box.append(&text);
-        self.content_box.append(&action_button);
+        self.content_box.append(&buttons);
     }
 
     fn build_header(app: &Rc<App>) -> gtk::Box {
@@ -103,34 +103,58 @@ impl HomePage {
             .justify(gtk::Justification::Center)
             .build();
 
+        let text3 = Label::builder()
+            .label("The info tab shows some tips and tricks + some general information")
+            .wrap(true)
+            .justify(gtk::Justification::Center)
+            .build();
+
         content_box.append(&text);
         content_box.append(&text2);
+        content_box.append(&text3);
 
         content_box
     }
 
-    fn build_action_button(app: &Rc<App>) -> gtk::Box {
-        let content_box = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
+    fn build_action_buttons(app: &Rc<App>) -> WrapBox {
+        let content_box = WrapBox::builder()
+            .orientation(Orientation::Horizontal)
+            .justify(libadwaita::JustifyMode::Spread)
+            .justify_last_line(true)
+            .child_spacing(12)
+            .line_spacing(12)
             .halign(Align::Center)
             .valign(Align::Center)
             .vexpand(true)
             .height_request(200)
             .build();
 
-        let button = Button::builder()
+        let go_to_apps_button = Button::builder()
             .label("Go to Web Apps")
             .css_classes(["suggested-action", "pill"])
             .valign(Align::Center)
             .halign(Align::Center)
             .build();
 
+        let more_info_button = Button::builder()
+            .label("More information")
+            .css_classes(["pill"])
+            .valign(Align::Center)
+            .halign(Align::Center)
+            .build();
+
         let app_clone = app.clone();
-        button.connect_clicked(move |_| {
+        go_to_apps_button.connect_clicked(move |_| {
             app_clone.navigate(&Page::WebApps);
         });
 
-        content_box.append(&button);
+        let app_clone = app.clone();
+        more_info_button.connect_clicked(move |_| {
+            app_clone.navigate(&Page::Info);
+        });
+
+        content_box.append(&go_to_apps_button);
+        content_box.append(&more_info_button);
 
         content_box
     }

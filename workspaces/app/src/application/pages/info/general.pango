@@ -1,0 +1,15 @@
+<b>Taskbar icons doesn't match a newly created Web App.</b>
+
+The desktop can be slow with updating and matching a newly created Web App. Restart the Web App and it will match with the right icon.
+
+<b>Setup browser with isolated profile</b>
+
+For chromium based browsers, right click the title bar and select "Open browser window" or press &lt;Ctrl+T&gt;.
+
+For firefox based browsers press &lt;Alt&gt;.
+
+This can be used to setup the browser inside the isolated profile or install extensions.
+
+<b>Uninstall</b>
+
+Uninstalling this app does <b>not</b> remove created Web Apps. Removing this applications app data will remove the icons and isolation profiles of system browsers but Web Apps may still popup on your desktop. To remove all data, delete each Web App before deleting this application. This will ensure everything is removed.

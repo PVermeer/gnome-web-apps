@@ -1,0 +1,18 @@
+<b>filesystem=xdg-data/applications:create</b>
+Used to create new Web Applications. Usually resolves to ~/.local/share/applications.
+
+<b>filesystem=~/.var/app:create</b>
+Used to create isolated profiles for flatpak browsers. For some flatpak browsers
+it's necessary to create a directory in their sandbox for profile isolation.
+The app cannot break out of it's own filesystem so this application needs to break in.
+
+For example the Firefox based browsers don't create the isolated profile
+directory and will fail when the directory doesn't exist.
+
+System installed browsers isolated profiles are saved in our own xdg-data/profiles directory.
+
+<b>filesystem=xdg-data/flatpak/app:ro &amp; filesystem=/var/lib/flatpak/app:ro</b>
+Used to fetch the icons of the flatpak browsers.
+
+<b>talk-name=org.freedesktop.Flatpak</b>
+Used to run commands outside of the sandbox. This is needed to fetch flatpak browser information and to run the created Web App from this application.
