@@ -90,6 +90,10 @@ impl BrowsersPage {
             uninstalled_pref_group.add(&browser_row);
         }
 
+        if uninstalled_browsers.is_empty() {
+            uninstalled_pref_group.set_visible(false);
+        }
+
         Vec::from([
             flatpak_pref_group,
             system_pref_group,
