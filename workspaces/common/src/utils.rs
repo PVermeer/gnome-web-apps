@@ -130,21 +130,37 @@ pub mod log {
 }
 
 pub mod command {
+    use crate::utils::env;
     use anyhow::{Result, bail};
     use gtk::glib;
     use std::{fmt::Write, process::Command};
     use tracing::debug;
 
-    use crate::utils::{env, log};
+    pub struct Response {
+        pub success: bool,
+        pub stdout: String,
+        pub stderr: String,
+    }
 
-    pub fn run_command_async(command: &str) -> Result<()> {
+    pub fn test_command_available_sync(command: &str) -> bool {
+        let run_command = format!("which {command}");
+
+        let Ok(response) = run_command_sync(&run_command) else {
+            return false;
+        };
+
+        if !response.success {
+            return false;
+        }
+
+        true
+    }
+
+    pub fn run_command_background(command: &str) -> Result<()> {
         let mut run_command = String::new();
 
         if env::is_flatpak_container() {
             write!(run_command, "flatpak-spawn --host")?;
-            if env::is_devcontainer() {
-                write!(run_command, " --env=DISPLAY=:0")?;
-            }
         }
         write!(run_command, " {command}")?;
 
@@ -152,14 +168,11 @@ pub mod command {
         glib::spawn_command_line_async(run_command).map_err(Into::into)
     }
 
-    pub fn run_command_sync(command: &str) -> Result<String> {
+    pub fn run_command_sync(command: &str) -> Result<Response> {
         let mut run_command = String::new();
 
         if env::is_flatpak_container() {
             write!(run_command, "flatpak-spawn --host")?;
-            if env::is_devcontainer() {
-                write!(run_command, " --env=DISPLAY=:0")?;
-            }
         }
         write!(run_command, " {command}")?;
 
@@ -172,13 +185,16 @@ pub mod command {
         debug!(command = run_command, "Running sync command");
         let output = Command::new(command).args(args).output()?;
 
-        if !output.status.success() {
-            let message = "Command failed";
-            log::error_from_stderr("Command failed", &output.stderr);
-            bail!(message)
-        }
-        let result = String::from_utf8_lossy(&output.stdout).to_string();
+        let response = Response {
+            success: output.status.success(),
+            stdout: parse_output(&output.stdout),
+            stderr: parse_output(&output.stderr),
+        };
 
-        Ok(result)
+        Ok(response)
+    }
+
+    fn parse_output(std_descriptor: &[u8]) -> String {
+        String::from_utf8_lossy(std_descriptor).trim().to_string()
     }
 }

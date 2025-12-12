@@ -582,7 +582,7 @@ impl WebAppView {
             }
 
             debug!("Running web app: '{executable}'");
-            if let Err(error) = utils::command::run_command_async(&executable) {
+            if let Err(error) = utils::command::run_command_background(&executable) {
                 error!(
                     executable = executable,
                     error = error.to_string(),

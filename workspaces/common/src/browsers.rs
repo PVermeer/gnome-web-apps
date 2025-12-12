@@ -6,7 +6,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use freedesktop_desktop_entry::DesktopEntry;
 use gtk::{IconTheme, Image};
-use std::{cell::OnceCell, collections::HashSet, fs, path::Path, process::Command, rc::Rc};
+use std::{cell::OnceCell, collections::HashSet, fs, path::Path, rc::Rc};
 use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
 
@@ -350,6 +350,16 @@ impl BrowserConfigs {
             .position(|browser_iter| browser_iter.id == browser.id)
     }
 
+    pub fn add_icon_search_path(self: &Rc<Self>, path: &Path) {
+        if !path.is_dir() {
+            debug!("Not a valid icon path: {}", path.display());
+            return;
+        }
+
+        debug!("Adding icon path to icon theme: {}", path.display());
+        self.icon_theme.add_search_path(path);
+    }
+
     fn get_no_browser(self: &Rc<Self>) -> Browser {
         Browser {
             id: String::default(),
@@ -454,29 +464,21 @@ impl BrowserConfigs {
     }
 
     fn is_installed_flatpak(flatpak: &str) -> Option<FlatpakInstallation> {
-        let (command, arguments, output) = if utils::env::is_flatpak_container() {
-            let command = "flatpak-spawn";
-            let arguments = Vec::from(["--host", "flatpak", "info", flatpak]);
-            let output = Command::new(command).args(&arguments).output();
-            (command, arguments, output)
-        } else {
-            let command = "flatpak";
-            let arguments = Vec::from(["info", flatpak]);
-            let output = Command::new(command).args(&arguments).output();
-            (command, arguments, output)
-        };
+        let command = format!("flatpak info {flatpak}");
+        let result = utils::command::run_command_sync(&command);
 
-        match output {
+        match result {
             Err(error) => {
-                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
+                error!("Could not run command '{command}'. Error: {error:?}");
                 None
             }
             Ok(response) => {
-                if !response.status.success() {
+                if !response.success {
                     return None;
                 }
-                let output_txt = String::from_utf8_lossy(&response.stdout);
-                let installation_line = output_txt
+
+                let installation_line = response
+                    .stdout
                     .lines()
                     .find(|line| line.contains("Installation:"))?;
                 let installation = installation_line.split("Installation: ").last()?;
@@ -495,25 +497,15 @@ impl BrowserConfigs {
     }
 
     fn is_installed_system(system_bin: &str) -> bool {
-        let (command, arguments, output) = if utils::env::is_flatpak_container() {
-            let command = "flatpak-spawn";
-            let arguments = Vec::from(["--host", "which", system_bin]);
-            let output = Command::new(command).args(&arguments).output();
-            (command, arguments, output)
-        } else {
-            let command = "which";
-            let arguments = Vec::from([system_bin]);
+        let command = format!("which {system_bin}");
+        let result = utils::command::run_command_sync(&command);
 
-            let output = Command::new(command).args(&arguments).output();
-            (command, arguments, output)
-        };
-
-        match output {
+        match result {
             Err(error) => {
-                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
+                error!("Could not run command '{command}'. Error: {error:?}");
                 false
             }
-            Ok(response) => response.status.success(),
+            Ok(response) => response.success,
         }
     }
 
@@ -523,23 +515,24 @@ impl BrowserConfigs {
             return None;
         }
 
-        let command = "flatpak-spawn";
-        let arguments = &["--host", "flatpak", "info", "--show-location", flatpak];
-        let output = Command::new(command).args(arguments).output();
+        let command = format!("flatpak info --show-location {flatpak}");
+        let result = utils::command::run_command_sync(&command);
 
-        match output {
+        match result {
             Err(error) => {
-                error!("Could not run command '{command} {arguments:?}'. Error: {error:?}");
+                error!("Could not run command '{command}'. Error: {error:?}");
                 None
             }
             Ok(response) => {
-                if !response.status.success() {
-                    error!("Could not get icon search path for: {flatpak}");
+                if !response.success {
+                    error!(
+                        error = response.stderr,
+                        "Could not get icon search path for: {flatpak}"
+                    );
                     return None;
                 }
-                let output_txt = String::from_utf8_lossy(&response.stdout).trim().to_string();
 
-                let path = Path::new(&output_txt)
+                let path = Path::new(&response.stdout)
                     .join("export")
                     .join("share")
                     .join("icons");
@@ -614,15 +607,5 @@ impl BrowserConfigs {
         }
 
         browser_configs
-    }
-
-    pub fn add_icon_search_path(self: &Rc<Self>, path: &Path) {
-        if !path.is_dir() {
-            debug!("Not a valid icon path: {}", path.display());
-            return;
-        }
-
-        debug!("Adding icon path to icon theme: {}", path.display());
-        self.icon_theme.add_search_path(path);
     }
 }
