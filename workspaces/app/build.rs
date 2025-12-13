@@ -221,6 +221,7 @@ fn update_flatpak_manifest() -> Result<()> {
     let app_name_short = config::APP_NAME_SHORT.get_value();
     let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
     let bin_name = config::BIN_NAME.get_value();
+    let assets_path = build_assets_path();
 
     let mut manifest = FLATPAK_MANIFEST_IN.to_string();
     manifest = manifest.replace("%{app_id}", app_id);
@@ -230,10 +231,9 @@ fn update_flatpak_manifest() -> Result<()> {
     manifest = manifest.replace("%{app_name_hyphen}", app_name_hyphen);
     manifest = manifest.replace("%{bin_name}", bin_name);
 
-    let save_path = Path::new("..")
-        .join("..")
-        .join("flatpak")
-        .join("manifest.yml");
+    let save_dir = assets_path.join("desktop");
+    let save_path = save_dir.join(format!("{app_id}.yml"));
+
     fs::write(save_path, manifest)?;
 
     Ok(())
