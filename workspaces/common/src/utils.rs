@@ -144,8 +144,9 @@ pub mod command {
 
     pub fn test_command_available_sync(command: &str) -> bool {
         let run_command = format!("which {command}");
+        let run_command = run_command.trim();
 
-        let Ok(response) = run_command_sync(&run_command) else {
+        let Ok(response) = run_command_sync(run_command) else {
             return false;
         };
 
@@ -163,8 +164,9 @@ pub mod command {
             write!(run_command, "flatpak-spawn --host")?;
         }
         write!(run_command, " {command}")?;
+        let run_command = run_command.trim();
 
-        debug!(command = run_command, "Running async command");
+        debug!(command = run_command, "Running background command");
         glib::spawn_command_line_async(run_command).map_err(Into::into)
     }
 
@@ -175,8 +177,9 @@ pub mod command {
             write!(run_command, "flatpak-spawn --host")?;
         }
         write!(run_command, " {command}")?;
+        let run_command = run_command.trim();
 
-        let mut args = glib::shell_parse_argv(&run_command)?;
+        let mut args = glib::shell_parse_argv(run_command)?;
         if args.is_empty() {
             bail!("Incorrect command")
         }
