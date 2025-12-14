@@ -2,7 +2,7 @@
 Used to create new Web Applications. Usually resolves to ~/.local/share/applications.
 
 <b>filesystem=~/.var/app:create</b>
-Used to create isolated profiles for flatpak browsers. For some flatpak browsers it's necessary to create a directory in their sandbox for profile isolation. The browser cannot break out of it's own filesystem so this application needs to break in.
+Used to create isolated profiles for flatpak browsers. For some flatpak browsers it's necessary to create a directory in their sandbox for profile isolation. Also firefox browsers need an updated profile to create a minimal ui. The browser cannot break out of it's own filesystem so this application needs to break in.
 
 For example the Firefox based browsers don't create the isolated profile directory and will fail when the directory doesn't exist.
 

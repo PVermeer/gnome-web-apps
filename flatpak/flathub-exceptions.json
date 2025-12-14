@@ -1,0 +1,7 @@
+{
+    "finish-args-flatpak-system-folder-access": "Used to fetch the icons of flatpak browsers.",
+    "finish-args-unnecessary-xdg-data-flatpak-ro-access": "Used to fetch the icons of flatpak browsers.",
+    "finish-args-flatpak-spawn-access": "This is needed to fetch flatpak browser information and to run the created Web App from this application.",
+    "finish-args-unnecessary-xdg-data-applications-rw-access": "Used to create and delete owned desktop files.",
+    "finish-args-flatpak-appdata-folder-access": "Used to create isolated profile folder for flatpak browsers. For some flatpak browsers it's necessary to create a directory in their sandbox for profile isolation. For some browsers it's used to update profile config for a minimal ui."
+}

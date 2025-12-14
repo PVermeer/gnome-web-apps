@@ -24,7 +24,7 @@
 		"DISPLAY": "${localEnv:DISPLAY}"
 	},
 	"mounts": [],
-	"postCreateCommand": "sudo dnf install -y chromium firefox && flatpak --user install -y com.github.tchx84.Flatseal com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox one.ablaze.floorp",
+	"postCreateCommand": "sudo dnf install -y chromium firefox && flatpak --user install -y org.flatpak.Builder com.github.tchx84.Flatseal com.brave.Browser org.chromium.Chromium io.github.ungoogled_software.ungoogled_chromium com.google.Chrome org.gnome.Epiphany com.vivaldi.Vivaldi com.opera.Opera org.mozilla.firefox one.ablaze.floorp",
 	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && flatpak --user update -y",
 	"initializeCommand": "xhost +local:docker", // Allow x11 from docker
 	"remoteUser": "vscode",
