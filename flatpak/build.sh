@@ -24,6 +24,7 @@ if [ "$is_release" == "true" ]; then
         --install \
         --user \
         --disable-rofiles-fuse \
+        --mirror-screenshots-url=https://dl.flathub.org/media/ \
         target/flatpak-release/build \
         flatpak/org.pvermeer.WebAppHub.yml
 
@@ -47,6 +48,7 @@ else
         --install \
         --user \
         --disable-rofiles-fuse \
+        --mirror-screenshots-url=https://dl.flathub.org/media/ \
         target/flatpak-devel/build \
         flatpak/org.pvermeer.WebAppHub.Devel.yml
 

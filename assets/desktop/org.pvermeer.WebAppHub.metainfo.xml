@@ -44,10 +44,8 @@ A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App 
   </supports>
 
   <screenshots>
-    <screenshot type="default">
-      <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/heads/main/assets/screenshots/screenshot-1.png</image>
+    <screenshot type="default"><image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/screenshot-1.png</image></screenshot>
 
-    </screenshot>
   </screenshots>
 
   <releases>

@@ -35,5 +35,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/PVermeer/web-app-hub.git
-        tag: main
+        tag: v0.0.1
       - cargo-sources.json

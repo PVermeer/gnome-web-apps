@@ -34,9 +34,7 @@
   </supports>
 
   <screenshots>
-    <screenshot type="default">
-      %{screenshots}
-    </screenshot>
+    %{screenshots}
   </screenshots>
 
   <releases>

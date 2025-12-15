@@ -159,19 +159,16 @@ fn create_app_metainfo_file() -> Result<()> {
     let license = config::LICENSE.get_value();
     let repository = config::REPOSITORY.get_value();
     let assets_path = build_assets_path();
+    let git_tag = format!("v{}", config::VERSION.get_value());
 
-    // Change to this when name is final and repo name has changed
-    // let screenshot_base_url = &format!(
-    //     "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/heads/main/assets/screenshots"
-    // );
     let screenshot_base_url = &format!(
-        "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/heads/main/assets/screenshots"
+        "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/tags/{git_tag}/assets/screenshots"
     );
     let screenshots = utils::files::get_entries_in_dir(&assets_path.join("screenshots"))?
         .iter()
         .map(|file| {
             format!(
-                "<image>{screenshot_base_url}/{}</image>\n",
+                "<screenshot type=\"default\"><image>{screenshot_base_url}/{}</image></screenshot>\n",
                 file.file_name().display()
             )
         })
