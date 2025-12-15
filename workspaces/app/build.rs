@@ -168,7 +168,7 @@ fn create_app_metainfo_file() -> Result<()> {
         .iter()
         .map(|file| {
             format!(
-                "<screenshot type=\"default\"><image>{screenshot_base_url}/{}</image></screenshot>\n",
+                "<screenshot type=\"default\"><image>{screenshot_base_url}/{}</image></screenshot>",
                 file.file_name().display()
             )
         })
