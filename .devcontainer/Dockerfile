@@ -12,7 +12,7 @@ RUN sudo dnf install -y @gnome-desktop
 RUN sudo dnf install -y dbus-launch
 
 # Dev
-RUN sudo dnf install -y flatpak-builder rustup make git clang python3-pip gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel cmake gcc gcc-c++ intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils doxygen libadwaita-devel shfmt shellcheck
+RUN sudo dnf install -y flatpak-builder rustup make git clang python3-devel pipx python3-pip gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel cmake gcc gcc-c++ intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils doxygen libadwaita-devel shfmt shellcheck
 
 # Don't use this, only --user, but for GTK4 and loading images in memory (PixBuf with glycin)
 # it needs a valid repo setup for it to work with flatpaks.
@@ -42,3 +42,4 @@ RUN rustup-init -y
 RUN mkdir -p /tmp/user/1000/gvfsd
 RUN sudo mkdir -p /run/dbus
 RUN flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+RUN pipx install poetry

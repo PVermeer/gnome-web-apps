@@ -43,5 +43,17 @@
 			},
 			"label": "Build flatpak"
 		},
+		{
+			"type": "shell",
+			"command": "./flatpak/build.sh release",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"label": "Build flatpak release"
+		},
 	]
 }

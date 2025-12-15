@@ -26,7 +26,6 @@ modules:
       append-path: /usr/lib/sdk/rust-stable/bin
       env:
         CARGO_HOME: flatpak
-        FLATPAK_BUILDER_DIR: target/flatpak
     build-commands:
       - cargo build --release --frozen
       - install -D target/release/web-app-hub /app/bin/web-app-hub
@@ -36,3 +35,5 @@ modules:
     sources:
       - type: dir
         path: ..
+        
+      

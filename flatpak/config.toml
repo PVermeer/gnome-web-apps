@@ -2,4 +2,4 @@
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
-directory = "target/flatpak/vendor"
+directory = "target/flatpak-devel/vendor"

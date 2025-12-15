@@ -215,13 +215,15 @@ fn create_app_metainfo_file() -> Result<()> {
 }
 
 fn update_flatpak_manifest() -> Result<()> {
+    let save_dir = Path::new("..").join("..").join("flatpak");
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
     let app_name_dense = config::APP_NAME_DENSE.get_value();
     let app_name_short = config::APP_NAME_SHORT.get_value();
     let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
     let bin_name = config::BIN_NAME.get_value();
-    let assets_path = build_assets_path();
+    let git_repository = &format!("{}.git", config::REPOSITORY.get_value());
+    let git_tag = &format!("v{}", config::VERSION.get_value());
 
     let mut manifest = FLATPAK_MANIFEST_IN.to_string();
     manifest = manifest.replace("%{app_id}", app_id);
@@ -231,10 +233,25 @@ fn update_flatpak_manifest() -> Result<()> {
     manifest = manifest.replace("%{app_name_hyphen}", app_name_hyphen);
     manifest = manifest.replace("%{bin_name}", bin_name);
 
-    let save_dir = assets_path.join("desktop");
+    let mut manifest_dev = manifest.clone();
+    manifest_dev = manifest_dev.replace("%{sources_type}", "dir");
+    manifest_dev = manifest_dev.replace("%{sources_location}", "path: ..");
+    manifest_dev = manifest_dev.replace("%{git_tag}", "");
+    manifest_dev = manifest_dev.replace("%{cargo_sources}", "");
+    manifest_dev = manifest_dev.replace("%{cargo_home}", "flatpak");
+
+    let save_path_dev = save_dir.join(format!("{app_id}.Devel.yml"));
+    fs::write(save_path_dev, &manifest_dev)?;
+
+    manifest = manifest.replace("%{sources_type}", "git");
+    manifest = manifest.replace("%{sources_location}", &format!("url: {git_repository}"));
+    manifest = manifest.replace("%{git_tag}", &format!("tag: {git_tag}"));
+    manifest = manifest.replace("%{cargo_sources}", "- cargo-sources.json");
+    manifest = manifest.replace("%{cargo_home}", "cargo");
+
     let save_path = save_dir.join(format!("{app_id}.yml"));
 
-    fs::write(save_path, manifest)?;
+    fs::write(save_path, &manifest)?;
 
     Ok(())
 }
