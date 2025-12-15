@@ -7,23 +7,23 @@ edition = "2024"
 
 [workspace.dependencies]
 common = { path = "workspaces/common" }
-anyhow = "1"
-freedesktop-desktop-entry = "0"
+anyhow = "1.0.100"
+freedesktop-desktop-entry = "0.7.19"
 fs_extra = "1.3.0"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }
 include_dir = "0.7.4"
-libadwaita = { version = "0", features = ["v1_7"] }
-rand = "0.8"
-regex = "1"
-sanitize-filename = "0.6"
-scraper = { version = "0", features = ["atomic"] }
+libadwaita = { version = "0.8.1", features = ["v1_7"] }
+rand = "0.8.5"
+regex = "1.12.2"
+sanitize-filename = "0.6.0"
+scraper = { version = "0.25.0", features = ["atomic"] }
 semver = "1.0.27"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-serde_yaml = "0.9"
+serde_yaml = "0.9.34+deprecated"
 toml = "0.9.8"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-ureq = { version = "3.1", features = ["gzip"] }
+ureq = { version = "3.1.4", features = ["gzip"] }
 url = "2.5.7"
-validator = "0"
+validator = "0.20.0"
