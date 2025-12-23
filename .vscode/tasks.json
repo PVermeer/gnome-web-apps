@@ -55,5 +55,17 @@
 			},
 			"label": "Build flatpak release"
 		},
+		{
+			"type": "shell",
+			"command": "flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest ./flatpak/org.pvermeer.WebAppHub.yml",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "test",
+				"isDefault": false
+			},
+			"label": "Lint flatpak release"
+		},
 	]
 }
