@@ -8,13 +8,15 @@ if [ "$1" == "release" ]; then
 fi
 
 if [ "$is_release" == "true" ]; then
-    echo -e "\n==== Building Flatpak Release ====\n"
+    echo -e "\n==== Generating cargo sources ====\n"
 
     cd flatpak-builder-tools/cargo
     poetry install
     eval "$(poetry env activate)"
     python3 flatpak-cargo-generator.py ../../Cargo.lock -o ../../flatpak/cargo-sources.json
     cd -
+
+    echo -e "\n==== Building Flatpak Release ====\n"
 
     flatpak-builder \
         --install-deps-from=flathub \
@@ -24,6 +26,7 @@ if [ "$is_release" == "true" ]; then
         --install \
         --user \
         --disable-rofiles-fuse \
+        --disable-cache \
         --mirror-screenshots-url=https://dl.flathub.org/media/ \
         target/flatpak-release/build \
         flatpak/org.pvermeer.WebAppHub.yml

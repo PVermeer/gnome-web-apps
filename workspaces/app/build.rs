@@ -167,8 +167,25 @@ fn create_app_metainfo_file() -> Result<()> {
     let screenshots = utils::files::get_entries_in_dir(&assets_path.join("screenshots"))?
         .iter()
         .map(|file| {
+            let Some(caption) = file
+                .path()
+                .file_stem()
+                .map(|file_stem| file_stem.to_string_lossy())
+                .and_then(|file_stem| {
+                    file_stem
+                        .split_once('-')
+                        .map(|(_, caption)| caption.to_string())
+                })
+            else {
+                return String::new();
+            };
+
             format!(
-                "<screenshot type=\"default\"><image>{screenshot_base_url}/{}</image></screenshot>",
+                r#"
+    <screenshot type="default">
+        <image>{screenshot_base_url}/{}</image>
+        <caption>{caption}</caption>
+    </screenshot>"#,
                 file.file_name().display()
             )
         })

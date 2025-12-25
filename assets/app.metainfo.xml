@@ -34,7 +34,7 @@
   </supports>
 
   <screenshots>
-    %{screenshots}
+%{screenshots}
   </screenshots>
 
   <releases>

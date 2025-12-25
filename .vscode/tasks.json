@@ -57,7 +57,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest ./flatpak/org.pvermeer.WebAppHub.yml",
+			"command": "flatpak run --command=flatpak-builder-lint org.flatpak.Builder --exceptions manifest ./flatpak/org.pvermeer.WebAppHub.yml",
 			"problemMatcher": [
 				"$rustc",
 			],

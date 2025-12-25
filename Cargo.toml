@@ -20,7 +20,7 @@ scraper = { version = "0.25.0", features = ["atomic"] }
 semver = "1.0.27"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-serde_yaml = "0.9.34+deprecated"
+serde_yaml = "0.9.34"
 toml = "0.9.8"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }

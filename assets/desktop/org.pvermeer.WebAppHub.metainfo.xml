@@ -44,10 +44,26 @@ A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App 
   </supports>
 
   <screenshots>
-    <screenshot type="default"><image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/1-Web-App.png</image></screenshot>
-<screenshot type="default"><image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/2-Browsers.png</image></screenshot>
-<screenshot type="default"><image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/3-Web-Apps.png</image></screenshot>
-<screenshot type="default"><image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/4-Info.png</image></screenshot>
+
+    <screenshot type="default">
+        <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/1-Web-App.png</image>
+        <caption>Web-App</caption>
+    </screenshot>
+
+    <screenshot type="default">
+        <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/2-Browsers.png</image>
+        <caption>Browsers</caption>
+    </screenshot>
+
+    <screenshot type="default">
+        <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/3-Web-Apps.png</image>
+        <caption>Web-Apps</caption>
+    </screenshot>
+
+    <screenshot type="default">
+        <image>https://raw.githubusercontent.com/PVermeer/web-app-hub/refs/tags/v0.0.1/assets/screenshots/4-Info.png</image>
+        <caption>Info</caption>
+    </screenshot>
   </screenshots>
 
   <releases>
