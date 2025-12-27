@@ -9,7 +9,7 @@ A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App 
 - Apps will have their own icon and dock indicator
 - Add custom browser configs with a yaml and a desktop file
 
-[<img src="assets/screenshots/1-Web-App.png">]
+<img src="assets/screenshots/1-Web-App.png">
 
 ## Custom browser config
 Browsers are added via config files in `~/.var/app/org.pvermeer.WebAppHub/config/web-app-hub`. The shipped browser configs cannot be editted and will be overwritten everytime the app starts. New configs can be added via these folders. Look in `assests/config` for examples.
@@ -49,7 +49,7 @@ StartupWMClass=chrome-%{domain}__-Default
 ```
 %{command}  # Flatpak or binary launch command
 %{name}"    # App name
-%{url}"     # Complute url
+%{url}"     # Complete url
 %{domain}   # Domain part of url
 %{icon}     # Icon location
 %{app_id}   # Generated app id
