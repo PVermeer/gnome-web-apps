@@ -10,6 +10,8 @@ common = { path = "workspaces/common" }
 anyhow = "1.0.100"
 freedesktop-desktop-entry = "0.7.19"
 fs_extra = "1.3.0"
+gen-changelog = "0.1.3"
+git2 = "0.20.3"
 gtk = { version = "*", features = ["v4_10"], package = "gtk4" }
 include_dir = "0.7.4"
 libadwaita = { version = "0.8.1", features = ["v1_7"] }

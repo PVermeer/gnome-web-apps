@@ -38,3 +38,6 @@ validator = { workspace = true }
 anyhow = { workspace = true }
 common = { workspace = true }
 freedesktop-desktop-entry = { workspace = true }
+gen-changelog = { workspace = true }
+git2 = { workspace = true }
+semver = { workspace = true}

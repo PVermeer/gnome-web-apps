@@ -6,6 +6,9 @@ use common::{
     utils,
 };
 use freedesktop_desktop_entry::DesktopEntry;
+use gen_changelog::{ChangeLog, ChangeLogConfig};
+use git2::Repository;
+use semver::Version;
 use std::{
     fs::{self, File},
     io::Write,
@@ -29,6 +32,7 @@ fn main() -> Result<()> {
     create_app_icon()?;
     create_app_metainfo_file()?;
     update_flatpak_manifest()?;
+    generate_changelog()?;
 
     install_app_desktop_file(&app_dirs)?;
     install_app_icon(&app_dirs)?;
@@ -272,6 +276,47 @@ fn update_flatpak_manifest() -> Result<()> {
 
     fs::write(save_path, &manifest)?;
 
+    Ok(())
+}
+
+fn generate_changelog() -> Result<()> {
+    let repo_path = project_path();
+    let repo = Repository::open(&repo_path)?;
+    let app_version = Version::parse(config::VERSION.get_value())?;
+    let git_tags = repo.tag_names(Some("v*"))?;
+    let mut tag_versions: Vec<_> = git_tags
+        .iter()
+        .flatten()
+        .flat_map(|tag| Version::parse(&tag[1..]))
+        .collect::<Vec<_>>();
+    tag_versions.sort();
+
+    let Some(latest_released_version) = tag_versions.last().cloned() else {
+        bail!("No latest release version found in git");
+    };
+
+    if latest_released_version >= app_version {
+        return Ok(());
+    }
+
+    let mut config = ChangeLogConfig::from_file_or_default()?;
+
+    config.set_display_sections(Some(5));
+    let changelog = ChangeLog::builder()
+        .with_config(config)
+        .with_header(
+            "Changelog",
+            &[
+                "All notable changes to this project will be documented in this file.",
+                "The format is based on Keep a Changelog.",
+            ],
+        )
+        .walk_repository(&repo)?
+        .with_package_root(&Some(repo_path))
+        .update_unreleased_to_next_version(Some(&app_version.to_string()))
+        .build();
+
+    changelog.save("CHANGELOG.md")?;
     Ok(())
 }
 
