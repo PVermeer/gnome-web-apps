@@ -8,7 +8,7 @@
   <launchable type="desktop-id">%{app_id}.desktop</launchable>
   <summary>%{app_summary}</summary>
   <description>
-    %{app_description}
+%{app_description}
   </description>
   <content_rating type="oars-1.1" />
 

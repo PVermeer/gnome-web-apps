@@ -162,8 +162,9 @@ fn create_app_metainfo_file() -> Result<()> {
     let git_tag = format!("v{}", config::VERSION.get_value());
 
     let screenshot_base_url = &format!(
-        "https://raw.githubusercontent.com/{developer}/{app_name_hyphen}/refs/tags/{git_tag}/assets/screenshots"
+        "https://raw.githubusercontent.com/{developer_id}/{app_name_hyphen}/refs/tags/{git_tag}/assets/screenshots"
     );
+    let mut i = 0;
     let screenshots = utils::files::get_entries_in_dir(&assets_path.join("screenshots"))?
         .iter()
         .map(|file| {
@@ -180,14 +181,18 @@ fn create_app_metainfo_file() -> Result<()> {
                 return String::new();
             };
 
-            format!(
-                r#"
-    <screenshot type="default">
-        <image>{screenshot_base_url}/{}</image>
-        <caption>{caption}</caption>
-    </screenshot>"#,
+            let default_screenshot = if i == 0 { " type=\"default\"" } else { "" };
+            let screenshot_xml = format!(
+                r"
+    <screenshot{default_screenshot}>
+      <image>{screenshot_base_url}/{}</image>
+      <caption>{caption}</caption>
+    </screenshot>",
                 file.file_name().display()
-            )
+            );
+
+            i += 1;
+            screenshot_xml
         })
         .collect::<Vec<String>>()
         .join("\n");

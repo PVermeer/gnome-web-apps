@@ -1,10 +1,10 @@
-<p>
-A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App Hub you can manage your Web App with ease. All apps will have their own icon and can be isolated from the normal normal browser profile.
-</p>
-<ul>
-    <li>Easy browser switching</li>
-    <li>Uses your installed browsers</li>
-    <li>Isolation build in if the browser supports it</li>
-    <li>Apps will have their own icon and dock indicator</li>
-    <li>Add custom browser configs with a yaml and a desktop file</li>
-</ul>
+    <p>
+    A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App Hub you can manage your Web App with ease. All apps will have their own icon and can be isolated from the normal browser profile.
+    </p>
+    <ul>
+      <li>Easy browser switching</li>
+      <li>Uses your installed browsers</li>
+      <li>Isolation build in if the browser supports it</li>
+      <li>Apps will have their own icon and dock indicator</li>
+      <li>Add custom browser configs with a yaml and a desktop file</li>
+    </ul>
