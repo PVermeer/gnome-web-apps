@@ -1,6 +1,6 @@
-[submodule "flatpak-builder-tools"]
-	path = flatpak-builder-tools
+[submodule "external/flatpak-builder-tools"]
+	path = external/flatpak-builder-tools
 	url = https://github.com/flatpak/flatpak-builder-tools.git
-[submodule "org.pvermeer.WebAppHub"]
-	path = org.pvermeer.WebAppHub
+[submodule "external/org.pvermeer.WebAppHub"]
+	path = external/org.pvermeer.WebAppHub
 	url = https://github.com/flathub/org.pvermeer.WebAppHub.git

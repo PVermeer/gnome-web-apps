@@ -12,7 +12,7 @@ if [ "$is_release" == "true" ]; then
 
     echo -e "\n==== Generating cargo sources ====\n"
 
-    cd flatpak-builder-tools/cargo
+    cd external/flatpak-builder-tools/cargo
     poetry install
     eval "$(poetry env activate)"
     python3 flatpak-cargo-generator.py ../../Cargo.lock -o ../../flatpak/cargo-sources.json
