@@ -36,8 +36,9 @@ validator = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
 common = { workspace = true }
 freedesktop-desktop-entry = { workspace = true }
-gen-changelog = { workspace = true }
-git2 = { workspace = true }
-semver = { workspace = true}
+git-cliff = { workspace = true }
+semver = { workspace = true }

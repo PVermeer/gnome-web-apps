@@ -67,5 +67,17 @@
 			},
 			"label": "Lint flatpak release"
 		},
+		{
+			"type": "shell",
+			"command": "appstreamcli validate --no-net ./assets/desktop/org.pvermeer.WebAppHub.metainfo.xml",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "test",
+				"isDefault": false
+			},
+			"label": "Validate metainfo.xml"
+		},
 	]
 }

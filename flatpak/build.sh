@@ -8,6 +8,8 @@ if [ "$1" == "release" ]; then
 fi
 
 if [ "$is_release" == "true" ]; then
+    target_dir="target/flatpak-release"
+
     echo -e "\n==== Generating cargo sources ====\n"
 
     cd flatpak-builder-tools/cargo
@@ -20,24 +22,26 @@ if [ "$is_release" == "true" ]; then
 
     flatpak-builder \
         --install-deps-from=flathub \
-        --repo=target/flatpak-release/repo \
-        --state-dir=target/flatpak-release/.flatpak-builder \
+        --repo=$target_dir/repo \
+        --state-dir=$target_dir/.flatpak-builder \
         --force-clean \
         --install \
         --user \
         --disable-rofiles-fuse \
         --disable-cache \
         --mirror-screenshots-url=https://dl.flathub.org/media/ \
-        target/flatpak-release/build \
+        $target_dir/build \
         flatpak/org.pvermeer.WebAppHub.yml
 
     echo -e "\n==== Building Bundle ====\n"
 
     flatpak build-bundle \
-        target/flatpak-release/repo \
-        target/flatpak-release/web-app-hub.flatpak \
+        $target_dir/repo \
+        $target_dir/web-app-hub.flatpak \
         org.pvermeer.WebAppHub
 else
+    target_dir="target/flatpak-devel"
+
     echo -e "\n==== Building Flatpak Devel ====\n"
 
     echo -e "\n==== Updating cargo vendors ====\n"
@@ -45,19 +49,19 @@ else
 
     flatpak-builder \
         --install-deps-from=flathub \
-        --repo=target/flatpak-devel/repo \
-        --state-dir=target/flatpak-devel/.flatpak-builder \
+        --repo=$target_dir/repo \
+        --state-dir=$target_dir/.flatpak-builder \
         --force-clean \
         --install \
         --user \
         --disable-rofiles-fuse \
         --mirror-screenshots-url=https://dl.flathub.org/media/ \
-        target/flatpak-devel/build \
+        $target_dir/build \
         flatpak/org.pvermeer.WebAppHub.Devel.yml
 
     flatpak build-bundle \
-        target/flatpak-devel/repo \
-        target/flatpak-devel/web-app-hub.flatpak \
+        $target_dir/repo \
+        $target_dir/web-app-hub.flatpak \
         org.pvermeer.WebAppHub
 fi
 

@@ -1,4 +1,6 @@
 use anyhow::{Context, Result, bail};
+use chrono::DateTime;
+use clap::Parser;
 use common::{
     app_dirs::AppDirs,
     assets,
@@ -6,9 +8,9 @@ use common::{
     utils,
 };
 use freedesktop_desktop_entry::DesktopEntry;
-use gen_changelog::{ChangeLog, ChangeLogConfig};
-use git2::Repository;
+use git_cliff::args::Opt;
 use semver::Version;
+use std::fmt::Write as _;
 use std::{
     fs::{self, File},
     io::Write,
@@ -30,9 +32,9 @@ fn main() -> Result<()> {
 
     create_app_desktop_file()?;
     create_app_icon()?;
-    create_app_metainfo_file()?;
     update_flatpak_manifest()?;
-    generate_changelog()?;
+    let releases_xml = generate_changelog()?;
+    create_app_metainfo_file(&releases_xml)?;
 
     install_app_desktop_file(&app_dirs)?;
     install_app_icon(&app_dirs)?;
@@ -152,7 +154,7 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
     Ok(())
 }
 
-fn create_app_metainfo_file() -> Result<()> {
+fn create_app_metainfo_file(releases_xml: &str) -> Result<()> {
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
     let app_name_hyphen = config::APP_NAME_HYPHEN.get_value();
@@ -211,6 +213,7 @@ fn create_app_metainfo_file() -> Result<()> {
     meta_data = meta_data.replace("%{license}", license);
     meta_data = meta_data.replace("%{repository}", repository);
     meta_data = meta_data.replace("%{screenshots}", &screenshots);
+    meta_data = meta_data.replace("%{releases}", releases_xml);
 
     let save_dir = assets_path.join("desktop");
     let save_path = save_dir.join(format!("{app_id}.metainfo.xml"));
@@ -279,45 +282,155 @@ fn update_flatpak_manifest() -> Result<()> {
     Ok(())
 }
 
-fn generate_changelog() -> Result<()> {
-    let repo_path = project_path();
-    let repo = Repository::open(&repo_path)?;
+#[allow(clippy::too_many_lines)] // No exports of types from git_cliff...
+fn generate_changelog() -> Result<String> {
+    let mut changelog_file = File::create(project_path().join("CHANGELOG.md"))?;
     let app_version = Version::parse(config::VERSION.get_value())?;
-    let git_tags = repo.tag_names(Some("v*"))?;
-    let mut tag_versions: Vec<_> = git_tags
-        .iter()
-        .flatten()
-        .flat_map(|tag| Version::parse(&tag[1..]))
-        .collect::<Vec<_>>();
-    tag_versions.sort();
+    let mut args = Opt::parse();
+    args.tag = Some(app_version.to_string());
+    let mut changelog = git_cliff::run(args.clone())?;
 
-    let Some(latest_released_version) = tag_versions.last().cloned() else {
+    let Some(Ok(last_released_version)) = changelog.releases.last().and_then(|release| {
+        release
+            .version
+            .clone()
+            .map(|version| Version::parse(&version[1..]))
+    }) else {
         bail!("No latest release version found in git");
     };
 
-    if latest_released_version >= app_version {
-        return Ok(());
+    if last_released_version >= app_version {
+        return Ok(String::new());
     }
 
-    let mut config = ChangeLogConfig::from_file_or_default()?;
+    // Remove initial release
+    changelog.releases.pop();
 
-    config.set_display_sections(Some(5));
-    let changelog = ChangeLog::builder()
-        .with_config(config)
-        .with_header(
-            "Changelog",
-            &[
-                "All notable changes to this project will be documented in this file.",
-                "The format is based on Keep a Changelog.",
-            ],
-        )
-        .walk_repository(&repo)?
-        .with_package_root(&Some(repo_path))
-        .update_unreleased_to_next_version(Some(&app_version.to_string()))
-        .build();
+    let last_n_releases = if changelog.releases.len() < 5 {
+        changelog.releases.len()
+    } else {
+        5
+    };
+    let _ = changelog.releases.split_off(last_n_releases);
 
-    changelog.save("CHANGELOG.md")?;
-    Ok(())
+    changelog.generate(&mut changelog_file)?;
+
+    // === Start of metainfo.xml parsing
+
+    let mut all_releases_xml = String::new();
+    changelog.releases.reverse();
+
+    for release in changelog.releases {
+        let Some(version) = release.version else {
+            bail!("No version found for release")
+        };
+        let Some(timestamp) = release.timestamp else {
+            bail!("No date found for release")
+        };
+        let Some(date_time) = DateTime::from_timestamp(timestamp, 0) else {
+            bail!("Could not convert timestamp to date")
+        };
+        let date = date_time.date_naive().to_string();
+
+        let mut release_xml = String::new();
+        let _ = write!(
+            release_xml,
+            r#"
+    <release version="{version}" date="{date}">
+      <description>"#
+        );
+
+        let mut features = Vec::new();
+        let mut fixes = Vec::new();
+
+        for commit in &release.commits {
+            let Some(conventional_commit) = &commit.conv else {
+                continue;
+            };
+            let commit_type = conventional_commit.type_().as_str();
+            match commit_type {
+                "feat" => features.push(conventional_commit),
+                "fix" => fixes.push(conventional_commit),
+                _ => (),
+            }
+        }
+
+        if !features.is_empty() {
+            let _ = write!(
+                release_xml,
+                r"
+        <p>New features:</p>
+        <ul>"
+            );
+
+            for feat in &features {
+                let scope = feat
+                    .scope()
+                    .map(|scope| format!("{}: ", scope.as_str()))
+                    .unwrap_or_default();
+                let feature_message = &feat.description();
+                let _ = write!(
+                    release_xml,
+                    r"
+          <li>{scope}{feature_message}</li>"
+                );
+            }
+
+            let _ = write!(
+                release_xml,
+                r"
+        </ul>"
+            );
+        }
+
+        if !fixes.is_empty() {
+            let _ = write!(
+                release_xml,
+                r"
+        <p>Fixes:</p>
+        <ul>"
+            );
+
+            for fix in &fixes {
+                let scope = fix
+                    .scope()
+                    .map(|scope| format!("{}: ", scope.as_str()))
+                    .unwrap_or_default();
+                let feature_message = &fix.description();
+                let _ = write!(
+                    release_xml,
+                    r"
+          <li>{scope}{feature_message}</li>"
+                );
+            }
+
+            let _ = write!(
+                release_xml,
+                r"
+        </ul>"
+            );
+        }
+
+        if features.is_empty() && fixes.is_empty() {
+            let _ = write!(
+                release_xml,
+                r"
+        <p>No notable changes</p>"
+            );
+        }
+
+        let _ = write!(
+            release_xml,
+            r"
+      </description>
+    </release>
+    "
+        );
+
+        let _ = write!(all_releases_xml, "{release_xml}");
+    }
+
+    Ok(all_releases_xml)
 }
 
 fn project_path() -> PathBuf {
