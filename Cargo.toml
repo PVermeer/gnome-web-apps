@@ -1,5 +1,5 @@
 [workspace]
-members = ["workspaces/app", "workspaces/common"]
+members = ["workspaces/app", "workspaces/common", "workspaces/tools"]
 resolver = "3"
 
 [workspace.package]

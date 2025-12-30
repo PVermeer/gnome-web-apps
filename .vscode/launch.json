@@ -16,6 +16,25 @@
       "cargo": {
         "args": [
           "build",
+          "--bin=web-app-hub"
+        ],
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug release package",
+      "env": {
+        // "RUST_BACKTRACE": "1",
+        "WAH_LOG": "debug",
+        "GSETTINGS_BACKEND": "memory"
+      },
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=release"
         ],
       },
       "args": [],

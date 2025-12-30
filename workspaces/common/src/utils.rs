@@ -197,7 +197,7 @@ pub mod command {
         Ok(response)
     }
 
-    fn parse_output(std_descriptor: &[u8]) -> String {
+    pub fn parse_output(std_descriptor: &[u8]) -> String {
         String::from_utf8_lossy(std_descriptor).trim().to_string()
     }
 }

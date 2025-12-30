@@ -1,0 +1,18 @@
+[package]
+name = "tools"
+edition = { workspace = true }
+
+[[bin]]
+name = "release"
+path = "src/release.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+common = { workspace = true }
+freedesktop-desktop-entry = { workspace = true }
+git-cliff = { workspace = true }
+semver = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
