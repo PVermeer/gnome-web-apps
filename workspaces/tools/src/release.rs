@@ -4,12 +4,12 @@ use clap::Parser;
 use common::{
     assets,
     config::{self, OnceLockExt},
-    utils,
+    utils::{self, command},
 };
 use freedesktop_desktop_entry::DesktopEntry;
 use git_cliff::args::Opt;
 use semver::Version;
-use std::{fmt::Write as _, io::Write};
+use std::{fmt::Write as _, io::Write, process::Stdio};
 use std::{
     fs::{self, File},
     path::{Path, PathBuf},
@@ -44,6 +44,7 @@ fn main() -> Result<()> {
     update_flatpak_manifest()?;
     let releases_xml = generate_changelog()?;
     create_app_metainfo_file(&releases_xml)?;
+    generate_cargo_sources()?;
 
     Ok(())
 }
@@ -429,6 +430,7 @@ fn create_app_metainfo_file(releases_xml: &str) -> Result<()> {
         .arg("validate")
         .arg("--no-net")
         .arg(save_path.as_os_str())
+        .stdout(Stdio::inherit())
         .output()
     {
         Err(error) => {
@@ -443,6 +445,92 @@ fn create_app_metainfo_file(releases_xml: &str) -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn generate_cargo_sources() -> Result<()> {
+    info!("==== Generating cargo sources");
+
+    if !command::test_command_available_sync("python3")
+        || !command::test_command_available_sync("pipx")
+    {
+        let error = "Missing packages python3 or pipx. Cannot generate cargo sources for flatpak";
+        error!(error);
+        bail!(error)
+    }
+
+    let sub_module_dir = &Path::new("external").join("flatpak-builder-tools");
+    let work_dir = &sub_module_dir.join("cargo").canonicalize()?;
+    let project_root_from_work_dir = &Path::new(work_dir)
+        .join("..")
+        .join("..")
+        .join("..")
+        .canonicalize()?;
+    let sub_module_dir_path = sub_module_dir.to_string_lossy().to_string();
+    let cargo_lock_path = &Path::new(project_root_from_work_dir)
+        .join("Cargo.lock")
+        .to_string_lossy()
+        .to_string();
+    let cargo_sources_path = &Path::new(project_root_from_work_dir)
+        .join("flatpak")
+        .join("cargo-sources.json")
+        .to_string_lossy()
+        .to_string();
+
+    println!("{sub_module_dir_path}");
+
+    let shell_script = &format!(
+        r#"
+        echo -e "\nUpdating {sub_module_dir_path}\n"
+        git checkout master;
+        git pull;
+        echo -e "\nInstalling poetry\n"
+        pipx install poetry;
+        poetry install;
+        eval "$(poetry env activate)";
+        echo -e "\nRunning flatpak-cargo-generator.py\n"
+        python3 flatpak-cargo-generator.py "{cargo_lock_path}" -o "{cargo_sources_path}";
+        echo "";
+    "#
+    );
+
+    let command = "sh";
+    let args = &["-c", shell_script];
+    let error_message = "Failed to run flatpak-cargo-generator";
+    match Command::new(command)
+        .current_dir(work_dir)
+        .args(args)
+        .stdout(Stdio::inherit())
+        .output()
+    {
+        Err(error) => {
+            error!(
+                command = command,
+                work_dir = work_dir.to_string_lossy().to_string(),
+                error = error.to_string(),
+                error_message
+            );
+            bail!(error)
+        }
+        Ok(output) => {
+            if !output.status.success() {
+                let error = utils::command::parse_output(&output.stderr);
+                error!(
+                    command = command,
+                    args = args.join(" "),
+                    error = error,
+                    error_message,
+                );
+                bail!(error_message)
+            }
+        }
+    }
+
+    info!(
+        cargo_sources_file = &cargo_sources_path,
+        "Created cargo sources file:"
+    );
 
     Ok(())
 }
