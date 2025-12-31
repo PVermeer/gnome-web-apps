@@ -45,18 +45,6 @@
 		},
 		{
 			"type": "shell",
-			"command": "./flatpak/build.sh release",
-			"problemMatcher": [
-				"$rustc",
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"label": "Build flatpak release"
-		},
-		{
-			"type": "shell",
 			"command": "flatpak run --command=flatpak-builder-lint org.flatpak.Builder --exceptions manifest ./flatpak/org.pvermeer.WebAppHub.yml",
 			"problemMatcher": [
 				"$rustc",

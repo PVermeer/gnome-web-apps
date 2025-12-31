@@ -3727,6 +3727,7 @@ dependencies = [
  "common",
  "freedesktop-desktop-entry",
  "git-cliff",
+ "regex",
  "semver",
  "tracing",
  "tracing-subscriber",

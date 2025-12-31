@@ -10,7 +10,7 @@ use tracing::{debug, info};
 
 // Calling extract on a subdir does not work and seems bugged.
 // Using indivudal imports.
-// Also need to fully recompole when the dir changes
+// Also need to fully recompile when the dir changes
 static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
