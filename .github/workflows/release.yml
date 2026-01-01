@@ -1,0 +1,50 @@
+name: Release
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CI: "true"
+      PACKAGES: ""
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          submodules: true
+          fetch-depth: 0
+          token: ${{ secrets.FLATHUB_TOKEN }}
+
+      - name: Dependencies
+        run: |
+          source ./.github/workflows/release-deps.sh --only-export-packages
+          echo "PACKAGES=$packages" >> $GITHUB_ENV
+
+      - uses: rishabhc32/apt-package-cache@v1.0.1
+        with:
+          packages: ${{env.PACKAGES}}
+          run-update: true
+
+      - name: Git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "CI"
+
+      - name: Flatpak
+        run: |
+          flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: ./.github/workflows/release-build.sh
+
+      - name: Release
+        env: 
+          FLATHUB_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
+        run: ./.github/workflows/release.sh

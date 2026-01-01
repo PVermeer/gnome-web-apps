@@ -138,6 +138,7 @@ pub mod command {
 
     pub struct Response {
         pub success: bool,
+        pub status: i32,
         pub stdout: String,
         pub stderr: String,
     }
@@ -190,6 +191,7 @@ pub mod command {
 
         let response = Response {
             success: output.status.success(),
+            status: output.status.code().unwrap_or(999_999),
             stdout: parse_output(&output.stdout),
             stderr: parse_output(&output.stderr),
         };
