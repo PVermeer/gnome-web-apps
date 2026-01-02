@@ -794,8 +794,8 @@ fn create_flathub_release_pr(new_version: &Version) -> Result<()> {
     let error_message = "Failed to push new branch on flathub repo";
     run_shell_script(shell_script, flathub_repo_dir, error_message)?;
 
-    let pr_title = &format!(r#"--title="v{new_version}""#);
-    let pr_body = &format!(r#"--body="Automatic release for {new_version}""#);
+    let pr_title = &format!(r"--title=v{new_version}");
+    let pr_body = &format!(r"--body=Automatic release for {new_version}");
     let command = "gh";
     let args = ["pr", "create", pr_title, pr_body, "--draft"];
     let error_message = "Failed to create a new PR on flathub repo";
