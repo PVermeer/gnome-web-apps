@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Name=%{name}
+Exec=%{command} --class=%{app_id} --name=%{app_id} %{is_isolated ? --profile} --no-remote %{url}
+X-MultipleArgs=false
+Icon=%{icon}
+StartupWMClass=%{app_id}

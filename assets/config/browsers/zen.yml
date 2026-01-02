@@ -1,0 +1,5 @@
+name: Zen
+flatpak: app.zen_browser.zen
+can_isolate: true
+desktop_file_name_prefix: app.zen_browser.zen.zen
+base: firefox
