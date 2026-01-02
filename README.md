@@ -65,7 +65,7 @@ StartupWMClass=chrome-%{domain}__-Default
 ```
 
 ### Profile extras (optional)
-`profiles` Folder can have an optonal folder with the browser config name that holds files to be copied into the isolated browser profile folder. 
+`profiles` Folder can have an optonal folder with the browser config name that holds files to be copied into the isolated browser profile folder. By default it also loads `firefox` or `chromium` for browsers with that base unless there is a specific config folder for that browser.
 
 ## Building
 ```sh

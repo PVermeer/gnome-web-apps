@@ -453,6 +453,15 @@ impl DesktopFile {
             Ok(())
         };
 
+        let config_path = self
+            .app_dirs
+            .config()
+            .join("profiles")
+            .join(&browser.config_name);
+        if config_path.is_dir() {
+            return copy_profile_config(&config_path);
+        }
+
         match browser.base {
             Base::Chromium => {
                 let config_path = self.app_dirs.config().join("profiles").join("chromium");

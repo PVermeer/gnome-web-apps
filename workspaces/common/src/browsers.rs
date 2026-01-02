@@ -63,6 +63,7 @@ pub struct BrowserYaml {
 
 struct BrowserConfig {
     config: BrowserYaml,
+    config_name: String,
     file_name: String,
     desktop_file: DesktopEntry,
 }
@@ -79,6 +80,7 @@ pub struct Browser {
     pub desktop_file_name_prefix: String,
     pub base: Base,
     pub issues: Vec<String>,
+    pub config_name: String,
     configs: Rc<BrowserConfigs>,
     icon_theme: Rc<IconTheme>,
     icon_names: HashSet<String>,
@@ -102,6 +104,7 @@ impl Browser {
         let executable = browser_config.config.system_bin.clone();
         let desktop_file = browser_config.desktop_file.clone();
         let desktop_file_name_prefix = browser_config.config.desktop_file_name_prefix.clone();
+        let config_name = browser_config.config_name.clone();
         let base = Base::from_string(&browser_config.config.base);
         let issues = browser_config.config.issues.clone();
 
@@ -124,6 +127,7 @@ impl Browser {
             executable,
             desktop_file,
             desktop_file_name_prefix,
+            config_name,
             configs: browser_configs.clone(),
             icon_names,
             base,
@@ -371,6 +375,7 @@ impl BrowserConfigs {
             executable: None,
             desktop_file: DesktopEntry::from_appid("No browser".to_string()),
             desktop_file_name_prefix: String::default(),
+            config_name: String::default(),
             configs: self.clone(),
             icon_names: HashSet::from(["dialog-warning-symbolic".to_string()]),
             base: Base::None,
@@ -557,6 +562,14 @@ impl BrowserConfigs {
         for file in &browser_config_files {
             let file_name = file.file_name().to_string_lossy().to_string();
             let file_path = file.path();
+            let Some(config_name) = file
+                .path()
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+            else {
+                debug!("Invalid file, failed to get file stem: '{file_name}'");
+                continue;
+            };
 
             let extension = file_path.extension().unwrap_or_default().to_string_lossy();
             debug!("Loading browser config: '{file_name}'");
@@ -600,8 +613,9 @@ impl BrowserConfigs {
 
             let browser_config = BrowserConfig {
                 config: browser,
-                desktop_file,
+                config_name,
                 file_name,
+                desktop_file,
             };
             browser_configs.push(Rc::new(browser_config));
         }
