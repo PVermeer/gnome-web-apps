@@ -7,3 +7,14 @@
 #navigator-toolbox {
   border-bottom: none !important;
 }
+
+/* 
+Show the navigation bar for browser popups when a web apps asks for peermissions.
+(e.g. enable desktop notifications)
+ */
+#mainPopupSet:has(> [panelopen])
+  ~ toolbox
+  #toolbar-menubar[inactive="true"]
+  ~ #nav-bar {
+  visibility: visible !important;
+}

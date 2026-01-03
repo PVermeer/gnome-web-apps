@@ -604,9 +604,19 @@ impl DesktopFile {
         };
 
         if desktop_file_version < app_version {
+            info!(
+                "Older desktop file version detected, {} has been updated",
+                config::APP_NAME.get_value()
+            );
+
             if self.get_isolated().is_some()
                 && let Some(profile_path) = self.get_profile_path()
             {
+                debug!(
+                    profile_path = profile_path.to_string_lossy().to_string(),
+                    "Updating profile config"
+                );
+
                 self.copy_profile_config_to_profile_path(&profile_path)?;
             }
         } else {
