@@ -1,3 +1,12 @@
+## [0.1.1] - 2026-01-03
+
+### 🐛 Bug Fixes
+
+- *(firefox)* Firefox based browsers now show permission popups
+
+### 💼 Other
+
+- *(release)* Remove unnecessay quotes on flathub PR
 ## [0.1.0] - 2026-01-02
 
 ### 🚀 Features
@@ -24,3 +33,4 @@
 - Fix some styling and typos
 - *(external)* Move submodules to external
 - *(dev)* Install browsers script for portability
+- *(release)* V0.1.0
