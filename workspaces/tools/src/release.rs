@@ -41,6 +41,7 @@ fn main() -> Result<()> {
     config::init();
     config::log_all_values_debug();
 
+    update_submodules()?;
     create_app_desktop_file()?;
     create_app_icon()?;
 
@@ -535,6 +536,20 @@ fn create_app_metainfo_file(releases_xml: &str, new_version: &Version) -> Result
     Ok(())
 }
 
+fn update_submodules() -> Result<()> {
+    info!("==== Updating submodules");
+
+    let work_dir = &project_path();
+    let shell_script = r"
+        set -e
+        git submodule update --recursive --remote
+    ";
+    let error_message = "Failed to update submodules";
+    run_shell_script(shell_script, work_dir, error_message)?;
+
+    Ok(())
+}
+
 fn generate_cargo_sources() -> Result<()> {
     info!("==== Generating cargo sources");
 
@@ -547,7 +562,6 @@ fn generate_cargo_sources() -> Result<()> {
         .join("..")
         .join("..")
         .canonicalize()?;
-    let sub_module_dir_path = sub_module_dir.to_string_lossy().to_string();
     let cargo_lock_path = &Path::new(project_root_from_work_dir)
         .join("Cargo.lock")
         .to_string_lossy()
@@ -558,15 +572,9 @@ fn generate_cargo_sources() -> Result<()> {
         .to_string_lossy()
         .to_string();
 
-    println!("{sub_module_dir_path}");
-
     let shell_script = &format!(
         r#"
         set -e
-
-        echo -e "\n==Updating {sub_module_dir_path}\n"
-        git checkout master
-        git pull
 
         echo -e "\n==Installing poetry packages\n"
         pipx install poetry
