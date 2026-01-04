@@ -37,7 +37,9 @@
           "--bin=release"
         ],
       },
-      "args": [],
+      "args": [
+        "--dry-run"
+      ],
       "cwd": "${workspaceFolder}"
     },
     {

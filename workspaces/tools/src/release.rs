@@ -10,7 +10,7 @@ use freedesktop_desktop_entry::DesktopEntry;
 use git_cliff::args::Opt;
 use regex::Regex;
 use semver::Version;
-use std::{fmt::Write as _, io::Write, process::Stdio};
+use std::{fmt::Write as _, io::Write, process::Stdio, sync::OnceLock};
 use std::{
     fs::{self, File},
     path::{Path, PathBuf},
@@ -21,8 +21,19 @@ use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
 
 static FLATPAK_MANIFEST_IN: &str = include_str!("../../../flatpak/manifest.in");
 static CARGO_TOML: &str = include_str!("../../../workspaces/app/Cargo.toml");
+static DRY_RUN: OnceLock<bool> = OnceLock::new();
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Perform a dry run without making any git changes
+    #[arg(long)]
+    dry_run: bool,
+}
 
 fn main() -> Result<()> {
+    let args = Args::parse();
+    DRY_RUN.set(args.dry_run).unwrap_or_default();
     /* Logging */
     let mut log_level = if cfg!(debug_assertions) {
         Level::DEBUG
@@ -36,6 +47,10 @@ fn main() -> Result<()> {
         .with_max_level(log_level)
         .finish();
     logger.init();
+
+    if *DRY_RUN.get_value() {
+        info!("Running in dry-run mode");
+    }
 
     dependency_check()?;
     config::init();
@@ -167,7 +182,7 @@ fn generate_changelog() -> Result<(String, Version)> {
 
     let changelog_path = &project_path().join("CHANGELOG.md");
     let mut changelog_file = &File::create(changelog_path)?;
-    let mut git_cliff_args = Opt::parse();
+    let mut git_cliff_args = Opt::parse_from([""]);
     git_cliff_args.config = project_path()
         .join("workspaces")
         .join("tools")
@@ -657,6 +672,12 @@ fn create_release_in_git(new_version: &Version) -> Result<()> {
     let command = "sh";
     let args = &["-c", shell_script];
     let error_message = "Failed to create release in git";
+
+    if *DRY_RUN.get_value() {
+        println!("Dry-run - Would have run:\n{shell_script}");
+        return Ok(());
+    }
+
     match Command::new(command)
         .args(args)
         .stdout(Stdio::inherit())
@@ -709,6 +730,11 @@ fn build_release_flatpak() -> Result<()> {
         flatpak_release_manifest_file,
     ];
 
+    if *DRY_RUN.get_value() {
+        println!("Dry-run - Would have run: flatpak builder");
+        return Ok(());
+    }
+
     match Command::new(command)
         .args(args)
         .stdout(Stdio::inherit())
@@ -735,6 +761,14 @@ fn build_release_flatpak() -> Result<()> {
 
 fn validate_metainfo(offline: bool) -> Result<()> {
     info!("==== Validating metainfo.xml (online: {})", !offline);
+    let mut offline = offline;
+
+    if *DRY_RUN.get_value() && !offline {
+        println!(
+            "Dry-run - Would have run validate metainfo with online checks, now running offline"
+        );
+        offline = true;
+    }
 
     let mut command = Command::new("appstreamcli");
     command.arg("validate");
@@ -759,16 +793,19 @@ fn validate_metainfo(offline: bool) -> Result<()> {
     }
 }
 
+#[allow(clippy::too_many_lines)] // You're perfect the way you are :)
 fn create_flathub_release_pr(new_version: &Version) -> Result<()> {
     info!("==== Creating flathub release pr");
 
     let flathub_repo_dir = &flathub_repo();
     let app_id = config::APP_ID.get_value();
+    let pr_branch = format!("v{new_version}");
 
+    // Make changes on a new branch
     let shell_script = &format!(
         r#"
         set -e
-        git checkout -b v{new_version}
+        git checkout -B {pr_branch}
         echo ""
     "#
     );
@@ -800,11 +837,12 @@ fn create_flathub_release_pr(new_version: &Version) -> Result<()> {
         println!("Using https");
     }
 
+    // Commit changes
     let shell_script = &format!(
         r#"
         set -e
-        git commit -a -m "chore(automated-release): v{new_version}" || true 
-        git push {git_remote} v{new_version}
+        git commit -a -m "chore(automated-release): {pr_branch}" || true 
+        git push {git_remote} {pr_branch} --force
         git fetch
         echo ""
     "#
@@ -812,13 +850,19 @@ fn create_flathub_release_pr(new_version: &Version) -> Result<()> {
     let error_message = "Failed to push new branch on flathub repo";
     run_shell_script(shell_script, flathub_repo_dir, error_message)?;
 
-    let pr_title = &format!(r"--title=v{new_version}");
+    // Create the PR
+    let pr_title = &format!(r"--title={pr_branch}");
     let pr_body = &format!(r"--body=Automatic release for {new_version}");
     let command = "gh";
-    let args = ["pr", "create", pr_title, pr_body, "--draft"];
+    let mut args = ["pr", "create", pr_title, pr_body, "--draft"].to_vec();
     let error_message = "Failed to create a new PR on flathub repo";
+
+    if *DRY_RUN.get_value() {
+        println!("Dry-run - Adding --dry-run to github PR command");
+        args.push("--dry-run");
+    }
     match Command::new(command)
-        .args(args)
+        .args(&args)
         .current_dir(flathub_repo_dir)
         .env("GH_TOKEN", flathub_token)
         .stdout(Stdio::inherit())
@@ -842,6 +886,32 @@ fn create_flathub_release_pr(new_version: &Version) -> Result<()> {
             }
         }
     }
+
+    // Revert flathub repo back to master and some cleanup
+    update_submodules()?;
+
+    if *DRY_RUN.get_value() {
+        let shell_script = &format!(
+            r"
+            git push -d -f {git_remote} {pr_branch}
+            git branch -d -f {pr_branch}
+        "
+        );
+        let error_message = &format!(
+            "Dry run - Failed to remove remote branch on {}",
+            flathub_repo_dir.to_string_lossy()
+        );
+        run_shell_script(shell_script, flathub_repo_dir, error_message)?;
+    }
+
+    let shell_script = r"
+            git fetch --prune
+        ";
+    let error_message = &format!(
+        "Failed to prune branches on {}",
+        flathub_repo_dir.to_string_lossy()
+    );
+    run_shell_script(shell_script, flathub_repo_dir, error_message)?;
 
     info!("Created new release PR in flathub repo");
 
