@@ -471,7 +471,17 @@ fn create_app_metainfo_file(releases_xml: &str, new_version: &Version) -> Result
         "https://raw.githubusercontent.com/{repository_org}/{repository_name}/refs/tags/{git_tag}/assets/screenshots"
     );
     let mut i = 0;
-    let screenshots = utils::files::get_entries_in_dir(&assets_screenshots_path())?
+    let mut screenshots_files = utils::files::get_entries_in_dir(&assets_screenshots_path())?;
+    screenshots_files.sort_by_key(|entry| {
+        entry
+            .file_name()
+            .to_string_lossy()
+            .split('-')
+            .next()
+            .and_then(|n| n.parse::<u32>().ok())
+            .unwrap_or(0)
+    });
+    let screenshots = screenshots_files
         .iter()
         .map(|file| {
             let Some(caption) = file
