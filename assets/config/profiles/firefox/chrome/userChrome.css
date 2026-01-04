@@ -9,7 +9,7 @@
 }
 
 /* 
-Show the navigation bar for browser popups when a web apps asks for peermissions.
+Show the navigation bar for browser popups when a web apps asks for permissions.
 (e.g. enable desktop notifications)
  */
 #mainPopupSet:has(> [panelopen])
