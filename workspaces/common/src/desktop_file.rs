@@ -29,6 +29,7 @@ pub struct DesktopFileEntries {
     version: Version,
     browser: Rc<Browser>,
     url: String,
+    url_path: String,
     domain: String,
     isolate: bool,
     maximize: bool,
@@ -704,6 +705,13 @@ impl DesktopFile {
                 field: Keys::Url,
                 message: "Invalid domain".to_string(),
             })?;
+        let url_path = Url::parse(&url)
+            .map_err(|_| ValidationError {
+                field: Keys::Url,
+                message: "Invalid domain".to_string(),
+            })?
+            .path()
+            .to_string();
         let isolate = self.get_isolated().ok_or(ValidationError {
             field: Keys::Isolate,
             message: "Missing".to_string(),
@@ -736,6 +744,7 @@ impl DesktopFile {
             version,
             browser,
             url,
+            url_path,
             domain,
             isolate,
             maximize,
@@ -787,16 +796,32 @@ impl DesktopFile {
     }
 
     fn to_new_from_browser(&self) -> Result<DesktopFile, DesktopFileError> {
-        let entries = self.get_entries()?;
+        let entries = &self.get_entries()?;
         let save_path = self.get_save_path()?;
         let app_name_short = config::APP_NAME_SHORT.get_value();
         let app_id = format!("{}-{}", app_name_short, entries.app_id);
+
+        let domain_path = match self.get_browser() {
+            None => &entries.domain,
+            Some(browser) => &match browser.base {
+                Base::Chromium => {
+                    let domain = format!("{}/", entries.domain);
+                    let domain_path = format!("{domain}{}", entries.url_path);
+                    domain_path.replace('/', "_")
+                }
+                // Not needed for other browser atm
+                _ => {
+                    format!("{}{}", entries.domain, entries.url_path)
+                }
+            },
+        };
 
         let mut d_str = entries.browser.desktop_file.clone().to_string();
         d_str = d_str.replace("%{command}", &entries.browser.get_command()?);
         d_str = d_str.replace("%{name}", &entries.name);
         d_str = d_str.replace("%{url}", &entries.url);
         d_str = d_str.replace("%{domain}", &entries.domain);
+        d_str = d_str.replace("%{domain_path}", domain_path);
         d_str = d_str.replace("%{icon}", &entries.icon_path.to_string_lossy());
         d_str = d_str.replace("%{app_id}", &app_id);
         Self::replace_conditional(

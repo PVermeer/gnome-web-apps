@@ -3,7 +3,7 @@ Version=1.0
 Type=Application
 Terminal=false
 Name=%{name}
-Exec=%{command} --no-first-run --app="%{url}" --class=vivaldi-%{domain}__-Default --name=vivaldi-%{domain}__-Default %{is_isolated ? --user-data-dir} %{is_maximized ? --start-maximized}
+Exec=%{command} --no-first-run --app="%{url}" --class=vivaldi-%{domain_path}-Default --name=vivaldi-%{domain_path}-Default %{is_isolated ? --user-data-dir} %{is_maximized ? --start-maximized}
 X-MultipleArgs=false
 Icon=%{icon}
-StartupWMClass=vivaldi-%{domain}__-Default
+StartupWMClass=vivaldi-%{domain_path}-Default
