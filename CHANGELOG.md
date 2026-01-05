@@ -1,3 +1,18 @@
+## [0.1.2] - 2026-01-05
+
+### 🐛 Bug Fixes
+
+- *(browsers)* Chromium browsers now match the correct desktop app when using a path in the url
+
+### 💼 Other
+
+- *(release)* Update submodules
+
+### ⚙️ Miscellaneous Tasks
+
+- *(firefox)* Typo in config
+- *(release)* Make sure screenshots order is preserved
+- *(release)* Added --dry-run option
 ## [0.1.1] - 2026-01-03
 
 ### 🐛 Bug Fixes
@@ -7,6 +22,10 @@
 ### 💼 Other
 
 - *(release)* Remove unnecessay quotes on flathub PR
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* V0.1.1
 ## [0.1.0] - 2026-01-02
 
 ### 🚀 Features
