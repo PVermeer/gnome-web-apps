@@ -245,7 +245,7 @@ fn generate_changelog() -> Result<(String, Version)> {
     let mut all_releases_xml = String::new();
 
     for release in changelog.releases {
-        let Some(version) = release.version else {
+        let Some(Ok(version)) = release.version.map(|version| Version::parse(&version[1..])) else {
             bail!("No version found for release")
         };
         let Some(timestamp) = release.timestamp else {
