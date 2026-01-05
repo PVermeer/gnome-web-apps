@@ -697,7 +697,7 @@ impl DesktopFile {
         let domain = Url::parse(&url)
             .map_err(|_| ValidationError {
                 field: Keys::Url,
-                message: "Invalid domain".to_string(),
+                message: "Invalid url".to_string(),
             })?
             .domain()
             .and_then(map_to_string_option)
@@ -708,7 +708,7 @@ impl DesktopFile {
         let url_path = Url::parse(&url)
             .map_err(|_| ValidationError {
                 field: Keys::Url,
-                message: "Invalid domain".to_string(),
+                message: "Invalid url".to_string(),
             })?
             .path()
             .to_string();
