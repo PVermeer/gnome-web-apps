@@ -20,10 +20,10 @@ impl Fetch {
         Self { agent }
     }
 
-    pub async fn get_as_string(&self, url: String) -> Result<String> {
+    pub async fn get_as_string(&self, url: &str) -> Result<String> {
         debug!("Fetching text from url: {url}");
         let agent_clone = self.agent.clone();
-        let url = url.clone();
+        let url = url.to_string();
         let url_clone = url.clone();
 
         match gio::spawn_blocking(move || -> Result<String> {
@@ -42,10 +42,10 @@ impl Fetch {
         }
     }
 
-    pub async fn get_as_bytes(&self, url: String) -> Result<Vec<u8>> {
+    pub async fn get_as_bytes(&self, url: &str) -> Result<Vec<u8>> {
         debug!("Fetching bytes from url: {url}");
         let agent_clone = self.agent.clone();
-        let url = url.clone();
+        let url = url.to_string();
         let url_clone = url.clone();
 
         match gio::spawn_blocking(move || -> Result<Vec<u8>> {
