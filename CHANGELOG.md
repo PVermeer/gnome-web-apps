@@ -1,3 +1,17 @@
+## [0.2.0] - 2026-01-07
+
+### 🚀 Features
+
+- *(icon-picker)* When using a path in url, base url is also checked for icons
+
+### 🚜 Refactor
+
+- *(icon-fetcher)* Move icon fetching to own module + optimisations
+
+### ⚙️ Miscellaneous Tasks
+
+- *(desktop_file)* Better error message
+- *(release)* Remove 'v' before version in metainfo
 ## [0.1.2] - 2026-01-05
 
 ### 🐛 Bug Fixes
@@ -13,6 +27,7 @@
 - *(firefox)* Typo in config
 - *(release)* Make sure screenshots order is preserved
 - *(release)* Added --dry-run option
+- *(release)* V0.1.2
 ## [0.1.1] - 2026-01-03
 
 ### 🐛 Bug Fixes
