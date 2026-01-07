@@ -1,26 +1,24 @@
+mod icon_fetcher;
+
 use crate::application::App;
 use anyhow::{Context, Result, bail};
-use common::{
-    desktop_file::{DesktopFile, Icon},
-    url::UrlExt,
-};
+use common::desktop_file::{DesktopFile, Icon};
 use gtk::{
     self, Align, Button, ContentFit, FileDialog, FileFilter, FlowBox, FlowBoxChild, Label,
     Orientation, Picture, SelectionMode,
     gdk_pixbuf::Pixbuf,
     gio::prelude::FileExt,
-    glib::{JoinHandle, object::Cast},
+    glib::object::Cast,
     prelude::{BoxExt, ButtonExt, FlowBoxChildExt, ListBoxRowExt, WidgetExt},
 };
+use icon_fetcher::IconFetcher;
 use libadwaita::{
     AlertDialog, ButtonContent, ButtonRow, PreferencesGroup, PreferencesPage, PreferencesRow,
     ResponseAppearance, Spinner, StatusPage,
-    gio::{Cancellable, MemoryInputStream},
+    gio::Cancellable,
     glib,
     prelude::{AdwDialogExt, AlertDialogExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use scraper::{Html, Selector};
-use serde::Deserialize;
 use std::{
     cell::RefCell,
     cmp::Reverse,
@@ -29,18 +27,7 @@ use std::{
     rc::Rc,
     time::{Duration, SystemTime},
 };
-use tracing::{debug, error, info};
-use url::Url;
-use validator::ValidateUrl;
-
-#[derive(Deserialize)]
-struct ManifestIcon {
-    src: Option<String>,
-}
-#[derive(Deserialize)]
-struct ManifestJson {
-    icons: Option<Vec<ManifestIcon>>,
-}
+use tracing::{debug, error};
 
 pub struct IconPicker {
     init: RefCell<bool>,
@@ -49,6 +36,7 @@ pub struct IconPicker {
     app: Rc<App>,
     desktop_file: Rc<RefCell<DesktopFile>>,
     icons: Rc<RefCell<HashMap<String, Rc<Icon>>>>,
+    icons_ordered: RefCell<Vec<(String, Rc<Icon>)>>,
     pref_row_icons: PreferencesRow,
     pref_row_icons_fail: PreferencesRow,
     pref_row_icons_flow_box: RefCell<Option<FlowBox>>,
@@ -65,6 +53,7 @@ impl IconPicker {
 
     pub fn new(app: &Rc<App>, desktop_file: &Rc<RefCell<DesktopFile>>) -> Rc<Self> {
         let icons = Rc::new(RefCell::new(HashMap::new()));
+        let icons_ordered = RefCell::new(Vec::new());
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
         let spinner = Self::build_spinner();
         let prefs_page = PreferencesPage::new();
@@ -94,6 +83,7 @@ impl IconPicker {
             app: app.clone(),
             desktop_file: desktop_file.clone(),
             icons,
+            icons_ordered,
             pref_row_icons,
             pref_row_icons_fail,
             pref_row_icons_flow_box: RefCell::new(None),
@@ -177,11 +167,9 @@ impl IconPicker {
 
     pub async fn save_first_icon_found(self: &Rc<Self>) -> Result<()> {
         self.set_online_icons(false).await?;
-        let icons_borrow = self.icons.borrow();
-        let mut icons: Vec<(&String, &Rc<Icon>)> = icons_borrow.iter().collect();
-        icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
+        let icons_ordered_borrow = self.icons_ordered.borrow();
 
-        let Some((_url, icon)) = icons.first() else {
+        let Some((_url, icon)) = icons_ordered_borrow.first() else {
             bail!("No icons found")
         };
 
@@ -273,12 +261,9 @@ impl IconPicker {
         let pref_row_icons = &self_clone.pref_row_icons;
         pref_row_icons.set_child(Some(&flow_box));
 
-        let icons = self_clone.icons.borrow();
-        let mut icons: Vec<(&String, &Rc<Icon>)> = icons.iter().collect();
+        let icons_ordered_borrow = self_clone.icons_ordered.borrow();
 
-        icons.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
-
-        for (url, icon) in &icons {
+        for (url, icon) in icons_ordered_borrow.iter() {
             let frame = gtk::Box::new(Orientation::Vertical, 0);
             frame.set_widget_name(url);
             let picture = Picture::new();
@@ -300,7 +285,7 @@ impl IconPicker {
             }
         }
 
-        if icons.is_empty() {
+        if icons_ordered_borrow.is_empty() {
             self.set_no_icons();
         } else {
             self.set_show_icons();
@@ -309,199 +294,53 @@ impl IconPicker {
         *self_clone.pref_row_icons_flow_box.borrow_mut() = Some(flow_box);
     }
 
-    fn get_manifest_urls_from_html(html_fragment: &Html, url: &Url) -> Vec<String> {
-        let mut manifest_urls = Vec::new();
-
-        if let Ok(manifest_selector) = Selector::parse("link[rel~=\"manifest\"]") {
-            for element in html_fragment.select(&manifest_selector) {
-                if let Some(href) = element.value().attr("href") {
-                    info!("Manifest found: {href}");
-                    let Ok(url) = Url::parse(href).or(url.join(href)) else {
-                        continue;
-                    };
-                    manifest_urls.push(url.to_string());
-                }
-            }
-        }
-
-        manifest_urls
-    }
-
-    async fn get_icon_urls_from_manifests(
-        self: &Rc<Self>,
-        manifest_urls: &Vec<String>,
-    ) -> Vec<String> {
-        let manifest_urls = manifest_urls.to_owned();
-        let mut manifest_handles: HashMap<String, JoinHandle<_>> = HashMap::new();
-        let mut icon_urls = Vec::new();
-
-        for manifest_url in manifest_urls {
-            if manifest_handles.contains_key(&manifest_url) {
-                continue;
-            }
-
-            let app_clone = self.app.clone();
-            let url_clone = manifest_url.clone();
-            // Spawn in parallel on main thread
-            let handle = glib::spawn_future_local(async move {
-                app_clone.fetch.get_as_string(url_clone.as_str()).await
-            });
-            manifest_handles.insert(manifest_url, handle);
-        }
-
-        for (url, handle) in manifest_handles {
-            let Ok(Ok(manifest_json)) = handle.await else {
-                error!("Failed to fetch manifest: '{url}'");
-                continue;
-            };
-            let Ok(manifest) = serde_json::from_str::<ManifestJson>(&manifest_json) else {
-                continue;
-            };
-            let Some(icons) = manifest.icons else {
-                continue;
-            };
-            for icon in icons {
-                let Some(src) = icon.src else {
-                    continue;
-                };
-                if src.validate_url() {
-                    info!("Manifest icon found: {src}");
-                    icon_urls.push(src);
-                }
-            }
-        }
-
-        icon_urls
-    }
-
-    fn get_icon_urls_from_html(html_fragment: &Html, url: &Url) -> Vec<String> {
-        let mut icon_urls = Vec::new();
-
-        if let Ok(icon_selector) =
-            Selector::parse("link[rel~=\"icon\"], link[rel~=\"shortcut\"][rel~=\"icon\"]")
-        {
-            for element in html_fragment.select(&icon_selector) {
-                if let Some(href) = element.value().attr("href") {
-                    info!("Favicon href found: {href}");
-                    let Ok(url) = Url::parse(href).or(url.join(href)) else {
-                        continue;
-                    };
-                    info!("Favicon icon url found: {url}");
-                    icon_urls.push(url.to_string());
-                }
-            }
-        }
-
-        icon_urls
-    }
-
-    async fn fetch_icons_from_urls(
-        self: &Rc<Self>,
-        icon_urls: Vec<String>,
-    ) -> Vec<(String, Rc<Icon>)> {
-        let mut icon_handles: HashMap<String, JoinHandle<_>> = HashMap::new();
-        let mut icons = Vec::new();
-
-        for icon_url in icon_urls {
-            if icon_handles.contains_key(&icon_url) {
-                continue;
-            }
-
-            let app_clone = self.app.clone();
-            let url_clone = icon_url.clone();
-            // Spawn in parallel on main thread
-            let handle =
-                glib::spawn_future_local(
-                    async move { app_clone.fetch.get_as_bytes(&url_clone).await },
-                );
-
-            icon_handles.insert(icon_url, handle);
-        }
-
-        for (url, handle) in icon_handles {
-            let Ok(Ok(image_bytes)) = handle.await else {
-                error!("Failed to fetch image: '{url}'");
-                continue;
-            };
-            let g_bytes = glib::Bytes::from(&image_bytes);
-            let stream = MemoryInputStream::from_bytes(&g_bytes);
-            let Ok(pixbuf) = Pixbuf::from_stream(&stream, Cancellable::NONE) else {
-                error!("Failed to convert image: '{url}'");
-                continue;
-            };
-            let icon = Icon { pixbuf };
-            icons.push((url.clone(), Rc::new(icon)));
-        }
-
-        icons
-    }
-
     async fn set_online_icons(self: &Rc<Self>, force: bool) -> Result<()> {
+        if !force && self.should_throttle() {
+            return Ok(());
+        }
+
+        debug!("Fetching online icons");
+
+        let Some(url) = self.desktop_file.borrow().get_url() else {
+            bail!("No url on desktop file")
+        };
+        let Ok(mut icon_fetcher) = IconFetcher::new(&self.app, &url) else {
+            bail!("Invalid url")
+        };
+        let Ok(icons) = icon_fetcher.get_online_icons().await else {
+            bail!("Failed to get online icons")
+        };
+
+        let mut self_icons_borrow = self.icons.borrow_mut();
+        let mut self_icons_ordered_borrow = self.icons_ordered.borrow_mut();
+
+        for (url, icon) in icons {
+            self_icons_borrow.insert(url, icon);
+        }
+
+        *self_icons_ordered_borrow = self_icons_borrow.clone().into_iter().collect();
+        self_icons_ordered_borrow.sort_by_key(|(_, a)| Reverse(a.pixbuf.byte_length()));
+
+        if self_icons_borrow.is_empty() {
+            bail!("No icons found for: {url}")
+        }
+
+        Ok(())
+    }
+
+    fn should_throttle(self: &Rc<Self>) -> bool {
         let now = SystemTime::now();
         let throttle_duration = Duration::from_secs(Self::ONLINE_FETCH_THROTTLE);
         let previous_fetch_ts = *self.fetched_icons_ts.borrow();
         let previous_fetch_duration = now.duration_since(previous_fetch_ts).unwrap();
 
-        if !force && previous_fetch_duration < throttle_duration {
-            return Ok(());
+        if previous_fetch_duration < throttle_duration {
+            return true;
         }
 
         *self.fetched_icons_ts.borrow_mut() = SystemTime::now();
 
-        debug!("Fetching online icons");
-
-        let url = self
-            .desktop_file
-            .borrow()
-            .get_url()
-            .and_then(|url| Url::parse(&url).ok());
-        if url.is_none() {
-            bail!("Invalid url")
-        }
-        let base_url = url
-            .clone()
-            .filter(common::url::UrlExt::has_path)
-            .and_then(|mut parsed_url| parsed_url.base_url().ok())
-            .and_then(|base_url| Url::parse(&base_url).ok());
-
-        let urls = [url.clone(), base_url];
-        let mut manifest_urls = Vec::new();
-        let mut icon_urls = Vec::new();
-
-        for url in urls {
-            let Some(mut url) = url else {
-                continue;
-            };
-            Self::sanitize_url(&mut url);
-
-            let html_text = self.app.fetch.get_as_string(url.as_str()).await?;
-            let fragment = Html::parse_document(&html_text);
-
-            manifest_urls.append(&mut Self::get_manifest_urls_from_html(&fragment, &url));
-            icon_urls.append(&mut Self::get_icon_urls_from_html(&fragment, &url));
-            icon_urls.push(
-                url.join("favicon.ico")
-                    .map(|url| url.to_string())
-                    .unwrap_or_default(),
-            );
-        }
-        icon_urls.append(&mut self.get_icon_urls_from_manifests(&manifest_urls).await);
-
-        let icons = self.fetch_icons_from_urls(icon_urls).await;
-        let mut self_icons = self.icons.borrow_mut();
-
-        for (url, icon) in icons {
-            self_icons.insert(url, icon);
-        }
-
-        if self_icons.is_empty() {
-            bail!(
-                "No icons found for: {}",
-                url.map_or("No url???".to_string(), |url| url.as_str().to_string())
-            )
-        }
-
-        Ok(())
+        false
     }
 
     fn load_icon_file_picker(self: &Rc<Self>) {
@@ -648,13 +487,5 @@ impl IconPicker {
             .build();
 
         PreferencesRow::builder().child(&status_page).build()
-    }
-
-    fn sanitize_url(url: &mut Url) {
-        url.set_query(None);
-        url.set_fragment(None);
-        if !url.path().ends_with('/') {
-            url.set_path(&(url.path().to_owned() + "/"));
-        }
     }
 }
