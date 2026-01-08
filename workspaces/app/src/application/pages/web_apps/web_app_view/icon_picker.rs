@@ -383,11 +383,15 @@ impl IconPicker {
                     Ok(pixbuf) => pixbuf,
                 };
 
-                let icon = Icon { pixbuf };
+                let icon = Rc::new(Icon { pixbuf });
                 self_clone
                     .icons
                     .borrow_mut()
-                    .insert(filename.clone(), Rc::new(icon));
+                    .insert(filename.clone(), icon.clone());
+                self_clone
+                    .icons_ordered
+                    .borrow_mut()
+                    .push((filename.clone(), icon.clone()));
 
                 self_clone.reload_icons();
                 self_clone.select_icon(&filename);
