@@ -1,3 +1,8 @@
+## [0.2.1] - 2026-01-08
+
+### 🐛 Bug Fixes
+
+- *(icon-picker)* Custom icon updates the icon list again
 ## [0.2.0] - 2026-01-07
 
 ### 🚀 Features
@@ -12,6 +17,7 @@
 
 - *(desktop_file)* Better error message
 - *(release)* Remove 'v' before version in metainfo
+- *(release)* V0.2.0
 ## [0.1.2] - 2026-01-05
 
 ### 🐛 Bug Fixes
