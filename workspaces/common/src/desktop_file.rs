@@ -433,7 +433,14 @@ impl DesktopFile {
         let browser = self.get_browser().context("No browser on 'DesktopFile'")?;
 
         if !profile_path.is_dir() {
-            bail!("Profile path is not created")
+            debug!(
+                path = profile_path.to_string_lossy().to_string(),
+                "Creating profile path"
+            );
+            fs::create_dir_all(profile_path).context(format!(
+                "Failed to create profile dir: {}",
+                profile_path.display()
+            ))?;
         }
 
         let copy_options = fs_extra::dir::CopyOptions {
