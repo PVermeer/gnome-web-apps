@@ -29,7 +29,7 @@
   <url type="contact">https://github.com/pvermeer/web-app-hub/issues</url>
   <!-- <url type="donation"></url> -->
   <url type="vcs-browser">https://github.com/pvermeer/web-app-hub</url>
-  <url type="help">https://github.com/pvermeer/web-app-hub/blob/v0.2.1/README.md</url>
+  <url type="help">https://github.com/pvermeer/web-app-hub/blob/v0.2.2/README.md</url>
   <url type="contribute">https://github.com/pvermeer/web-app-hub</url>
 
   <recommends>
@@ -45,28 +45,38 @@
   <screenshots>
 
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.1/assets/screenshots/1-Web-App.png</image>
+      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.2/assets/screenshots/1-Web-App.png</image>
       <caption>Web-App</caption>
     </screenshot>
 
     <screenshot>
-      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.1/assets/screenshots/2-Browsers.png</image>
+      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.2/assets/screenshots/2-Browsers.png</image>
       <caption>Browsers</caption>
     </screenshot>
 
     <screenshot>
-      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.1/assets/screenshots/3-Web-Apps.png</image>
+      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.2/assets/screenshots/3-Web-Apps.png</image>
       <caption>Web-Apps</caption>
     </screenshot>
 
     <screenshot>
-      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.1/assets/screenshots/4-Info.png</image>
+      <image>https://raw.githubusercontent.com/pvermeer/web-app-hub/refs/tags/v0.2.2/assets/screenshots/4-Info.png</image>
       <caption>Info</caption>
     </screenshot>
   </screenshots>
 
   <releases>
 
+    <release version="0.2.2" date="2026-01-10">
+      <description>
+        <p>Fixes:</p>
+        <ul>
+          <li>desktop-file: also try to create profile dir when copying profile config</li>
+          <li>browsers: remove unneeded flatpak install type</li>
+        </ul>
+      </description>
+    </release>
+    
     <release version="0.2.1" date="2026-01-08">
       <description>
         <p>Fixes:</p>
@@ -99,16 +109,6 @@
         <p>Fixes:</p>
         <ul>
           <li>firefox: firefox based browsers now show permission popups</li>
-        </ul>
-      </description>
-    </release>
-    
-    <release version="0.1.0" date="2026-01-02">
-      <description>
-        <p>New features:</p>
-        <ul>
-          <li>desktop_file: copy individual browser configs if present</li>
-          <li>browsers: added Zen browser</li>
         </ul>
       </description>
     </release>
