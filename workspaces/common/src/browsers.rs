@@ -11,21 +11,8 @@ use std::{fmt::Write as _, path::PathBuf};
 use tracing::{debug, error, info};
 
 #[derive(PartialEq)]
-pub enum FlatpakInstallation {
-    System,
-    User,
-}
-impl std::fmt::Display for FlatpakInstallation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::System => write!(f, "system"),
-            Self::User => write!(f, "user"),
-        }
-    }
-}
-#[derive(PartialEq)]
 pub enum Installation {
-    Flatpak(FlatpakInstallation),
+    Flatpak,
     System,
     None,
 }
@@ -109,7 +96,7 @@ impl Browser {
         let issues = browser_config.config.issues.clone();
 
         let id = match &installation {
-            Installation::Flatpak(_) => flatpak_id.clone().unwrap(),
+            Installation::Flatpak => flatpak_id.clone().unwrap(),
             Installation::System => executable.clone().unwrap(),
             Installation::None => flatpak_id
                 .clone()
@@ -138,7 +125,7 @@ impl Browser {
     }
 
     pub fn is_flatpak(&self) -> bool {
-        matches!(self.installation, Installation::Flatpak(_))
+        matches!(self.installation, Installation::Flatpak)
     }
 
     pub fn is_system(&self) -> bool {
@@ -154,7 +141,7 @@ impl Browser {
         let _ = write!(txt, "{}", self.name);
 
         match self.installation {
-            Installation::Flatpak(_) => {
+            Installation::Flatpak => {
                 let _ = write!(txt, " (Flatpak)");
             }
             Installation::System => {
@@ -168,14 +155,11 @@ impl Browser {
 
     pub fn get_command(&self) -> Result<String> {
         match &self.installation {
-            Installation::Flatpak(installation) => {
+            Installation::Flatpak => {
                 let Some(flatpak_id) = &self.flatpak_id else {
                     bail!("No flatpak id with flatpak installation")
                 };
-                match installation {
-                    FlatpakInstallation::User => Ok(format!("flatpak run --user {flatpak_id}")),
-                    FlatpakInstallation::System => Ok(format!("flatpak run --system {flatpak_id}")),
-                }
+                Ok(format!("flatpak run {flatpak_id}"))
             }
             Installation::System => {
                 let Some(executable) = &self.executable else {
@@ -204,7 +188,7 @@ impl Browser {
 
     pub fn get_run_command(&self) -> Result<String> {
         match self.installation {
-            Installation::Flatpak(_) => {
+            Installation::Flatpak => {
                 let Some(flatpak_id) = self.flatpak_id.clone() else {
                     bail!("No flatpak id on flatpak installation???")
                 };
@@ -257,7 +241,7 @@ impl Browser {
                Chromium based just created the provided profile path
             */
             Base::Chromium | Base::Firefox => match self.installation {
-                Installation::Flatpak(_) => browser_profile_path()?,
+                Installation::Flatpak => browser_profile_path()?,
                 Installation::System => app_profile_path()?,
                 Installation::None => bail!("No installation type on 'Browser'"),
             },
@@ -394,15 +378,15 @@ impl BrowserConfigs {
             let mut is_installed = false;
 
             if let Some(flatpak) = &browser_config.config.flatpak {
-                if let Some(installation) = Self::is_installed_flatpak(flatpak) {
+                if Self::is_installed_flatpak(flatpak) {
                     info!(
-                        "Found flatpak browser '{flatpak} ({installation})' for config '{}'",
+                        "Found flatpak browser '{flatpak}' for config '{}'",
                         browser_config.file_name
                     );
 
                     let browser = Rc::new(Browser::new(
                         &browser_config,
-                        Installation::Flatpak(installation),
+                        Installation::Flatpak,
                         self,
                         &self.icon_theme,
                         &self.app_dirs,
@@ -468,36 +452,16 @@ impl BrowserConfigs {
         let _ = self.uninstalled_browsers.set(uninstalled_browsers);
     }
 
-    fn is_installed_flatpak(flatpak: &str) -> Option<FlatpakInstallation> {
+    fn is_installed_flatpak(flatpak: &str) -> bool {
         let command = format!("flatpak info {flatpak}");
         let result = utils::command::run_command_sync(&command);
 
         match result {
             Err(error) => {
                 error!("Could not run command '{command}'. Error: {error:?}");
-                None
+                false
             }
-            Ok(response) => {
-                if !response.success {
-                    return None;
-                }
-
-                let installation_line = response
-                    .stdout
-                    .lines()
-                    .find(|line| line.contains("Installation:"))?;
-                let installation = installation_line.split("Installation: ").last()?;
-
-                if installation == FlatpakInstallation::User.to_string() {
-                    return Some(FlatpakInstallation::User);
-                }
-                if installation == FlatpakInstallation::System.to_string() {
-                    return Some(FlatpakInstallation::System);
-                }
-
-                debug!("Could not determine installation type for '{flatpak}'");
-                None
-            }
+            Ok(response) => response.success,
         }
     }
 

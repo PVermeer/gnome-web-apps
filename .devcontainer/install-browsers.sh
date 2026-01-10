@@ -52,9 +52,20 @@ system_browsers=(
 )
 sudo dnf install -y "${system_browsers[@]}"
 
+# Flatpaks
+sudo mkdir -p /etc/flatpak/installations.d
+sudo touch /etc/flatpak/installations.d/some_custom_installation.conf
+echo -e '
+[Installation "some_custom_installation"]
+Path=/some_custom_installation/flatpak/
+DisplayName=Some custom installation
+StorageType=harddisk
+' | sudo tee /etc/flatpak/installations.d/some_custom_installation.conf
+
+flatpak --installation="some_custom_installation" remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
 flatpak_browsers=(
     "com.brave.Browser"
-    "org.chromium.Chromium"
     "io.github.ungoogled_software.ungoogled_chromium"
     "com.google.Chrome"
     "org.gnome.Epiphany"
@@ -65,5 +76,6 @@ flatpak_browsers=(
     "app.zen_browser.zen"
 )
 flatpak "$1" install -y "${flatpak_browsers[@]}"
+sudo flatpak --installation=some_custom_installation install -y org.chromium.Chromium
 
 echo "==== Done"

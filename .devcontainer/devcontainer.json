@@ -25,7 +25,7 @@
 	},
 	"mounts": [],
 	"postCreateCommand": "./.devcontainer/install-browsers.sh --user && flatpak --user install -y org.flatpak.Builder com.github.tchx84.Flatseal",
-	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && flatpak --user update -y && git submodule update --init --recursive",
+	"postStartCommand": "sudo dnf update -y && (rustup update || (rustup toolchain uninstall stable && rustup toolchain install stable)) && flatpak --user update -y && sudo flatpak --installation=\"some_custom_installation\" update -y && git submodule update --init --recursive",
 	"initializeCommand": "xhost +local:docker", // Allow x11 from docker
 	"remoteUser": "vscode",
 	"customizations": {
@@ -38,7 +38,8 @@
 				"timonwong.shellcheck",
 				"redhat.vscode-xml",
 				"lumirelle.shell-format-rev",
-				"esbenp.prettier-vscode"
+				"esbenp.prettier-vscode",
+				"ms-azuretools.vscode-containers"
 			]
 		}
 	}

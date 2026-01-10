@@ -19,11 +19,23 @@ RUN sudo dnf install -y flatpak-builder gh rustup make git clang python3-devel p
 # Why glycin is using a setup like this ¯\_(ツ)_/¯, who knows...
 RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
+# Custom installation for flatpak
+RUN mkdir -p /etc/flatpak/installations.d; \
+    touch /etc/flatpak/installations.d/some_custom_installation.conf; \
+    echo -e '\
+    [Installation "some_custom_installation"]\n\
+    Path=/some_custom_installation/flatpak/\n\
+    DisplayName=Some custom installation\n\
+    StorageType=harddisk\n\
+    ' > /etc/flatpak/installations.d/some_custom_installation.conf;
+
+RUN flatpak --installation="some_custom_installation" remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
 # Add DBus user session startup for all login shells
 RUN echo 'if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then \
     eval $(dbus-launch --sh-syntax); \
-fi; \
-sudo rm /run/dbus/pid || true && sudo dbus-daemon --system || true;' > /etc/profile.d/dbus.sh
+    fi; \
+    sudo rm /run/dbus/pid || true && sudo dbus-daemon --system || true;' > /etc/profile.d/dbus.sh
 RUN chmod +x /etc/profile.d/dbus.sh
 
 # Create the user

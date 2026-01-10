@@ -1,6 +1,6 @@
 use super::NavPage;
 use crate::application::{App, pages::PrefPage};
-use common::browsers::{Base, Browser, Installation};
+use common::browsers::{Base, Browser};
 use gtk::{
     Align, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
@@ -119,7 +119,6 @@ impl BrowsersPage {
         let header_box = gtk::Box::new(Orientation::Horizontal, 6);
         header_box.set_halign(Align::Center);
         header_box.set_margin_top(12);
-        header_box.set_margin_bottom(12);
 
         let app_label = Label::builder()
             .label(&browser.name)
@@ -141,11 +140,12 @@ impl BrowsersPage {
                 let _ = write!(label, "{flatpak_id}");
             }
 
-            if let Installation::Flatpak(installation) = &browser.installation {
-                let _ = write!(label, " ({installation})");
-            }
+            let flatpak_label = Label::builder()
+                .label(&label)
+                .css_classes(["subtitle"])
+                .valign(Align::Center)
+                .build();
 
-            let flatpak_label = Label::builder().label(&label).valign(Align::Center).build();
             content_box.append(&flatpak_label);
         }
 
@@ -154,6 +154,7 @@ impl BrowsersPage {
         {
             let executable_label = Label::builder()
                 .label(executable)
+                .css_classes(["subtitle"])
                 .valign(Align::Center)
                 .build();
             content_box.append(&executable_label);
