@@ -32,7 +32,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 ureq = { workspace = true }
 url = { workspace = true }
-validator = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }

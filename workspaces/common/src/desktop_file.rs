@@ -17,7 +17,6 @@ use std::{
 };
 use tracing::{debug, error, info};
 use url::Url;
-use validator::ValidateUrl;
 
 pub struct Icon {
     pub pixbuf: Pixbuf,
@@ -692,7 +691,7 @@ impl DesktopFile {
                 message: "Missing".to_string(),
             })
             .ok()
-            .filter(ValidateUrl::validate_url)
+            .filter(|url| Url::parse(url).is_ok())
             .ok_or(ValidationError {
                 field: Keys::Url,
                 message: "Invalid".to_string(),

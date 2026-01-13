@@ -35,7 +35,7 @@ use std::{
 };
 use std::{fmt::Write as _, fs};
 use tracing::{debug, error};
-use validator::ValidateUrl;
+use url::Url;
 
 pub struct WebAppView {
     is_new: RefCell<bool>,
@@ -673,9 +673,10 @@ impl WebAppView {
         let self_clone = self.clone();
 
         self.url_row.connect_changed(move |entry_row| {
-            let is_valid = entry_row.text().validate_url();
+            let input = entry_row.text().to_string();
+            let is_valid = Url::parse(&input).is_ok();
 
-            debug!(is_valid = is_valid, "Validate input: {}", entry_row.title());
+            debug!(is_valid, input, "Validate input: {}", entry_row.title());
 
             validate_icon_url.set_visible(!is_valid);
             if is_valid {
