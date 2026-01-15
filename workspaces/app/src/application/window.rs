@@ -60,6 +60,7 @@ impl AppWindow {
             .license_type(license)
             .issue_url(config::ISSUES_URL.get_value())
             .release_notes(Self::parse_release_notes_xml())
+            .copyright(format!("© 2025 {}", config::DEVELOPER.get_value()))
             .build();
 
         about.present(Some(&self.adw_window));
