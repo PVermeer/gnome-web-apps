@@ -12,9 +12,10 @@ use tracing::{debug, info};
 // Using indivudal imports.
 // Also need to fully recompile when the dir changes
 static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
-static ICON: &[u8] = include_bytes!("../../../assets/app-icon.png");
-static DESKTOP_FILE: &str = include_str!("../../../assets/app.desktop");
-static META_INFO: &str = include_str!("../../../assets/app.metainfo.xml");
+static DESKTOP: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/desktop");
+static ICON_IN: &[u8] = include_bytes!("../../../assets/app-icon.png");
+static DESKTOP_FILE_IN: &str = include_str!("../../../assets/app.desktop");
+static META_INFO_IN: &str = include_str!("../../../assets/app.metainfo.xml");
 static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.markup");
 
 pub fn init(app_dirs: &AppDirs) -> Result<()> {
@@ -46,8 +47,8 @@ pub fn create_stand_alone_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntr
     let desktop_file_path = applications_dir.join(file_name);
 
     let mut base_desktop_file =
-        DesktopEntry::from_str(&desktop_file_path, DESKTOP_FILE, None::<&[String]>).context(
-            format!("Failed to parse base desktop file: {DESKTOP_FILE:?}"),
+        DesktopEntry::from_str(&desktop_file_path, DESKTOP_FILE_IN, None::<&[String]>).context(
+            format!("Failed to parse base desktop file: {DESKTOP_FILE_IN:?}"),
         )?;
 
     base_desktop_file.add_desktop_entry("Name".to_string(), app_name.clone());
@@ -57,20 +58,28 @@ pub fn create_stand_alone_desktop_file(app_dirs: &AppDirs) -> Result<DesktopEntr
     Ok(base_desktop_file)
 }
 
-pub fn get_icon_data() -> &'static [u8] {
-    ICON
+pub fn get_icon_data_in() -> &'static [u8] {
+    ICON_IN
+}
+
+pub fn get_meta_info_in() -> &'static str {
+    META_INFO_IN
 }
 
 pub fn get_meta_info() -> &'static str {
-    META_INFO
+    let app_id = config::APP_ID.get_value();
+    DESKTOP
+        .get_file(format!("{app_id}.metainfo.xml"))
+        .and_then(|file| file.contents_utf8())
+        .unwrap_or_default()
 }
 
 pub fn get_app_description() -> &'static str {
     APP_DESCRIPTION
 }
 
-pub fn get_desktop_file() -> &'static str {
-    DESKTOP_FILE
+pub fn get_desktop_file_in() -> &'static str {
+    DESKTOP_FILE_IN
 }
 
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {

@@ -41,7 +41,7 @@
 %{releases}
     <release version="0.0.1" date="2025-12-25">
       <description>
-        <p>Intial release</p>
+        <p>Initial release</p>
       </description>
     </release>
   </releases>

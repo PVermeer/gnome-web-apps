@@ -120,7 +120,7 @@ fn dependency_check() -> Result<()> {
 fn create_app_desktop_file() -> Result<()> {
     info!("==== Creating app desktop file");
 
-    let desktop_file = assets::get_desktop_file();
+    let desktop_file = assets::get_desktop_file_in();
     let app_id = config::APP_ID.get_value();
     let app_name = config::APP_NAME.get_value();
     let bin_name = config::BIN_NAME.get_value();
@@ -159,7 +159,7 @@ fn create_app_icon() -> Result<()> {
 
     let mut icon_file = File::create(&save_path)?;
     icon_file
-        .write_all(assets::get_icon_data())
+        .write_all(assets::get_icon_data_in())
         .inspect_err(|err| {
             error!(
                 error = err.to_string(),
@@ -528,7 +528,7 @@ fn create_app_metainfo_file(releases_xml: &str, new_version: &Version) -> Result
         .collect::<Vec<String>>()
         .join("\n");
 
-    let mut meta_data = assets::get_meta_info().to_string();
+    let mut meta_data = assets::get_meta_info_in().to_string();
     meta_data = meta_data.replace("%{app_id}", app_id);
     meta_data = meta_data.replace("%{app_name}", app_name);
     meta_data = meta_data.replace("%{developer}", developer);

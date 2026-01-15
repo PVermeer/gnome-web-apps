@@ -117,6 +117,10 @@ impl App {
         self.init();
     }
 
+    pub fn on_app_update(self: &Rc<Self>) {
+        self.window.view.on_app_update();
+    }
+
     fn add_system_icon_paths(self: &Rc<Self>) {
         if utils::env::is_flatpak_container() {
             for path in self.dirs.system_icons() {

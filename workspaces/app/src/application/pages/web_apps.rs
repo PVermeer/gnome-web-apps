@@ -106,7 +106,8 @@ impl WebAppsPage {
             .header_suffix(&new_app_button)
             .build();
 
-        let web_app_desktop_files = Self::get_owned_desktop_files(app);
+        let (web_app_desktop_files, desktop_files_have_updated) =
+            Self::get_owned_desktop_files(app);
         if web_app_desktop_files.is_empty() {
             let status_page = StatusPage::builder()
                 .title("No Web Apps found")
@@ -120,6 +121,10 @@ impl WebAppsPage {
                 let web_app_row = self.clone().build_app_row(app, desktop_file);
                 pref_group.add(&web_app_row);
             }
+        }
+
+        if desktop_files_have_updated {
+            app.on_app_update();
         }
 
         pref_group
@@ -160,11 +165,12 @@ impl WebAppsPage {
         app_row
     }
 
-    fn get_owned_desktop_files(app: &Rc<App>) -> Vec<Rc<RefCell<DesktopFile>>> {
+    fn get_owned_desktop_files(app: &Rc<App>) -> (Vec<Rc<RefCell<DesktopFile>>>, bool) {
         debug!("Reading user desktop files");
 
         let mut owned_desktop_files = Vec::new();
         let applications_path = app.dirs.applications();
+        let mut app_has_updated = false;
 
         for file in utils::files::get_entries_in_dir(&applications_path).unwrap_or_default() {
             let Ok(mut desktop_file) =
@@ -206,6 +212,7 @@ impl WebAppsPage {
             };
             if is_updated {
                 debug!(file_name = &file_name, "Updated desktop file");
+                app_has_updated = true;
             }
 
             debug!(file_name = &file_name, "Checking paths");
@@ -216,7 +223,7 @@ impl WebAppsPage {
 
         *app.has_created_apps.borrow_mut() = !owned_desktop_files.is_empty();
 
-        owned_desktop_files
+        (owned_desktop_files, app_has_updated)
     }
 
     fn reset_app_section(self: &Rc<Self>, app: &Rc<App>) {

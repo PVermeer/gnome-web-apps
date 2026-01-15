@@ -4133,6 +4133,7 @@ dependencies = [
  "regex",
  "sanitize-filename",
  "scraper",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
