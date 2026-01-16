@@ -2,6 +2,8 @@
 
 A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App Hub you can manage your Web App with ease. All apps will have their own icon and can be isolated from the normal normal browser profile.
 
+[![Flathub](https://flathub.org/api/badge)](https://flathub.org/apps/org.pvermeer.WebAppHub)
+
 ### Features
 
 - Easy browser switching
@@ -14,7 +16,7 @@ A Web App Manager, written in rust with GTK and beautiful Adwaita. With Web App 
 
 ## Custom browser config
 
-Browsers are added via config files in `~/.var/app/org.pvermeer.WebAppHub/config/web-app-hub`. The shipped browser configs cannot be editted and will be overwritten everytime the app starts. New configs can be added via these folders. Look in `assests/config` for examples.
+Browsers are added via config files in `~/.var/app/org.pvermeer.WebAppHub/config/web-app-hub`. The shipped browser configs cannot be editted and will be overwritten everytime the app starts. New configs can be added via these folders. Look in `assets/config` for examples.
 
 ### Browser config
 
